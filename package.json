@@ -1,9 +1,9 @@
 {
   "name": "zig",
-  "displayName": "Zig",
+  "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
   "version": "0.2.5",
-  "publisher": "tiehuis",
+  "publisher": "ikrimae",
   "icon": "images/zig-icon.png",
   "license": "MIT",
   "repository": {
@@ -11,7 +11,7 @@
     "url": "https://github.com/zig-lang/vscode-zig"
   },
   "engines": {
-    "vscode": "^1.56.0"
+    "vscode": "^1.58.0"
   },
   "categories": [
     "Programming Languages"
@@ -117,13 +117,13 @@
   "devDependencies": {
     "@types/mocha": "^2.2.48",
     "@types/node": "^15.6.0",
-    "@types/vscode": "^1.43.0",
+    "@types/vscode": "^1.58.0",
     "vscode-test": "^1.4.0"
   },
   "dependencies": {
     "esbuild": "^0.12.1",
     "lodash-es": "^4.17.21",
     "lodash.debounce": "^4.0.8",
-    "vsce": "^1.88.0"
+    "vsce": "^2.5.3"
   }
 }
