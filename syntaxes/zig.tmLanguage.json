@@ -229,7 +229,7 @@
         },
         {
           "name": "keyword.type.zig",
-          "match": "\\b(bool|void|noreturn|type|error|anyerror|anyframe|anytype)\\b"
+          "match": "\\b(bool|void|noreturn|type|error|anyerror|anyframe|anytype|anyopaque)\\b"
         },
         {
           "name": "keyword.type.integer.zig",
