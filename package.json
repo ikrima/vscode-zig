@@ -2,13 +2,13 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "ikrimae",
   "icon": "images/zig-icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zig-lang/vscode-zig"
+    "url": "https://github.com/ikrima/vscode-zig"
   },
   "engines": {
     "vscode": "^1.58.0"
