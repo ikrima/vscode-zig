@@ -30,6 +30,7 @@ export function zigBuild(): void {
     const cwd = vscode.workspace.getWorkspaceFolder(editor.document.uri).uri.fsPath;
     const buildPath = config.get<string>("zigPath") || 'zig';
 
+    logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
     let childProcess = cp.execFile(buildPath, processArg, { cwd }, (err, stdout, stderr) => {
@@ -69,4 +70,3 @@ export function zigBuild(): void {
         }
     });
 }
-

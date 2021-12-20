@@ -13,7 +13,11 @@ export const zigFormatStatusBar = vscode.window.createStatusBarItem(vscode.Statu
 export function activate(context: vscode.ExtensionContext) {
     let compiler = new ZigCompilerProvider();
     compiler.activate(context.subscriptions);
-    vscode.languages.registerCodeActionsProvider('zig', compiler);
+
+    const select: vscode.DocumentSelector = { language: 'zig', scheme: 'file', };
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(select, compiler)
+    );
 
     context.subscriptions.push(logChannel);
     context.subscriptions.push(
@@ -34,8 +38,12 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(buildDiagnosticCollection);
 
     // Commands
-    context.subscriptions.push(vscode.commands.registerCommand('zig.build.workspace', () => zigBuild()));
-    context.subscriptions.push(vscode.commands.registerCommand('zig.format.file', () => console.log('test')));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zig.build.workspace', () => zigBuild())
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zig.format.file', () => console.log('test'))
+    );
 }
 
 export function deactivate() {
