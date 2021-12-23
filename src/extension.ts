@@ -76,21 +76,19 @@ export function activate(context: vscode.ExtensionContext) {
         const filename = task.definition.file as vscode.Uri;
         const filter = task.definition.filter as string;
         const config = vscode.workspace.getConfiguration('zig');
-        const bin = (config.get('zigPath') as string) || 'zig';
-        const testCmd = (
-            (config.get(isDebug ? 'beforeDebugCmd' : 'testCmd') as string) || ""
-        )
+        const bin = config.get<string>('zigPath') || 'zig';
+        const testCmd = (config.get<string>(isDebug ? 'beforeDebugCmd' : 'testCmd') || "")
             .split(" ")
             .filter(Boolean);
 
         let femitBinPath = (task.definition.bin || "") as string;
 
         if (!femitBinPath || femitBinPath.trim().length === 0) {
-            const tmpdir = process.env.TMPDIR || config.get('tmpdir') || '/tmp';
+            const testBinDir = config.get<string>("testBinDir") || "${workspaceFolder}/zig-out/bin";
 
             femitBinPath = path.join(
-                tmpdir,
-                `test-${path.basename(workspaceFolder.uri.fsPath)}`
+                testBinDir.replace("${workspaceFolder}", workspaceFolder.uri.fsPath),
+                `test-${path.basename(workspaceFolder.uri.fsPath)}.exe`
             );
 
             femitBinPath = path.resolve(femitBinPath);
@@ -139,29 +137,24 @@ export function activate(context: vscode.ExtensionContext) {
         if (testCmd && testCmd.length > 0) {
             joined = testCmd.filter(Boolean).join(" ");
         } else {
-            var main_package_path = "";
 
-            if (!joined.includes("-femit-bin="))
-                joined += ` -femit-bin=${femitBinPath} `;
-            else {
-                let binI = joined.indexOf("-femit-bin") + "-femit-bin".length;
-                if (joined[binI] === '"') binI++;
-                const end = joined.indexOf(" ", binI);
-                femitBinPath = joined.substring(binI, end);
-                if (femitBinPath.endsWith('"'))
-                    femitBinPath = femitBinPath.substring(0, femitBinPath.length - 1);
-                if (
-                    femitBinPath.length === 0 ||
-                    femitBinPath === "/" ||
-                    femitBinPath === "." ||
-                    femitBinPath === "/dev" ||
-                    femitBinPath === "C:\\" ||
-                    femitBinPath === "C:\\Windows"
-                ) {
-                    femitBinPath = null;
-                }
+            if (femitBinPath.endsWith('"')) {
+                femitBinPath = femitBinPath.substring(0, femitBinPath.length - 1);
             }
 
+            if (femitBinPath.length === 0 ||
+                femitBinPath === "/" ||
+                femitBinPath === "." ||
+                femitBinPath === "/dev" ||
+                femitBinPath === "C:\\" ||
+                femitBinPath === "C:\\Windows"
+            ) {
+                femitBinPath = null;
+            }
+
+            const femitArg = `-femit-bin=${femitBinPath}`;
+
+            var main_package_path = "";
             try {
                 main_package_path = path.resolve(
                     workspaceFolder.uri.fsPath,
@@ -174,24 +167,22 @@ export function activate(context: vscode.ExtensionContext) {
                 "test",
                 main_package_path.length &&
                 `--main-pkg-path ${workspaceFolder.uri.fsPath}`,
-                ,
+                femitArg,
                 relativeFilename,
                 ...getObjectFiles(filename),
                 filter && filter.length > 0 && `--test-filter ${filter}`,
                 testOptions,
+                isDebug && `--test-no-exec`,
             ].filter((a) => Boolean(a));
 
             joined = args.join(" ");
-
-            if (isDebug) {
-                if (!joined.includes("--test-no-exec")) joined += `--test-no-exec `;
-            }
         }
 
         task.problemMatchers = !config.get("disableProblemMatcherForTest")
             ? ["zig"]
             : [];
         task.execution = new vscode.ShellExecution(joined, {});
+        logChannel.appendLine(`Test command: ${joined}`);
 
         return task;
     };
@@ -247,7 +238,7 @@ export function activate(context: vscode.ExtensionContext) {
                 task.definition.file = filename;
 
                 task.definition.filter = filter;
-                task.definition.args = (config.get("testArgs") || "").replace(
+                task.definition.args = (config.get<string>("testArgs") || "").replace(
                     /\$\{workspaceFolder\}/gm,
                     vscode.workspace.workspaceFolders[0].uri.fsPath
                 );
@@ -294,37 +285,29 @@ export function activate(context: vscode.ExtensionContext) {
                 lastTestCommand = { filename, filter };
                 const config = vscode.workspace.getConfiguration("zig");
 
-                const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
-
-                const vscodeDebuggerExtension = vscode.extensions.getExtension(
-                    "vadimcn.vscode-lldb"
-                );
-
-                if (!vscodeDebuggerExtension) {
-                    logChannel.appendLine(
-                        "vscode-lldb extension is not installed.\nTo enable debugging, please install https://github.com/vadimcn/vscode-lldb."
-                    );
-                    logChannel.show();
-                    return;
+                let workspaceFolder = vscode.workspace.getWorkspaceFolder(filename);
+                if (!workspaceFolder && vscode.workspace.workspaceFolders.length) {
+                    workspaceFolder = vscode.workspace.workspaceFolders[0];
                 }
+                const cwd = workspaceFolder.uri.fsPath;
 
-                if (!vscodeDebuggerExtension.isActive) {
-                    logChannel.appendLine(
-                        "vscode-lldb extension is not enabled.\nTo enable debugging, please enable vscode-lldb."
-                    );
+                const cppToolsExtension = vscode.extensions.getExtension("ms-vscode.cpptools");
+                const cppToolsExtActive = cppToolsExtension && cppToolsExtension.isActive;
+                const codeLLDBExtension = vscode.extensions.getExtension("vadimcn.vscode-lldb");
+                const codeLLDBExtActive = codeLLDBExtension && codeLLDBExtension.isActive;
+                if (!cppToolsExtActive && !codeLLDBExtActive) {
+                    logChannel.appendLine("cpptools/vscode-lldb extension must be enabled or installed.");
                     logChannel.show();
                     return;
                 }
 
                 logChannel.clear();
 
-                const tmpdir = process.env.TMPDIR || config.get("tmpdir") || "/tmp";
+                const testBinDir = config.get<string>("testBinDir") || "${workspaceFolder}/zig-out/bin";
 
                 let femitBinPath = path.join(
-                    tmpdir,
-                    `test-${path.basename(
-                        vscode.workspace.workspaceFolders[0].uri.fsPath
-                    )}`
+                    testBinDir.replace("${workspaceFolder}", cwd),
+                    `test-${path.basename(cwd)}.exe`
                 );
 
                 // delete the old bin so know if the test failed to build
@@ -343,7 +326,7 @@ export function activate(context: vscode.ExtensionContext) {
                             file: filename,
                             bin: femitBinPath,
                         },
-                        vscode.workspace.workspaceFolders[0],
+                        workspaceFolder,
                         "debug",
                         "zig",
                         new vscode.ShellExecution("zig test")
@@ -355,44 +338,57 @@ export function activate(context: vscode.ExtensionContext) {
                     if (event.execution.task.name !== "debug") return;
                     handler.dispose();
                     handler = null;
-                    if (!fs.existsSync(femitBinPath)) {
+                    if (!fs.existsSync(femitBinPath))
                         return;
-                    }
 
-                    const launch = Object.assign(
-                        {},
-                        {
-                            type: "lldb",
-                            request: "launch",
-                            name: "Zig Debug",
-                            program: femitBinPath,
-                            args:
-                                Array.isArray(config.get("debugArgs")) &&
-                                    config.get("debugArgs").length > 0
+                    const zigPath = config.get<string>('zigPath') || 'zig';
+                    if (cppToolsExtActive) {
+                        return vscode.debug.startDebugging(
+                            workspaceFolder,
+                            {
+                                type: 'cppvsdbg',
+                                name: `Zig Test Debug`,
+                                request: 'launch',
+                                program: femitBinPath,
+                                args: Array.isArray(config.get("debugArgs")) &&
+                                    config.get<Array<string>>("debugArgs").length > 0
                                     ? config.get("debugArgs")
-                                    : ["placeholderBecauseZigTestCrashesWithoutArgs"],
-                            cwd: workspaceFolder,
-                            internalConsoleOptions: "openOnSessionStart",
-                            terminal: "console",
-                        }
-                    );
+                                    : [zigPath],
+                                cwd: workspaceFolder,
+                                console: 'integratedTerminal',
+                            },
+                        ).then((a) => { });
+                    } else {
+                        const launch = Object.assign(
+                            {},
+                            {
+                                type: "lldb",
+                                request: "launch",
+                                name: "Zig Test Debug",
+                                program: femitBinPath,
+                                args:
+                                    Array.isArray(config.get("debugArgs")) &&
+                                        config.get<Array<string>>("debugArgs").length > 0
+                                        ? config.get("debugArgs")
+                                        : [zigPath],
+                                cwd: workspaceFolder,
+                                internalConsoleOptions: "openOnSessionStart",
+                                terminal: "console",
+                            }
+                        );
 
-                    var yaml = YAML.dump(launch, {
-                        condenseFlow: true,
-                        forceQuotes: true,
-                    });
+                        var yaml = YAML.dump(launch, {
+                            condenseFlow: true,
+                            forceQuotes: true,
+                        });
 
-                    if (yaml.endsWith(",")) {
-                        yaml = yaml.substring(0, yaml.length - 1);
+                        if (yaml.endsWith(","))
+                            yaml = yaml.substring(0, yaml.length - 1);
+
+                        return vscode.env
+                            .openExternal(vscode.Uri.parse(`${vscode.env.uriScheme}://vadimcn.vscode-lldb/launch/config?${yaml}`))
+                            .then((a) => { });
                     }
-
-                    return vscode.env
-                        .openExternal(
-                            vscode.Uri.parse(
-                                `${vscode.env.uriScheme}://vadimcn.vscode-lldb/launch/config?${yaml}`
-                            )
-                        )
-                        .then((a) => { });
                 });
                 vscode.tasks.executeTask(task).then(() => { });
             }

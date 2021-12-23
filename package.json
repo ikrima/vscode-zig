@@ -141,6 +141,11 @@
           "default": null,
           "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
         },
+        "zig.testBinDir": {
+          "type": "string",
+          "default": "${workspaceFolder}/zig-out/bin",
+          "description": "Test bin output path."
+        },
         "zig.testArgs": {
           "type": "string",
           "default": "",
