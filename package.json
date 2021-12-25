@@ -107,6 +107,27 @@
       "type": "object",
       "title": "zig",
       "properties": {
+        "zig.zls.path": {
+          "scope": "resource",
+          "type": "string",
+          "description": "Path to `zls` executable. Example: `C:/zls/zig-cache/bin/zls.exe`."
+        },
+        "zig.zls.debugLog": {
+          "scope": "resource",
+          "type": "boolean",
+          "description": "Enable debug logging in release builds of zls."
+        },
+        "zigLanguageClient.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        },
         "zig.buildOnSave": {
           "type": "boolean",
           "default": false,
@@ -178,6 +199,21 @@
     },
     "commands": [
       {
+        "command": "zig.zls.start",
+        "title": "Start Zig Language Server",
+        "category": "Zig Language Server"
+      },
+      {
+        "command": "zig.zls.stop",
+        "title": "Stop Zig Language Server",
+        "category": "Zig Language Server"
+      },
+      {
+        "command": "zig.zls.restart",
+        "title": "Restart Zig Language Server",
+        "category": "Zig Language Server"
+      },
+      {
         "command": "zig.build.workspace",
         "title": "Zig: Build Workspace",
         "description": "Build the current project using 'zig build'"
@@ -215,6 +251,7 @@
     "lodash-es": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "qs": "^6.10.1",
-    "vsce": "^2.5.3"
+    "vsce": "^2.5.3",
+    "vscode-languageclient": "^7.0.0-next.9"
   }
 }

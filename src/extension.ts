@@ -4,6 +4,7 @@ import fs from 'fs';
 import YAML from 'js-yaml';
 import path from 'path';
 import ZigCompilerProvider from './zigCompilerProvider';
+import * as ZigLangClient from './zigLangClient';
 import { zigBuild } from './zigBuild';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
 import { ZigFormatProvider, ZigRangeFormatProvider } from './zigFormat';
@@ -19,6 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
     let compiler = new ZigCompilerProvider();
     let codeLens = new ZigCodelensProvider();
     compiler.activate(context.subscriptions);
+    ZigLangClient.activate(context);
 
     const select: vscode.DocumentSelector = { language: 'zig', scheme: 'file', };
     context.subscriptions.push(
@@ -397,4 +399,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
+    ZigLangClient.deactivate();
 }
