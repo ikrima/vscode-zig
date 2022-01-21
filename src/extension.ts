@@ -3,32 +3,30 @@ import * as vscode from 'vscode';
 import fs from 'fs';
 import YAML from 'js-yaml';
 import path from 'path';
+import { ZigLanguageClient } from './zigLangClient';
 import ZigCompilerProvider from './zigCompilerProvider';
-import * as ZigLangClient from './zigLangClient';
+import ZigCodelensProvider from './zigCodeLensProvider';
 import { zigBuild } from './zigBuild';
-import { ZigCodelensProvider } from './zigCodeLensProvider';
 import { ZigFormatProvider, ZigRangeFormatProvider } from './zigFormat';
 
 const ZIG_MODE: vscode.DocumentFilter = { language: 'zig', scheme: 'file' };
 
-export let buildDiagnosticCollection: vscode.DiagnosticCollection;
+export let buildDiagnostics: vscode.DiagnosticCollection;
+export let astDiagnostics: vscode.DiagnosticCollection;
 export const logChannel = vscode.window.createOutputChannel('zig');
 export const zigFormatStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 export let terminal: vscode.Terminal;
 
 export function activate(context: vscode.ExtensionContext) {
-    let compiler = new ZigCompilerProvider();
-    let codeLens = new ZigCodelensProvider();
-    compiler.activate(context.subscriptions);
-    ZigLangClient.activate(context);
+    buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
+    context.subscriptions.push(buildDiagnostics);
+    astDiagnostics = vscode.languages.createDiagnosticCollection('zigAst');
+    context.subscriptions.push(astDiagnostics);
 
-    const select: vscode.DocumentSelector = { language: 'zig', scheme: 'file', };
-    context.subscriptions.push(
-        vscode.languages.registerCodeActionsProvider(select, compiler)
-    );
-    context.subscriptions.push(
-        vscode.languages.registerCodeLensProvider(select, codeLens)
-    );
+    ZigLanguageClient.activate();
+    ZigCompilerProvider.register(context);
+    ZigCodelensProvider.register();
+
 
     context.subscriptions.push(logChannel);
     context.subscriptions.push(
@@ -45,15 +43,10 @@ export function activate(context: vscode.ExtensionContext) {
         ),
     );
 
-    buildDiagnosticCollection = vscode.languages.createDiagnosticCollection('zig');
-    context.subscriptions.push(buildDiagnosticCollection);
 
     // Commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('zig.build.workspace', () => zigBuild())
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('zig.format.file', () => console.log('test'))
+        vscode.commands.registerCommand('zig.build.workspace', () => zigBuild(vscode.window.activeTextEditor.document))
     );
 
     const resolveTask = function resolveTask(task: vscode.Task, token) {
@@ -223,9 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand(
-            "zig.test.run",
-            (filename: vscode.Uri, filter: string) => {
+        vscode.commands.registerCommand("zig.test.run", (filename: vscode.Uri, filter: string) => {
                 const task = new vscode.Task(
                     { type: "zig", task: "test" },
                     vscode.workspace.workspaceFolders[0],
@@ -281,9 +272,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand(
-            "zig.test.debug",
-            (filename: vscode.Uri, filter: string) => {
+        vscode.commands.registerCommand("zig.test.debug", (filename: vscode.Uri, filter: string) => {
                 lastTestCommand = { filename, filter };
                 const config = vscode.workspace.getConfiguration("zig");
 
@@ -399,5 +388,9 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    ZigLangClient.deactivate();
+    ZigLanguageClient.deactivate();
+    buildDiagnostics.clear();
+    astDiagnostics.clear();
+    buildDiagnostics.dispose();
+    astDiagnostics.dispose();
 }

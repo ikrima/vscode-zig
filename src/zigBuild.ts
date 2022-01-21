@@ -1,11 +1,10 @@
-import { buildDiagnosticCollection, logChannel } from './extension';
+"use strict";
+
+import { buildDiagnostics, logChannel } from './extension';
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
 
-export function zigBuild(): void {
-    const editor = vscode.window.activeTextEditor;
-
-    const textDocument = editor.document;
+export function zigBuild(textDocument: vscode.TextDocument): cp.ChildProcess {
     if (textDocument.languageId !== 'zig') {
         return;
     }
@@ -13,10 +12,23 @@ export function zigBuild(): void {
     const config = vscode.workspace.getConfiguration('zig');
     const buildOption = config.get<string>("buildOption");
     let processArg: string[] = [buildOption];
+    let workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri);
+    if (!workspaceFolder && vscode.workspace.workspaceFolders.length) {
+      workspaceFolder = vscode.workspace.workspaceFolders[0];
+    }
+    const cwd = workspaceFolder.uri.fsPath;
 
     switch (buildOption) {
         case "build":
-            break;
+          let buildFilePath = config.get<string>("buildFilePath");
+          processArg.push("--build-file");
+          try {
+            processArg.push(
+                require("path").resolve(buildFilePath.replace("${workspaceFolder}", cwd))
+            );
+          } catch {}
+
+          break;
         default:
             processArg.push(textDocument.fileName);
             break;
@@ -27,28 +39,30 @@ export function zigBuild(): void {
         processArg.push(element);
     });
 
-    const cwd = vscode.workspace.getWorkspaceFolder(editor.document.uri).uri.fsPath;
-    const buildPath = config.get<string>("zigPath") || 'zig';
+    const zigPath = config.get<string>("zigPath") || 'zig';
 
     logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
-    let childProcess = cp.execFile(buildPath, processArg, { cwd }, (err, stdout, stderr) => {
+    return cp.execFile(zigPath, processArg, { cwd }, (err, stdout, stderr) => {
         logChannel.appendLine(stderr);
         var diagnostics: { [id: string]: vscode.Diagnostic[]; } = {};
         let regex = /(\S.*):(\d*):(\d*): ([^:]*): (.*)/g;
 
-        buildDiagnosticCollection.clear();
-        for (let match = regex.exec(stderr); match;
-            match = regex.exec(stderr)) {
+        buildDiagnostics.clear();
+        for (
+            let match = regex.exec(stderr);
+            match;
+            match = regex.exec(stderr)
+        ) {
             let path = match[1].trim();
             try {
                 if (!path.includes(cwd)) {
                     path = require("path").resolve(cwd, path);
                 }
             } catch {
-
             }
+
             let line = parseInt(match[2]) - 1;
             let column = parseInt(match[3]) - 1;
             let type = match[4];
@@ -66,7 +80,7 @@ export function zigBuild(): void {
 
         for (let path in diagnostics) {
             let diagnostic = diagnostics[path];
-            buildDiagnosticCollection.set(vscode.Uri.file(path), diagnostic);
+            buildDiagnostics.set(vscode.Uri.file(path), diagnostic);
         }
     });
 }
