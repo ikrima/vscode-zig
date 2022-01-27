@@ -10,7 +10,7 @@ import { zigBuild } from './zigBuild';
 import { ZigFormatProvider, ZigRangeFormatProvider } from './zigFormat';
 
 let buildDiagnostics: vscode.DiagnosticCollection;
-let logChannel: vscode.OutputChannel;
+const logChannel = vscode.window.createOutputChannel('zig');
 
 export function activate(context: vscode.ExtensionContext) {
     // let zigFormatStatusBar: vscode.StatusBarItem;
@@ -21,7 +21,6 @@ export function activate(context: vscode.ExtensionContext) {
     // zigFormatStatusBar.command = "zig.build.workspace";
     // zigFormatStatusBar.show();
 
-    logChannel = vscode.window.createOutputChannel('zig');
     buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
     context.subscriptions.push(buildDiagnostics);
 
@@ -390,8 +389,4 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     ZigLanguageClient.deactivate();
-    buildDiagnostics.clear();
-    buildDiagnostics.dispose();
-    logChannel.clear();
-    logChannel.dispose();
 }

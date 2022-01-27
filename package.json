@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "ikrimae",
   "icon": "images/zig-icon.png",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "url": "https://github.com/ikrima/vscode-zig"
   },
   "engines": {
-    "vscode": "^1.58.0"
+    "vscode": "^1.59.0"
   },
   "categories": [
     "Programming Languages"
@@ -251,7 +251,7 @@
     "lodash-es": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "qs": "^6.10.1",
-    "vsce": "^2.6.4",
+    "vsce": "^2.6.5",
     "vscode-languageclient": "^7.0.0-next.9"
   }
 }
