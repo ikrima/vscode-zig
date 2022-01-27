@@ -1,10 +1,13 @@
 "use strict";
 
-import { buildDiagnostics, logChannel } from './extension';
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
 
-export function zigBuild(textDocument: vscode.TextDocument): cp.ChildProcess {
+export function zigBuild(
+    textDocument: vscode.TextDocument,
+    buildDiagnostics: vscode.DiagnosticCollection,
+    logChannel: vscode.OutputChannel,
+): cp.ChildProcess {
     if (textDocument.languageId !== 'zig') {
         return;
     }
@@ -14,21 +17,21 @@ export function zigBuild(textDocument: vscode.TextDocument): cp.ChildProcess {
     let processArg: string[] = [buildOption];
     let workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri);
     if (!workspaceFolder && vscode.workspace.workspaceFolders.length) {
-      workspaceFolder = vscode.workspace.workspaceFolders[0];
+        workspaceFolder = vscode.workspace.workspaceFolders[0];
     }
     const cwd = workspaceFolder.uri.fsPath;
 
     switch (buildOption) {
         case "build":
-          let buildFilePath = config.get<string>("buildFilePath");
-          processArg.push("--build-file");
-          try {
-            processArg.push(
-                require("path").resolve(buildFilePath.replace("${workspaceFolder}", cwd))
-            );
-          } catch {}
+            let buildFilePath = config.get<string>("buildFilePath");
+            processArg.push("--build-file");
+            try {
+                processArg.push(
+                    require("path").resolve(buildFilePath.replace("${workspaceFolder}", cwd))
+                );
+            } catch { }
 
-          break;
+            break;
         default:
             processArg.push(textDocument.fileName);
             break;

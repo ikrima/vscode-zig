@@ -9,44 +9,45 @@ import ZigCodelensProvider from './zigCodeLensProvider';
 import { zigBuild } from './zigBuild';
 import { ZigFormatProvider, ZigRangeFormatProvider } from './zigFormat';
 
-const ZIG_MODE: vscode.DocumentFilter = { language: 'zig', scheme: 'file' };
-
-export let buildDiagnostics: vscode.DiagnosticCollection;
-export let astDiagnostics: vscode.DiagnosticCollection;
-export const logChannel = vscode.window.createOutputChannel('zig');
-export const zigFormatStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-export let terminal: vscode.Terminal;
+let buildDiagnostics: vscode.DiagnosticCollection;
+let logChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
+    // let zigFormatStatusBar: vscode.StatusBarItem;
+    // zigFormatStatusBar = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
+    // zigFormatStatusBar.name = "zig build";
+    // zigFormatStatusBar.text = "$(wrench) zig build workspace";
+    // zigFormatStatusBar.tooltip = "zig build workspace";
+    // zigFormatStatusBar.command = "zig.build.workspace";
+    // zigFormatStatusBar.show();
+
+    logChannel = vscode.window.createOutputChannel('zig');
     buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
     context.subscriptions.push(buildDiagnostics);
-    astDiagnostics = vscode.languages.createDiagnosticCollection('zigAst');
-    context.subscriptions.push(astDiagnostics);
 
     ZigLanguageClient.activate();
-    ZigCompilerProvider.register(context);
+    // ZigCompilerProvider.register(context);
     ZigCodelensProvider.register();
 
 
     context.subscriptions.push(logChannel);
-    context.subscriptions.push(
-        vscode.languages.registerDocumentFormattingEditProvider(
-            ZIG_MODE,
-            new ZigFormatProvider(logChannel),
-        ),
-    );
-
-    context.subscriptions.push(
-        vscode.languages.registerDocumentRangeFormattingEditProvider(
-            ZIG_MODE,
-            new ZigRangeFormatProvider(logChannel),
-        ),
-    );
+    // context.subscriptions.push(
+    //     vscode.languages.registerDocumentFormattingEditProvider(
+    //         vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
+    //         new ZigFormatProvider(logChannel),
+    //     ),
+    // );
+    // context.subscriptions.push(
+    //     vscode.languages.registerDocumentRangeFormattingEditProvider(
+    //         vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
+    //         new ZigRangeFormatProvider(logChannel),
+    //     ),
+    // );
 
 
     // Commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('zig.build.workspace', () => zigBuild(vscode.window.activeTextEditor.document))
+        vscode.commands.registerCommand('zig.build.workspace', () => zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel))
     );
 
     const resolveTask = function resolveTask(task: vscode.Task, token) {
@@ -390,7 +391,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     ZigLanguageClient.deactivate();
     buildDiagnostics.clear();
-    astDiagnostics.clear();
     buildDiagnostics.dispose();
-    astDiagnostics.dispose();
+    logChannel.clear();
+    logChannel.dispose();
 }

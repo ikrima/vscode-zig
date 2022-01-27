@@ -1,6 +1,5 @@
 "use strict";
 
-import { astDiagnostics } from './extension';
 import { zigBuild } from './zigBuild';
 import * as cp from "child_process";
 import * as vscode from "vscode";
@@ -10,6 +9,14 @@ import { debounce } from "lodash-es";
 
 export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   private dirtyChange = new WeakMap<vscode.Uri, boolean>();
+  private astDiagnostics: vscode.DiagnosticCollection;
+  private _buildDiagnostics: vscode.DiagnosticCollection;
+  private _channel: vscode.OutputChannel;
+  constructor(buildDiagnostics: vscode.DiagnosticCollection, logChannel: vscode.OutputChannel) {
+      this._channel = logChannel;
+      this._buildDiagnostics = buildDiagnostics;
+      this.astDiagnostics = vscode.languages.createDiagnosticCollection('zigAst');
+  }
 
   // public activate(subscriptions: vscode.Disposable[]) {
   //   subscriptions.push(this);
@@ -28,8 +35,13 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   //   );
   // }
 
-  public static register(context: vscode.ExtensionContext): void {
-    let compiler = new ZigCompilerProvider();
+  public static register(
+    context: vscode.ExtensionContext,
+    buildDiagnostics: vscode.DiagnosticCollection,
+    logChannel: vscode.OutputChannel,
+  ): void {
+    let compiler = new ZigCompilerProvider(buildDiagnostics, logChannel);
+    context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
       vscode.languages.registerCodeActionsProvider({ language: 'zig', scheme: 'file' }, compiler)
     );
@@ -61,7 +73,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
       )
     );
     context.subscriptions.push(
-      vscode.workspace.onDidCloseTextDocument(doc => astDiagnostics.delete(doc.uri))
+      vscode.workspace.onDidCloseTextDocument(doc => compiler.astDiagnostics.delete(doc.uri))
     );
 
     context.subscriptions.push(
@@ -77,7 +89,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
       return;
     }
     if (textDocument.isClosed) {
-      astDiagnostics.delete(textDocument.uri);
+      this.astDiagnostics.delete(textDocument.uri);
       return;
     }
     const zig_path = config.get("zigPath") || "zig";
@@ -99,7 +111,6 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
 
     childProcess.once("close", () => {
       this.doASTGenErrorCheck.cancel();
-      astDiagnostics.delete(textDocument.uri);
 
       if (stderr.length == 0) return;
       var diagnostics: { [id: string]: vscode.Diagnostic[] } = {};
@@ -125,13 +136,18 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
 
       for (let path in diagnostics) {
         let diagnostic = diagnostics[path];
-        astDiagnostics.set(textDocument.uri, diagnostic);
+        this.astDiagnostics.set(textDocument.uri, diagnostic);
       }
     });
   }
 
+  public dispose(): void {
+    this.astDiagnostics.clear();
+    this.astDiagnostics.dispose();
+  }
+
   private _doCompile(textDocument: vscode.TextDocument) {
-    let childProcess = zigBuild(textDocument);
+    let childProcess = zigBuild(textDocument, this._buildDiagnostics, this._channel);
     if (childProcess.pid) {
       childProcess.stdout.once("close", () => { this.doCompile.cancel(); });
     }

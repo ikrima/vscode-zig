@@ -219,11 +219,6 @@
         "description": "Build the current project using 'zig build'"
       },
       {
-        "command": "zig.astcheck",
-        "title": "Zig: Run Ast Check On Active File",
-        "description": "Run Ast Check On File"
-      },
-      {
         "command": "zig.test.rerun",
         "title": "Zig: Re-run last test",
         "description": "Re-run the last test",
@@ -256,7 +251,7 @@
     "lodash-es": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "qs": "^6.10.1",
-    "vsce": "^2.6.3",
+    "vsce": "^2.6.4",
     "vscode-languageclient": "^7.0.0-next.9"
   }
 }

@@ -4,7 +4,6 @@ import { execCmd } from './zigUtil';
 
 export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider {
     private _channel: OutputChannel;
-
     constructor(logChannel: OutputChannel) {
         this._channel = logChannel;
     }
