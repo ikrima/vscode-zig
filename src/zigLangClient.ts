@@ -2,74 +2,71 @@ import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
 
 export function activate(context: vscode.ExtensionContext) {
+  const zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
   let activeServers: Promise<vscode.Disposable>[] = [];
   startServer();
 
   function startServer() {
-    activeServers.push(
-      _startServer()
-    );
+    zlsChannel.appendLine("Starting Zls...");
+    activeServers.push(_startServer(zlsChannel));
   }
   async function stopServers() {
+    zlsChannel.appendLine("Stopping Zls...");
     const oldServers = activeServers.slice(0);
     activeServers = [];
     const result = await Promise.allSettled(oldServers);
     for (const item of result) {
-      if (item.status === 'fulfilled') {
+      if (item.status === 'fulfilled')
         item.value.dispose();
-      }
     }
   }
 
+  // register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("zig.zls.start", () => {
-      startServer();
-    })
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("zig.zls.stop", async () => {
-      await stopServers();
-    })
-  );
-  context.subscriptions.push(
+    vscode.commands.registerCommand("zig.zls.start", () => startServer()),
+    vscode.commands.registerCommand("zig.zls.stop", async () => await stopServers()),
     vscode.commands.registerCommand("zig.zls.restart", async () => {
       await stopServers();
       startServer();
-    })
+    }),
   );
 
   // stop server on deactivate
-  context.subscriptions.push(new vscode.Disposable(stopServers));
+  vscode.Disposable.from(
+    new vscode.Disposable(stopServers),
+    zlsChannel,
+  );
 }
 
 
-async function _startServer(): Promise<vscode.Disposable> {
+async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Disposable> {
+  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const config = vscode.workspace.getConfiguration('zig');
   const zlsPath = config.get<string>('zls.path');
-  const debugLog = config.get<boolean>('zls.debugLog', false);
+  const zlsDebugLog = config.get<boolean>('zls.debugLog', false);
 
   if (!zlsPath) {
     vscode.window.showErrorMessage("Failed to find zls executable! Please specify its path in your settings with `zig.path`.");
     return;
   }
 
-  const disposables: vscode.Disposable[] = [];
 
   // Create the language client and start the client.
+  const disposables: vscode.Disposable[] = [];
   const serverOptions: ServerOptions = {
     command: zlsPath,
-    args: debugLog ? ["--debug-log"] : []
+    args: zlsDebugLog ? ["--debug-log"] : [],
   };
 
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'zig' }],
-    outputChannelName: "Zig Language Server",
+    outputChannel: zlsChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
   };
 
   const client = new LanguageClient(
-    'zigLanguageClient',
+    'zlsClient',
     'Zig Language Server Client',
     serverOptions,
     clientOptions

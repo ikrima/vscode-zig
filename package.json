@@ -103,7 +103,7 @@
           "type": "boolean",
           "description": "Enable debug logging in release builds of zls."
         },
-        "zigLanguageClient.trace.server": {
+        "zlsClient.trace.server": {
           "scope": "window",
           "type": "string",
           "enum": [
