@@ -1,21 +1,19 @@
 import * as vscode from "vscode";
 
 
-export default class ZigCodelensProvider implements vscode.CodeLensProvider {
+export class ZigCodelensProvider implements vscode.CodeLensProvider {
   private codeLenses: vscode.CodeLens[] = [];
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
-  constructor() {
-    vscode.workspace.onDidChangeConfiguration((_) => {
-      this._onDidChangeCodeLenses.fire();
-    });
+  constructor(context: vscode.ExtensionContext) {
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(_ => this._onDidChangeCodeLenses.fire())
+    );
   }
-
-  public static register(): void {
-    let codeLens = new ZigCodelensProvider();
-    vscode.languages.registerCodeLensProvider({ language: 'zig', scheme: 'file', }, codeLens);
-  }
+	dispose(): void {
+		this._onDidChangeCodeLenses.dispose();
+	}
 
   public provideCodeLenses(
     document: vscode.TextDocument,

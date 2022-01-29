@@ -23,48 +23,34 @@
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "test",
+        "type": "zig",
+        "required": [
+          "testDebug"
+        ],
         "properties": {
-          "filter": {
-            "type": "string",
-            "description": "Test name to filter against"
+          "testDebug": {
+            "type": "boolean",
+            "description": "Run in debug mode"
           },
-          "args": {
-            "type": "string",
-            "description": "Additional args to pass \"zig test\""
-          },
-          "file": {
+          "testFilePath": {
             "type": "string",
             "description": "The file path to the zig source code to filter the test. Can be omitted."
           },
-          "bin": {
-            "type": "string",
-            "description": "The file path to output the test to. Can be omitted."
-          }
-        }
-      },
-      {
-        "type": "debug",
-        "properties": {
-          "filter": {
-            "type": "string",
-            "description": "Test name to filter against"
-          },
-          "args": {
-            "type": "string",
-            "description": "Additional args to pass \"zig test\""
-          },
-          "file": {
-            "type": "string",
-            "description": "The file path to the zig source code to filter the test. Can be omitted."
-          },
-          "bin": {
-            "type": "string",
-            "description": "The file path to output the test to. Can be omitted."
-          },
-          "extraFiles": {
+          "testArgs": {
             "type": "array",
-            "description": "Extra files to pass"
+            "description": "Additional args to pass \"zig test\""
+          },
+          "testFilter": {
+            "type": "string",
+            "description": "Test name to filter against"
+          },
+          "testMainPkgPath": {
+            "type": "string",
+            "description": "The file path to output the test to. Can be omitted."
+          },
+          "testEmitBin": {
+            "type": "string",
+            "description": "The file path to output the test to. Can be omitted."
           }
         }
       }
@@ -159,38 +145,36 @@
         },
         "zig.zigPath": {
           "type": "string",
-          "default": null,
+          "default": "zig",
           "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
         },
         "zig.testBinDir": {
           "type": "string",
-          "default": "${workspaceFolder}/zig-out/bin",
+          "default": null,
           "description": "Test bin output path."
         },
         "zig.testArgs": {
-          "type": "string",
-          "default": "",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
           "description": "Additional flags to pass \"zig test\""
         },
-        "zig.testCmd": {
-          "type": "string",
-          "default": "",
-          "editPresentation": "multilineText",
-          "title": "Build Test Command",
-          "markdownDescription": "Custom command to build a test. Useful if you have non-Zig dependencies or multiple packages.\n\nVariables:\n\n- `${file}`\n- `${filter}`\n- `${bin}`\n\nExample:\n```\nzig build test ${file} --filter ${filter} --bin ${bin}```."
+        "zig.testDbgArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Additional flags to to pass \"zig test\" in debug mode"
         },
-        "zig.beforeDebugCmd": {
-          "type": "string",
-          "default": "",
-          "title": "Debug Test Command",
-          "markdownDescription": "Custom command to build a test for debugging. Useful if you have non-Zig dependencies or multiple packages.\n\nVariables:\n\n- `${file}`\n- `${filter}`\n- `${bin}`\n\ne.g.\n```\nzig build test-debug ${file} --filter ${filter} --bin ${bin}```"
-        },
-        "zig.disableProblemMatcherForTest": {
+        "zig.enableProblemMatcherForTest": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Highlight lines where tests failed"
         },
-        "zig.revealOutputChannelOnFormattingError": {
+        "zig.revealLogOnFormattingError": {
           "type": "boolean",
           "default": true,
           "description": "Should output channel be raised on formatting error."
@@ -222,13 +206,7 @@
         "command": "zig.test.rerun",
         "title": "Zig: Re-run last test",
         "description": "Re-run the last test",
-        "enablement": "zig.hasLastTestCommand"
-      },
-      {
-        "command": "zig.test.rerun.debug",
-        "title": "Zig: Re-run last test with debugging",
-        "description": "Re-run the last test with debugging",
-        "enablement": "zig.hasLastTestCommand"
+        "enablement": "zig.hasLastRanTask"
       }
     ]
   },

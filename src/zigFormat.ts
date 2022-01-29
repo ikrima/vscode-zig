@@ -28,10 +28,9 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
             })
             .catch((reason) => {
                 let config = vscode.workspace.getConfiguration('zig');
-
                 logger.clear();
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (config.get<boolean>("revealOutputChannelOnFormattingError")) {
+                if (config.get<boolean>("revealLogOnFormattingError", true)) {
                     logger.show(true);
                 }
                 return null;
@@ -70,7 +69,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
                 logger.clear();
                 logger.appendLine(`Formatting Error`);
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (config.get<boolean>("revealOutputChannelOnFormattingError")) {
+                if (config.get<boolean>("revealLogOnFormattingError", true)) {
                     logger.show(true);
                 }
                 return null;
@@ -80,7 +79,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
 
 function zigFormat(document: vscode.TextDocument) {
     const config = vscode.workspace.getConfiguration('zig');
-    const zigPath = config.get<string>('zigPath') || 'zig';
+    const zigPath = config.get<string>('zigPath', 'zig');
 
     const options = {
         cmdArguments: ['fmt', '--stdin'],

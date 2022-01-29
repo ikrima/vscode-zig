@@ -61,7 +61,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
         (doc) => {
           let config = vscode.workspace.getConfiguration("zig");
           if (
-            config.get<boolean>("buildOnSave") &&
+            config.get<boolean>("buildOnSave", false) &&
             compiler.dirtyChange.has(doc.uri) &&
             compiler.dirtyChange.get(doc.uri) !== doc.isDirty &&
             !doc.isDirty
@@ -92,7 +92,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
       this.astDiagnostics.delete(textDocument.uri);
       return;
     }
-    const zig_path = config.get("zigPath") || "zig";
+    const zig_path = config.get<string>("zigPath", 'zig');
     const cwd = vscode.workspace.getWorkspaceFolder(textDocument.uri).uri
       .fsPath;
 

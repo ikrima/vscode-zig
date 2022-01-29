@@ -8,42 +8,32 @@ export function zigBuild(
     buildDiagnostics: vscode.DiagnosticCollection,
     logChannel: vscode.OutputChannel,
 ): cp.ChildProcess {
-    if (textDocument.languageId !== 'zig') {
+    if (textDocument.languageId !== 'zig')
         return;
-    }
+
 
     const config = vscode.workspace.getConfiguration('zig');
-    const buildOption = config.get<string>("buildOption");
-    let processArg: string[] = [buildOption];
-    let workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri);
-    if (!workspaceFolder && vscode.workspace.workspaceFolders.length) {
-        workspaceFolder = vscode.workspace.workspaceFolders[0];
-    }
-    const cwd = workspaceFolder.uri.fsPath;
+    const zigPath = config.get<string>("zigPath", 'zig');
+    const extraArgs = config.get<string[]>("buildArgs", []);
+    const buildOption = config.get<string>("buildOption", "build");
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri) ?? vscode.workspace.workspaceFolders[0];
+    const workspacePath = workspaceFolder.uri.fsPath;
+    const buildFilePath = config.get<string>("buildFilePath", `${workspacePath}/build.zig`).replace("${workspaceFolder}", workspacePath);
+    const cwd = workspacePath;
 
+    let processArg: string[];
     switch (buildOption) {
         case "build":
-            let buildFilePath = config.get<string>("buildFilePath");
-            processArg.push("--build-file");
-            try {
-                processArg.push(
-                    require("path").resolve(buildFilePath.replace("${workspaceFolder}", cwd))
-                );
-            } catch { }
-
+            processArg.push(
+                "--build-file",
+                require("path").resolve(buildFilePath)
+            );
             break;
         default:
             processArg.push(textDocument.fileName);
             break;
     }
-
-    let extraArgs = config.get<string[]>("buildArgs");;
-    extraArgs.forEach(element => {
-        processArg.push(element);
-    });
-
-    const zigPath = config.get<string>("zigPath") || 'zig';
-
+    processArg.push(...extraArgs);
     logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
