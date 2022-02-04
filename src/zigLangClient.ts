@@ -16,8 +16,9 @@ export function activate(context: vscode.ExtensionContext) {
     activeServers = [];
     const result = await Promise.allSettled(oldServers);
     for (const item of result) {
-      if (item.status === 'fulfilled')
+      if (item.status === 'fulfilled') {
         item.value.dispose();
+      }
     }
   }
 
@@ -40,14 +41,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Disposable> {
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const config = vscode.workspace.getConfiguration('zig');
   const zlsPath = config.get<string>('zls.path');
   const zlsDebugLog = config.get<boolean>('zls.debugLog', false);
 
   if (!zlsPath) {
     vscode.window.showErrorMessage("Failed to find zls executable! Please specify its path in your settings with `zig.path`.");
-    return;
+    return new vscode.Disposable(() => { });
   }
 
 

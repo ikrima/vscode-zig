@@ -32,7 +32,8 @@ export function activate(context: vscode.ExtensionContext) {
         ),
         vscode.tasks.registerTaskProvider("zig", new ZigTaskProvider(context, logChannel)),
         vscode.commands.registerCommand('zig.build.workspace', () => {
-            zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel)
+            if (!vscode.window.activeTextEditor) { return; }
+            zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel);
         }),
         // vscode.languages.registerCodeActionsProvider(
         //     { language: 'zig', scheme: 'file' },

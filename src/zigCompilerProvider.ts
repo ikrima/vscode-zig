@@ -13,9 +13,9 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   private _buildDiagnostics: vscode.DiagnosticCollection;
   private _channel: vscode.OutputChannel;
   constructor(buildDiagnostics: vscode.DiagnosticCollection, logChannel: vscode.OutputChannel) {
-      this._channel = logChannel;
-      this._buildDiagnostics = buildDiagnostics;
-      this.astDiagnostics = vscode.languages.createDiagnosticCollection('zigAst');
+    this._channel = logChannel;
+    this._buildDiagnostics = buildDiagnostics;
+    this.astDiagnostics = vscode.languages.createDiagnosticCollection('zigAst');
   }
 
   // public activate(subscriptions: vscode.Disposable[]) {
@@ -78,6 +78,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
 
     context.subscriptions.push(
       vscode.commands.registerCommand('zig.astcheck', (_) => {
+        if (!vscode.window.activeTextEditor) { return; }
         compiler.doASTGenErrorCheck(vscode.window.activeTextEditor.document);
       })
     );
@@ -92,11 +93,12 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
       this.astDiagnostics.delete(textDocument.uri);
       return;
     }
-    const zig_path = config.get<string>("zigPath", 'zig');
-    const cwd = vscode.workspace.getWorkspaceFolder(textDocument.uri).uri
-      .fsPath;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri);
+    if (!workspaceFolder) { return; }
+    const zigPath = config.get<string>("zigPath", 'zig');
+    const cwd = workspaceFolder.uri.fsPath;
 
-    let childProcess = cp.spawn(zig_path as string, ["ast-check"], { cwd });
+    let childProcess = cp.spawn(zigPath, ["ast-check"], { cwd });
 
     if (!childProcess.pid) {
       return;
@@ -107,12 +109,12 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
       stderr += chunk;
     });
 
-    childProcess.stdin.end(textDocument.getText(null));
+    childProcess.stdin.end(textDocument.getText());
 
     childProcess.once("close", () => {
       this.doASTGenErrorCheck.cancel();
 
-      if (stderr.length == 0) return;
+      if (stderr.length === 0) { return; }
       var diagnostics: { [id: string]: vscode.Diagnostic[] } = {};
       let regex = /(\S.*):(\d*):(\d*): ([^:]*): (.*)/g;
 
@@ -130,7 +132,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
             : vscode.DiagnosticSeverity.Information;
         let range = new vscode.Range(line, column, line, Infinity);
 
-        if (diagnostics[path] == null) diagnostics[path] = [];
+        diagnostics[path] = diagnostics[path] ?? [];
         diagnostics[path].push(new vscode.Diagnostic(range, message, severity));
       }
 
@@ -148,7 +150,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
 
   private _doCompile(textDocument: vscode.TextDocument) {
     let childProcess = zigBuild(textDocument, this._buildDiagnostics, this._channel);
-    if (childProcess.pid) {
+    if (childProcess && childProcess.pid && childProcess.stdout) {
       childProcess.stdout.once("close", () => { this.doCompile.cancel(); });
     }
   }
@@ -158,10 +160,10 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   });
   doCompile = debounce(this._doCompile, 60);
   public provideCodeActions(
-    document: vscode.TextDocument,
-    range: vscode.Range,
-    context: vscode.CodeActionContext,
-    token: vscode.CancellationToken
+    _document: vscode.TextDocument,
+    _range: vscode.Range,
+    _context: vscode.CodeActionContext,
+    _token: vscode.CancellationToken
   ): vscode.ProviderResult<vscode.Command[]> {
     return [];
   }

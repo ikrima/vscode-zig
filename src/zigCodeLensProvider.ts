@@ -11,9 +11,9 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider {
       vscode.workspace.onDidChangeConfiguration(_ => this._onDidChangeCodeLenses.fire())
     );
   }
-	dispose(): void {
-		this._onDidChangeCodeLenses.dispose();
-	}
+  dispose(): void {
+    this._onDidChangeCodeLenses.dispose();
+  }
 
   public provideCodeLenses(
     document: vscode.TextDocument,
@@ -24,8 +24,8 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider {
 
     for (let i = 0; i < text.length; i++) {
       const possibleTestKeyword = text.indexOf("test", i);
-      if (possibleTestKeyword === -1) break;
-      if (token && token.isCancellationRequested) break;
+      if (possibleTestKeyword === -1) { break; }
+      if (token && token.isCancellationRequested) { break; }
 
       const previousWord =
         possibleTestKeyword > -1
@@ -65,7 +65,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider {
           i++;
         }
 
-        if (i > nextCurlyBrace) continue;
+        if (i > nextCurlyBrace) { continue; }
 
         if (text[i] === '"') {
           const quoteStart = i;
@@ -86,7 +86,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider {
 
           const quoteEnd = i;
 
-          if (token.isCancellationRequested) return [];
+          if (token.isCancellationRequested) { return []; }
 
           const line = document.lineAt(
             document.positionAt(possibleTestKeyword).line

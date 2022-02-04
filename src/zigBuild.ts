@@ -7,21 +7,24 @@ export function zigBuild(
     textDocument: vscode.TextDocument,
     buildDiagnostics: vscode.DiagnosticCollection,
     logChannel: vscode.OutputChannel,
-): cp.ChildProcess {
-    if (textDocument.languageId !== 'zig')
-        return;
-
+): cp.ChildProcess | null {
+    if (textDocument.languageId !== 'zig') { return null; }
+    const workspaceFolder =
+        vscode.workspace.getWorkspaceFolder(textDocument.uri)
+        ?? (vscode.workspace.workspaceFolders
+            ? vscode.workspace.workspaceFolders[0]
+            : null);
+    if (!workspaceFolder) { return null; }
 
     const config = vscode.workspace.getConfiguration('zig');
     const zigPath = config.get<string>("zigPath", 'zig');
     const extraArgs = config.get<string[]>("buildArgs", []);
     const buildOption = config.get<string>("buildOption", "build");
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri) ?? vscode.workspace.workspaceFolders[0];
     const workspacePath = workspaceFolder.uri.fsPath;
     const buildFilePath = config.get<string>("buildFilePath", `${workspacePath}/build.zig`).replace("${workspaceFolder}", workspacePath);
     const cwd = workspacePath;
 
-    let processArg: string[];
+    let processArg: string[] = [];
     switch (buildOption) {
         case "build":
             processArg.push(
@@ -37,7 +40,7 @@ export function zigBuild(
     logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
-    return cp.execFile(zigPath, processArg, { cwd }, (err, stdout, stderr) => {
+    return cp.execFile(zigPath, processArg, { cwd }, (_err, _stdout, stderr) => {
         logChannel.appendLine(stderr);
         var diagnostics: { [id: string]: vscode.Diagnostic[]; } = {};
         let regex = /(\S.*):(\d*):(\d*): ([^:]*): (.*)/g;
@@ -67,7 +70,7 @@ export function zigBuild(
 
             let range = new vscode.Range(line, column, line, Infinity);
 
-            if (diagnostics[path] == null) diagnostics[path] = [];
+            diagnostics[path] = diagnostics[path] ?? [];
             diagnostics[path].push(new vscode.Diagnostic(range, message, severity));
         }
 

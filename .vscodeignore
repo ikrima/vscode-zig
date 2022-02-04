@@ -12,3 +12,5 @@ src
 *.lock
 package-lock.json
 tsconfig.json
+.yarnrc
+**/.eslintrc.json

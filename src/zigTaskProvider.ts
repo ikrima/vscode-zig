@@ -13,7 +13,7 @@ interface ZigTaskDefinition extends vscode.TaskDefinition {
 };
 
 export class ZigTaskProvider implements vscode.TaskProvider {
-  private lastRanTask?: ZigTaskDefinition = null;
+  private lastRanTask?: ZigTaskDefinition;
   private _channel: vscode.OutputChannel;
 
   constructor(context: vscode.ExtensionContext, logChannel: vscode.OutputChannel) {
@@ -21,14 +21,13 @@ export class ZigTaskProvider implements vscode.TaskProvider {
 
     context.subscriptions.push(
       vscode.commands.registerCommand("zig.test.run", (filename: vscode.Uri, filter: string) => {
-        const testTask = this.doResolveTask(vscode.workspace.workspaceFolders[0], <ZigTaskDefinition>{
+        const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : null;
+        if (!workspaceFolder) { return; }
+        const testTask = this.doResolveTask(workspaceFolder, <ZigTaskDefinition>{
           type: 'zig',
           testDebug: false,
           testFilePath: filename.fsPath,
-          testArgs: null,
           testFilter: filter,
-          testMainPkgPath: null,
-          testEmitBin: null,
         });
         this.lastRanTask = <ZigTaskDefinition>testTask.definition;
         vscode.tasks.executeTask(testTask);
@@ -42,6 +41,9 @@ export class ZigTaskProvider implements vscode.TaskProvider {
 
     context.subscriptions.push(
       vscode.commands.registerCommand("zig.test.debug", async (filename: vscode.Uri, filter: string) => {
+        const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : null;
+        if (!workspaceFolder) { return; }
+
         const cppToolsExtension = vscode.extensions.getExtension("ms-vscode.cpptools");
         const cppToolsExtActive = cppToolsExtension && cppToolsExtension.isActive;
         const codeLLDBExtension = vscode.extensions.getExtension("vadimcn.vscode-lldb");
@@ -54,27 +56,25 @@ export class ZigTaskProvider implements vscode.TaskProvider {
 
         const config = vscode.workspace.getConfiguration("zig");
         const zigPath = config.get<string>('zigPath', 'zig');
-        const workspaceFolder = vscode.workspace.workspaceFolders[0];
-        const testTask = this.doResolveTask(vscode.workspace.workspaceFolders[0], <ZigTaskDefinition>{
+        const testTask = this.doResolveTask(workspaceFolder, <ZigTaskDefinition>{
           type: 'zig',
           testDebug: true,
           testFilePath: filename.fsPath,
-          testArgs: null,
           testFilter: filter,
-          testMainPkgPath: null,
-          testEmitBin: null,
         });
         this.lastRanTask = <ZigTaskDefinition>testTask.definition;
         const execution = await vscode.tasks.executeTask(testTask);
 
-        let handler = vscode.tasks.onDidEndTask((e) => {
-          if (e.execution !== execution) return;
+        let handler: vscode.Disposable | null = vscode.tasks.onDidEndTask((e) => {
+          if (!handler || e.execution !== execution) { return; }
           handler.dispose();
           handler = null;
-          const testEmitBin = (<ZigTaskDefinition>testTask.definition).testEmitBin;
-          const testArgs = (<ZigTaskDefinition>testTask.definition).testArgs;
-          if (!fs.existsSync(testEmitBin))
+          const taskDef = <ZigTaskDefinition>testTask.definition;
+          const testEmitBin = <string>taskDef.testEmitBin;
+          const testArgs = <string[]>taskDef.testArgs;
+          if (!fs.existsSync(testEmitBin)) {
             return;
+          }
 
           if (cppToolsExtActive) {
             return vscode.debug.startDebugging(
@@ -88,7 +88,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
                 cwd: workspaceFolder,
                 console: 'integratedTerminal',
               },
-            ).then((a) => { });
+            ).then((_) => { });
           } else {
             const launch = Object.assign(
               {},
@@ -108,21 +108,24 @@ export class ZigTaskProvider implements vscode.TaskProvider {
               condenseFlow: true,
               forceQuotes: true,
             });
-            if (yaml.endsWith(","))
+            if (yaml.endsWith(",")) {
               yaml = yaml.substring(0, yaml.length - 1);
+            }
 
             return vscode.env
               .openExternal(vscode.Uri.parse(`${vscode.env.uriScheme}://vadimcn.vscode-lldb/launch/config?${yaml}`))
-              .then((a) => { });
+              .then((_) => { });
           }
         });
       }),
     );
 
     context.subscriptions.push(
-      vscode.commands.registerCommand("zig.test.rerun", (cmd) => {
+      vscode.commands.registerCommand("zig.test.rerun", (_) => {
         if (this.lastRanTask) {
-          vscode.tasks.executeTask(this.doResolveTask(vscode.workspace.workspaceFolders[0], this.lastRanTask));
+          const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : null;
+          if (!workspaceFolder) { return; }
+          vscode.tasks.executeTask(this.doResolveTask(workspaceFolder, this.lastRanTask));
         }
       }),
     );
@@ -151,14 +154,13 @@ export class ZigTaskProvider implements vscode.TaskProvider {
   }
 
   public resolveTask(_task: vscode.Task): vscode.Task | undefined {
-    const workspaceFolder: vscode.WorkspaceFolder = _task.scope
+    const workspaceFolder: vscode.WorkspaceFolder | null = _task.scope
       ? _task.scope as vscode.WorkspaceFolder
       : (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
         ? vscode.workspace.workspaceFolders[0]
         : null
       );
-    if (!workspaceFolder)
-      return undefined;
+    if (!workspaceFolder) { return undefined; }
 
     const definition: ZigTaskDefinition = <any>_task.definition;
     return this.doResolveTask(workspaceFolder, definition, _task.presentationOptions);
@@ -169,7 +171,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     workspaceFolder: vscode.WorkspaceFolder,
     _def: ZigTaskDefinition,
     presentationOptions?: vscode.TaskPresentationOptions,
-  ): vscode.Task | undefined {
+  ): vscode.Task {
     const workspacePath = workspaceFolder.uri.fsPath;
     const config = vscode.workspace.getConfiguration('zig');
     const zigPath = config.get<string>('zigPath', 'zig');
@@ -192,14 +194,14 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     };
 
 
-    def.testArgs = def.testArgs.map(a => {
+    def.testArgs = (<string[]>def.testArgs).map(a => {
       return a
         .replace("${workspaceFolder}", workspacePath)
         .replace("${filename}", def.testFilePath ?? "")
         .replace("${filter}", def.testFilter ?? "")
         .replace("${bin}", def.testEmitBin ?? "");
     });
-    const finalTestArgs: string[] = [].concat(
+    const finalTestArgs: string[] = (<string[]>[]).concat(
       [
         "test",
       ],

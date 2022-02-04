@@ -41,7 +41,7 @@ export interface ExecutingCmd
 
 /** Executes a command. Shows an error message if the command isn't found */
 export function execCmd
-  (cmd: string, options: ExecCmdOptions = {}): ExecutingCmd {
+    (cmd: string, options: ExecCmdOptions = {}): ExecutingCmd {
 
     const { fileName, onStart, onStdout, onStderr, onExit, cmdArguments } = options;
     let childProcess, firstResponse = true, wasKilledbyUs = false;
