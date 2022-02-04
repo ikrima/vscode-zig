@@ -24,4 +24,5 @@ npm install
 npm run compile
 npx vsce package
 code --install-extension zig-0.2.7.vsix
+npm run vsix
 ```
