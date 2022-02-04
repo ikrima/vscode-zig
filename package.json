@@ -185,28 +185,30 @@
       {
         "command": "zig.zls.start",
         "title": "Start Zig Language Server",
-        "category": "Zig Language Server"
+        "category": "Zls"
       },
       {
         "command": "zig.zls.stop",
         "title": "Stop Zig Language Server",
-        "category": "Zig Language Server"
+        "category": "Zls"
       },
       {
         "command": "zig.zls.restart",
         "title": "Restart Zig Language Server",
-        "category": "Zig Language Server"
+        "category": "Zls"
       },
       {
         "command": "zig.build.workspace",
-        "title": "Zig: Build Workspace",
-        "description": "Build the current project using 'zig build'"
+        "title": "Build Zig Workspace",
+        "description": "Build the current project using 'zig build'",
+        "category": "Zig"
       },
       {
         "command": "zig.test.rerun",
-        "title": "Zig: Re-run last test",
+        "title": "Re-run last zig test",
         "description": "Re-run the last test",
-        "enablement": "zig.hasLastRanTask"
+        "enablement": "zig.hasLastRanTask",
+        "category": "Zig"
       }
     ]
   },
