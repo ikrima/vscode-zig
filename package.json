@@ -94,14 +94,21 @@
       "type": "object",
       "title": "zig",
       "properties": {
+        "zig.zigPath": {
+          "type": "string",
+          "default": "zig.exe",
+          "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
+        },
         "zig.zls.path": {
           "scope": "resource",
           "type": "string",
+          "default": "zls.exe",
           "description": "Path to `zls` executable. Example: `C:/zls/zig-cache/bin/zls.exe`."
         },
         "zig.zls.debugLog": {
           "scope": "resource",
           "type": "boolean",
+          "default": false,
           "description": "Enable debug logging in release builds of zls."
         },
         "zlsClient.trace.server": {
@@ -115,20 +122,25 @@
           "default": "off",
           "description": "Traces the communication between VS Code and the language server."
         },
-        "zig.buildOnSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Compiles code on file save using the settings specified in 'Build Option'."
+        "zig.buildRootDir": {
+          "type": "string",
+          "default": "${workspaceFolder}",
+          "description": "The zig build root directory."
+        },
+        "zig.buildFilePath": {
+          "type": "string",
+          "default": "${workspaceFolder}/build.zig",
+          "description": "The path to build.zig. This is only required if zig.buildOptions = build."
         },
         "zig.buildOption": {
           "type": "string",
-          "default": "build",
           "enum": [
             "build",
             "build-exe",
             "build-lib",
             "build-obj"
           ],
+          "default": "build",
           "description": "Which build command Zig should use to build the code."
         },
         "zig.buildArgs": {
@@ -138,16 +150,6 @@
           },
           "default": [],
           "description": "Extra arguments to passed to Zig."
-        },
-        "zig.buildFilePath": {
-          "type": "string",
-          "default": "${workspaceFolder}/build.zig",
-          "description": "The path to build.zig. This is only required if zig.buildOptions = build."
-        },
-        "zig.zigPath": {
-          "type": "string",
-          "default": "zig",
-          "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
         },
         "zig.testBinDir": {
           "type": "string",
@@ -169,6 +171,11 @@
           },
           "default": [],
           "markdownDescription": "Additional flags to to pass \"zig test\" in debug mode"
+        },
+        "zig.buildOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compiles code on file save using the settings specified in 'Build Option'."
         },
         "zig.enableProblemMatcherForTest": {
           "type": "boolean",
@@ -220,7 +227,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "npm run compile && node ./node_modules/vscode/bin/test",
-    "vsix": "npx package & code --install-extension ./zig-0.2.7.vsix"
+    "vsix": "npx vsce package && code --install-extension ./zig-0.2.7.vsix"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.3",
@@ -240,6 +247,6 @@
   "dependencies": {
     "js-yaml": "^4.1.0",
     "lodash-es": "^4.17.21",
-    "vscode-languageclient": "^7.0.0-next.9"
+    "vscode-languageclient": "^7.0.0"
   }
 }
