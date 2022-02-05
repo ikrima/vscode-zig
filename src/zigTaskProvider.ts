@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
 import YAML from 'js-yaml';
+import { getExtensionSettings } from "./zigSettings";
 
 interface ZigTaskDefinition extends vscode.TaskDefinition {
   testDebug: boolean;
@@ -23,7 +24,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       vscode.commands.registerCommand("zig.test.run", (filename: vscode.Uri, filter: string) => {
         const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : null;
         if (!workspaceFolder) { return; }
-        const testTask = this.doResolveTask(workspaceFolder, <ZigTaskDefinition>{
+        const testTask = this.doResolveTask(workspaceFolder, {
           type: 'zig',
           testDebug: false,
           testFilePath: filename.fsPath,
@@ -54,9 +55,8 @@ export class ZigTaskProvider implements vscode.TaskProvider {
           return;
         }
 
-        const config = vscode.workspace.getConfiguration("zig");
-        const zigPath = config.get<string>('zigPath', 'zig');
-        const testTask = this.doResolveTask(workspaceFolder, <ZigTaskDefinition>{
+        const settings = getExtensionSettings();
+        const testTask = this.doResolveTask(workspaceFolder, {
           type: 'zig',
           testDebug: true,
           testFilePath: filename.fsPath,
@@ -70,8 +70,8 @@ export class ZigTaskProvider implements vscode.TaskProvider {
           handler.dispose();
           handler = null;
           const taskDef = <ZigTaskDefinition>testTask.definition;
-          const testEmitBin = <string>taskDef.testEmitBin;
-          const testArgs = <string[]>taskDef.testArgs;
+          const testEmitBin = taskDef.testEmitBin ?? "";
+          const testArgs = taskDef.testArgs ?? [];
           if (!fs.existsSync(testEmitBin)) {
             return;
           }
@@ -84,7 +84,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
                 name: `Zig Test Debug`,
                 request: 'launch',
                 program: testEmitBin,
-                args: [zigPath, ...testArgs],
+                args: [settings.zigPath, ...testArgs],
                 cwd: workspaceFolder,
                 console: 'integratedTerminal',
               },
@@ -97,7 +97,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
                 request: "launch",
                 name: "Zig Test Debug",
                 program: testEmitBin,
-                args: [zigPath, ...testArgs],
+                args: [settings.zigPath, ...testArgs],
                 cwd: workspaceFolder,
                 internalConsoleOptions: "openOnSessionStart",
                 terminal: "console",
@@ -173,28 +173,20 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     presentationOptions?: vscode.TaskPresentationOptions,
   ): vscode.Task {
     const workspacePath = workspaceFolder.uri.fsPath;
-    const config = vscode.workspace.getConfiguration('zig');
-    const zigPath = config.get<string>('zigPath', 'zig');
-    let buildFilePath = config.get<string>("buildFilePath");
-    buildFilePath = buildFilePath ? buildFilePath.replace("${workspaceFolder}", workspacePath) : path.join(workspacePath, "build.zig");
-    const buildRootDir = path.dirname(path.resolve(buildFilePath));
-    let testBinDir = config.get<string>("testBinDir");
-    testBinDir = testBinDir ? testBinDir.replace("${workspaceFolder}", workspacePath) : path.join(buildRootDir, "zig-out/bin");
-    const enableProblemMatcherForTest = config.get<boolean>("enableProblemMatcherForTest", false);
-    const dfltTestArgs = config.get<string[]>(_def.testDebug ? 'testDbgArgs' : 'testArgs', []);
+    const settings = getExtensionSettings();
 
     let def: ZigTaskDefinition = {
       type: 'zig',
       testDebug: _def.testDebug,
       testFilePath: _def.testFilePath,
-      testArgs: _def.testArgs ?? dfltTestArgs,
+      testArgs: _def.testArgs ?? (_def.testDebug ? settings.testDbgArgs : settings.testArgs),
       testFilter: _def.testFilter ?? "",
-      testMainPkgPath: _def.testMainPkgPath ?? buildRootDir,
-      testEmitBin: path.join(testBinDir, _def.testEmitBin ?? `test-${workspaceFolder.name}.exe`),
+      testMainPkgPath: _def.testMainPkgPath ?? settings.buildRootDir,
+      testEmitBin: path.join(settings.testBinDir, _def.testEmitBin ?? `test-${workspaceFolder.name}.exe`),
     };
 
 
-    def.testArgs = (<string[]>def.testArgs).map(a => {
+    def.testArgs = def.testArgs?.map(a => {
       return a
         .replace("${workspaceFolder}", workspacePath)
         .replace("${filename}", def.testFilePath ?? "")
@@ -208,17 +200,17 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       def.testMainPkgPath ? ["--main-pkg-path", `${def.testMainPkgPath}`] : [],
       [
         `-femit-bin=${def.testEmitBin}`,
-        path.relative(buildRootDir, def.testFilePath),
+        path.relative(settings.buildRootDir, def.testFilePath),
       ],
       def.testFilter ? ["--test-filter", `${def.testFilter}`,] : [],
-      def.testArgs,
+      def.testArgs ?? [],
       def.testDebug ? [`--test-no-exec`] : [],
     );
     const shellExec = new vscode.ShellExecution(
-      zigPath,
+      settings.zigPath,
       finalTestArgs,
-      <vscode.ShellExecutionOptions>{
-        cwd: buildRootDir,
+      {
+        cwd: settings.buildRootDir,
       });
     this._channel.appendLine(`Test command: ${finalTestArgs}`);
 
@@ -233,7 +225,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       taskName,
       'zig',
       shellExec,
-      enableProblemMatcherForTest ? ["zig"] : [],
+      settings.enableProblemMatcherForTest ? ["zig"] : [],
     );
     task.detail = taskName;
     task.presentationOptions = presentationOptions ?? <vscode.TaskPresentationOptions>{};

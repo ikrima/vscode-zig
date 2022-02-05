@@ -29,31 +29,33 @@ export interface ExecCmdOptions {
 /** Type returned from execCmd. Is a promise for when the command completes
  *  and also a wrapper to access ChildProcess-like methods.
  */
-export interface ExecutingCmd
-    extends Promise<{ stdout: string; stderr: string }> {
+export interface ExecutingCmd extends Promise<{ stdout: string; stderr: string }> {
     /** The process's stdin */
-    stdin: NodeJS.WritableStream;
+    stdin: NodeJS.WritableStream | null;
     /** End the process */
-    kill();
+    kill: () => void;
     /** Is the process running */
     isRunning: boolean; // tslint:disable-line
 }
 
 /** Executes a command. Shows an error message if the command isn't found */
-export function execCmd
-    (cmd: string, options: ExecCmdOptions = {}): ExecutingCmd {
-
+export function execCmd(cmd: string, options: ExecCmdOptions = {}): ExecutingCmd {
     const { fileName, onStart, onStdout, onStderr, onExit, cmdArguments } = options;
-    let childProcess, firstResponse = true, wasKilledbyUs = false;
+    let firstResponse = true;
+    let wasKilledbyUs = false;
+    let childProcess: cp.ChildProcess;
 
-    const executingCmd: any = new Promise((resolve, reject) => {
-        let cmdArguments = options ? options.cmdArguments : [];
+    let executingCmd: any = new Promise((resolve, reject) => {
+        const cmdArguments = options?.cmdArguments ?? [];
+        const cwd = (fileName ? workspace.getWorkspaceFolder(fileName)?.uri.fsPath : "") ?? "";
+        childProcess = cp.exec(
+            [cmd].concat(...cmdArguments).join(' '),
+            { cwd: cwd },
+            handleExit);
+        executingCmd.stdin = childProcess.stdin;
+        executingCmd.kill = killProcess;
 
-        childProcess =
-            cp.exec(cmd + ' ' + (cmdArguments || []).join(' '), { cwd: workspace.getWorkspaceFolder(fileName).uri.fsPath }, handleExit);
-
-
-        childProcess.stdout.on('data', (data: Buffer) => {
+        childProcess.stdout?.on('data', (data: Buffer) => {
             if (firstResponse && onStart) {
                 onStart();
             }
@@ -63,7 +65,7 @@ export function execCmd
             }
         });
 
-        childProcess.stderr.on('data', (data: Buffer) => {
+        childProcess.stderr?.on('data', (data: Buffer) => {
             if (firstResponse && onStart) {
                 onStart();
             }
@@ -73,7 +75,15 @@ export function execCmd
             }
         });
 
-        function handleExit(err: Error, stdout: string, stderr: string) {
+        function killProcess(): void {
+            wasKilledbyUs = true;
+            if (isWindows) {
+                cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']);
+            } else {
+                childProcess.kill('SIGINT');
+            }
+        }
+        function handleExit(err: cp.ExecException | null, stdout: string, stderr: string): void {
             executingCmd.isRunning = false;
             if (onExit) {
                 onExit();
@@ -105,18 +115,7 @@ export function execCmd
             }
         }
     });
-    executingCmd.stdin = childProcess.stdin;
-    executingCmd.kill = killProcess;
     executingCmd.isRunning = true;
 
     return executingCmd as ExecutingCmd;
-
-    function killProcess() {
-        wasKilledbyUs = true;
-        if (isWindows) {
-            cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']);
-        } else {
-            childProcess.kill('SIGINT');
-        }
-    }
 }

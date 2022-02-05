@@ -2,6 +2,7 @@
 
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
+import { BuildOption, getExtensionSettings } from "./zigSettings";
 
 export function zigBuild(
     textDocument: vscode.TextDocument,
@@ -15,32 +16,24 @@ export function zigBuild(
             ? vscode.workspace.workspaceFolders[0]
             : null);
     if (!workspaceFolder) { return null; }
-
-    const config = vscode.workspace.getConfiguration('zig');
-    const zigPath = config.get<string>("zigPath", 'zig');
-    const extraArgs = config.get<string[]>("buildArgs", []);
-    const buildOption = config.get<string>("buildOption", "build");
+    const settings = getExtensionSettings();
     const workspacePath = workspaceFolder.uri.fsPath;
-    const buildFilePath = config.get<string>("buildFilePath", `${workspacePath}/build.zig`).replace("${workspaceFolder}", workspacePath);
     const cwd = workspacePath;
 
     let processArg: string[] = [];
-    switch (buildOption) {
-        case "build":
-            processArg.push(
-                "--build-file",
-                require("path").resolve(buildFilePath)
-            );
+    switch (settings.buildOption) {
+        case BuildOption.build:
+            processArg.push("--build-file", settings.buildFilePath);
             break;
         default:
             processArg.push(textDocument.fileName);
             break;
     }
-    processArg.push(...extraArgs);
+    processArg.push(...settings.buildArgs);
     logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
-    return cp.execFile(zigPath, processArg, { cwd }, (_err, _stdout, stderr) => {
+    return cp.execFile(settings.zigPath, processArg, { cwd }, (_err, _stdout, stderr) => {
         logChannel.appendLine(stderr);
         var diagnostics: { [id: string]: vscode.Diagnostic[]; } = {};
         let regex = /(\S.*):(\d*):(\d*): ([^:]*): (.*)/g;

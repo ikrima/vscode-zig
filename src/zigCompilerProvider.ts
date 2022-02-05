@@ -3,6 +3,7 @@
 import { zigBuild } from './zigBuild';
 import * as cp from "child_process";
 import * as vscode from "vscode";
+import { getExtensionSettings } from "./zigSettings";
 // This will be treeshaked to only the debounce function
 import { debounce } from "lodash-es";
 
@@ -59,9 +60,9 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(
         (doc) => {
-          let config = vscode.workspace.getConfiguration("zig");
+          const settings = getExtensionSettings();
           if (
-            config.get<boolean>("buildOnSave", false) &&
+            settings.buildOnSave &&
             compiler.dirtyChange.has(doc.uri) &&
             compiler.dirtyChange.get(doc.uri) !== doc.isDirty &&
             !doc.isDirty
@@ -85,7 +86,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   };
 
   private _doASTGenErrorCheck(textDocument: vscode.TextDocument) {
-    let config = vscode.workspace.getConfiguration("zig");
+    const settings = getExtensionSettings();
     if (textDocument.languageId !== "zig") {
       return;
     }
@@ -95,10 +96,9 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     }
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(textDocument.uri);
     if (!workspaceFolder) { return; }
-    const zigPath = config.get<string>("zigPath", 'zig');
     const cwd = workspaceFolder.uri.fsPath;
 
-    let childProcess = cp.spawn(zigPath, ["ast-check"], { cwd });
+    let childProcess = cp.spawn(settings.zigPath, ["ast-check"], { cwd });
 
     if (!childProcess.pid) {
       return;

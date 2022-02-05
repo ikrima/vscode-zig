@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
+import { getExtensionSettings } from "./zigSettings";
 
 export function activate(context: vscode.ExtensionContext) {
   const zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
@@ -41,11 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Disposable> {
-  const config = vscode.workspace.getConfiguration('zig');
-  const zlsPath = config.get<string>('zls.path');
-  const zlsDebugLog = config.get<boolean>('zls.debugLog', false);
+  const settings = getExtensionSettings();
 
-  if (!zlsPath) {
+  if (settings.zlsPath === null || settings.zlsPath.length === 0) {
     vscode.window.showErrorMessage("Failed to find zls executable! Please specify its path in your settings with `zig.path`.");
     return new vscode.Disposable(() => { });
   }
@@ -54,8 +53,8 @@ async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Di
   // Create the language client and start the client.
   const disposables: vscode.Disposable[] = [];
   const serverOptions: ServerOptions = {
-    command: zlsPath,
-    args: zlsDebugLog ? ["--debug-log"] : [],
+    command: settings.zlsPath,
+    args: settings.zlsDebugLog ? ["--debug-log"] : [],
   };
 
   // Options to control the language client

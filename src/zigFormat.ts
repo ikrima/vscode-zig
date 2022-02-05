@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Range, StatusBarItem, TextEdit, OutputChannel, EndOfLine } from 'vscode';
-import { execCmd } from './zigUtil';
+import { execCmd,ExecutingCmd } from './zigUtil';
+import { getExtensionSettings } from "./zigSettings";
 
 export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider {
     private _channel: OutputChannel;
@@ -10,10 +11,11 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
 
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
-        options?: vscode.FormattingOptions,
-        token?: vscode.CancellationToken,
+        _options?: vscode.FormattingOptions,
+        _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
+        const settings = getExtensionSettings();
         return zigFormat(document)
             .then(({ stdout }) => {
                 logger.clear();
@@ -24,16 +26,15 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
                     lastLineId,
                     document.lineAt(lastLineId).text.length,
                 );
-                return [new TextEdit(wholeDocument, stdout),];
+                return [new TextEdit(wholeDocument, stdout)];
             })
             .catch((reason) => {
-                let config = vscode.workspace.getConfiguration('zig');
                 logger.clear();
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (config.get<boolean>("revealLogOnFormattingError", true)) {
+                if (settings.revealLogOnFormattingError) {
                     logger.show(true);
                 }
-                return null;
+                return [];
             });
     }
 }
@@ -47,11 +48,12 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
 
     provideDocumentRangeFormattingEdits(
         document: vscode.TextDocument,
-        range: vscode.Range,
-        options?: vscode.FormattingOptions,
-        token?: vscode.CancellationToken,
+        _range: vscode.Range,
+        _options?: vscode.FormattingOptions,
+        _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
+        const settings = getExtensionSettings();
         return zigFormat(document)
             .then(({ stdout }) => {
                 const lastLineId = document.lineCount - 1;
@@ -64,32 +66,30 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
                 return [new TextEdit(wholeDocument, stdout),];
             })
             .catch((reason) => {
-                const config = vscode.workspace.getConfiguration('zig');
 
                 logger.clear();
                 logger.appendLine(`Formatting Error`);
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (config.get<boolean>("revealLogOnFormattingError", true)) {
+                if (settings.revealLogOnFormattingError) {
                     logger.show(true);
                 }
-                return null;
+                return [];
             });
     }
 }
 
-function zigFormat(document: vscode.TextDocument) {
-    const config = vscode.workspace.getConfiguration('zig');
-    const zigPath = config.get<string>('zigPath', 'zig');
+function zigFormat(document: vscode.TextDocument): ExecutingCmd  {
+    const settings = getExtensionSettings();
 
     const options = {
         cmdArguments: ['fmt', '--stdin'],
         fileName: document.uri,
         notFoundText: 'Could not find zig. Please add zig to your PATH or specify a custom path to the zig binary in your settings.',
     };
-    const format = execCmd(zigPath, options);
+    const format = execCmd(settings.zigPath, options);
 
-    format.stdin.write(document.getText());
-    format.stdin.end();
+    format.stdin?.write(document.getText());
+    format.stdin?.end();
 
     return format;
 }
