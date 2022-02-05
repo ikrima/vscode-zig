@@ -31,7 +31,7 @@ export function getExtensionSettings(): IZigSettings {
 
     let buildRootDir     = config.get<string>("buildRootDir");
     buildRootDir         = buildRootDir?.replace("${workspaceFolder}", workspacePath);
-    buildRootDir         = path.dirname(path.resolve(buildRootDir ?? dfltBuildRootDir));
+    buildRootDir         = path.resolve(buildRootDir ?? dfltBuildRootDir);
 
     let buildFilePath    = config.get<string>("buildFilePath");
     buildFilePath        = buildFilePath?.replace("${workspaceFolder}", workspacePath);
