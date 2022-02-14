@@ -19,13 +19,11 @@ export function activate(context: vscode.ExtensionContext) {
     // zigFormatStatusBar.show();
 
     const logChannel = vscode.window.createOutputChannel('zig');
-    context.subscriptions.push(logChannel);
     const buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
-    context.subscriptions.push(buildDiagnostics);
-
-    zigLangClient.activate(context);
-
     context.subscriptions.push(
+        logChannel,
+        buildDiagnostics,
+        zigLangClient.activate(),
         vscode.languages.registerCodeLensProvider(
             { language: 'zig', scheme: 'file', },
             new ZigCodelensProvider(context),
@@ -35,17 +33,20 @@ export function activate(context: vscode.ExtensionContext) {
             if (!vscode.window.activeTextEditor) { return; }
             zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel);
         }),
-        // vscode.languages.registerCodeActionsProvider(
-        //     { language: 'zig', scheme: 'file' },
-        //     new ZigCompilerProvider(context)
-        // ),
-        // vscode.languages.registerDocumentFormattingEditProvider(
-        //     vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
-        //     new ZigFormatProvider(logChannel),
-        // ),
-        // vscode.languages.registerDocumentRangeFormattingEditProvider(
-        //     vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
-        //     new ZigRangeFormatProvider(logChannel),
-        // ),
     );
+
+    // context.subscriptions.push(
+    //     vscode.languages.registerCodeActionsProvider(
+    //         { language: 'zig', scheme: 'file' },
+    //         new ZigCompilerProvider(context)
+    //     ),
+    //     vscode.languages.registerDocumentFormattingEditProvider(
+    //         vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
+    //         new ZigFormatProvider(logChannel),
+    //     ),
+    //     vscode.languages.registerDocumentRangeFormattingEditProvider(
+    //         vscode.DocumentFilter{ language: 'zig', scheme: 'file' },
+    //         new ZigRangeFormatProvider(logChannel),
+    //     ),
+    // );
 }

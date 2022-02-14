@@ -62,7 +62,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
         (doc) => {
           const settings = getExtensionSettings();
           if (
-            settings.buildOnSave &&
+            settings.misc.buildOnSave &&
             compiler.dirtyChange.has(doc.uri) &&
             compiler.dirtyChange.get(doc.uri) !== doc.isDirty &&
             !doc.isDirty
@@ -98,7 +98,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     if (!workspaceFolder) { return; }
     const cwd = workspaceFolder.uri.fsPath;
 
-    let childProcess = cp.spawn(settings.zigPath, ["ast-check"], { cwd });
+    let childProcess = cp.spawn(settings.binPath, ["ast-check"], { cwd });
 
     if (!childProcess.pid) {
       return;

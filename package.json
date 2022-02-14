@@ -26,14 +26,14 @@
       {
         "type": "zig",
         "required": [
-          "testDebug"
+          "isDebugTask"
         ],
         "properties": {
-          "testDebug": {
+          "isDebugTask": {
             "type": "boolean",
             "description": "Run in debug mode"
           },
-          "testFilePath": {
+          "srcFilePath": {
             "type": "string",
             "description": "The file path to the zig source code to filter the test. Can be omitted."
           },
@@ -41,15 +41,19 @@
             "type": "array",
             "description": "Additional args to pass \"zig test\""
           },
+          "debugArgs": {
+            "type": "array",
+            "description": "Additional args to pass \"zig test\""
+          },
           "testFilter": {
             "type": "string",
             "description": "Test name to filter against"
           },
-          "testMainPkgPath": {
+          "mainPkgPath": {
             "type": "string",
             "description": "The file path to output the test to. Can be omitted."
           },
-          "testEmitBin": {
+          "emitBinPath": {
             "type": "string",
             "description": "The file path to output the test to. Can be omitted."
           }
@@ -94,12 +98,12 @@
       "type": "object",
       "title": "zig",
       "properties": {
-        "zig.zigPath": {
+        "zig.binPath": {
           "type": "string",
           "default": "zig.exe",
           "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
         },
-        "zig.zls.path": {
+        "zig.zls.binPath": {
           "scope": "resource",
           "type": "string",
           "default": "zls.exe",
@@ -122,17 +126,17 @@
           "default": "off",
           "description": "Traces the communication between VS Code and the language server."
         },
-        "zig.buildRootDir": {
+        "zig.build.rootDir": {
           "type": "string",
           "default": "${workspaceFolder}",
           "description": "The zig build root directory."
         },
-        "zig.buildFilePath": {
+        "zig.build.buildFile": {
           "type": "string",
           "default": "${workspaceFolder}/build.zig",
           "description": "The path to build.zig. This is only required if zig.buildOptions = build."
         },
-        "zig.buildOption": {
+        "zig.build.artifact": {
           "type": "string",
           "enum": [
             "build",
@@ -143,7 +147,7 @@
           "default": "build",
           "description": "Which build command Zig should use to build the code."
         },
-        "zig.buildArgs": {
+        "zig.build.extraArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -151,20 +155,20 @@
           "default": [],
           "description": "Extra arguments to passed to Zig."
         },
-        "zig.testBinDir": {
+        "zig.task.binDir": {
           "type": "string",
           "default": null,
           "description": "Test bin output path."
         },
-        "zig.testArgs": {
+        "zig.task.testArgs": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
-          "description": "Additional flags to pass \"zig test\""
+          "description": "Workspace Default additional flags to pass \"zig test\""
         },
-        "zig.testDbgArgs": {
+        "zig.task.debugArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -172,17 +176,17 @@
           "default": [],
           "markdownDescription": "Additional flags to to pass \"zig test\" in debug mode"
         },
-        "zig.buildOnSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Compiles code on file save using the settings specified in 'Build Option'."
-        },
-        "zig.enableProblemMatcherForTest": {
+        "zig.task.enableProblemMatcher": {
           "type": "boolean",
           "default": true,
           "description": "Highlight lines where tests failed"
         },
-        "zig.revealLogOnFormattingError": {
+        "zig.misc.buildOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compiles code on file save using the settings specified in 'Build Option'."
+        },
+        "zig.misc.revealOnFormatError": {
           "type": "boolean",
           "default": true,
           "description": "Should output channel be raised on formatting error."

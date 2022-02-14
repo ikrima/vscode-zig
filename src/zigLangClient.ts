@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+const { fs } = vscode.workspace;
 import { LanguageClient, LanguageClientOptions, ServerOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
 import { getExtensionSettings } from "./zigSettings";
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(): vscode.Disposable {
   const zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
   let activeServers: Promise<vscode.Disposable>[] = [];
   startServer();
@@ -23,18 +24,16 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }
 
-  // register commands
-  context.subscriptions.push(
+  return vscode.Disposable.from(
+    // register commands
     vscode.commands.registerCommand("zig.zls.start", () => startServer()),
     vscode.commands.registerCommand("zig.zls.stop", async () => await stopServers()),
     vscode.commands.registerCommand("zig.zls.restart", async () => {
       await stopServers();
       startServer();
     }),
-  );
 
-  // stop server on deactivate
-  vscode.Disposable.from(
+    // stop server on deactivate
     new vscode.Disposable(stopServers),
     zlsChannel,
   );
@@ -44,17 +43,21 @@ export function activate(context: vscode.ExtensionContext) {
 async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Disposable> {
   const settings = getExtensionSettings();
 
-  if (settings.zlsPath === null || settings.zlsPath.length === 0) {
-    vscode.window.showErrorMessage("Failed to find zls executable! Please specify its path in your settings with `zig.path`.");
+  try {
+    await fs.stat(vscode.Uri.file(settings.zls.binPath));
+  } catch (err) {
+    const errorMessage = `Failed to find zls executable ${settings.zls.binPath}!`;
+    vscode.window.showErrorMessage(errorMessage);
+    zlsChannel.appendLine(errorMessage);
+    zlsChannel.appendLine("Please specify its path in your settings with 'zig.zls.binPath'.");
+    if (err) { zlsChannel.appendLine(`  Error: ${err}`); }
+    zlsChannel.show();
     return new vscode.Disposable(() => { });
   }
-
-
   // Create the language client and start the client.
-  const disposables: vscode.Disposable[] = [];
   const serverOptions: ServerOptions = {
-    command: settings.zlsPath,
-    args: settings.zlsDebugLog ? ["--debug-log"] : [],
+    command: settings.zls.binPath,
+    args: settings.zls.debugLog ? ["--debug-log"] : [],
   };
 
   // Options to control the language client
@@ -71,7 +74,7 @@ async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Di
     clientOptions
   );
 
-  disposables.push(client.start());
+  const disposable = client.start();
   await client.onReady();
-  return new vscode.Disposable(() => disposables.forEach(d => d.dispose()));
+  return disposable;
 }
