@@ -1,7 +1,9 @@
+'use strict';
+
 import * as vscode from 'vscode';
 const { fs } = vscode.workspace;
 import { LanguageClient, LanguageClientOptions, ServerOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
-import { getExtensionSettings } from "./zigSettings";
+import { ZigExtSettings } from "./zigSettings";
 
 export function activate(): vscode.Disposable {
   const zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
@@ -41,28 +43,28 @@ export function activate(): vscode.Disposable {
 
 
 async function _startServer(zlsChannel: vscode.OutputChannel): Promise<vscode.Disposable> {
-  const settings = getExtensionSettings();
+  const extSettings = ZigExtSettings.getSettings();
 
   try {
-    await fs.stat(vscode.Uri.file(settings.zls.binPath));
+    await fs.stat(vscode.Uri.file(extSettings.zlsBinPath));
   } catch (err) {
-    const errorMessage = `Failed to find zls executable ${settings.zls.binPath}!`;
+    const errorMessage = `Failed to find zls executable ${extSettings.zlsBinPath}!`;
     vscode.window.showErrorMessage(errorMessage);
     zlsChannel.appendLine(errorMessage);
-    zlsChannel.appendLine("Please specify its path in your settings with 'zig.zls.binPath'.");
+    zlsChannel.appendLine("Please specify its path in your settings with `zig.zls.binPath`.");
     if (err) { zlsChannel.appendLine(`  Error: ${err}`); }
     zlsChannel.show();
     return new vscode.Disposable(() => { });
   }
   // Create the language client and start the client.
   const serverOptions: ServerOptions = {
-    command: settings.zls.binPath,
-    args: settings.zls.debugLog ? ["--debug-log"] : [],
+    command: extSettings.zlsBinPath,
+    args: extSettings.zlsDebugLog ? ["--debug-log"] : [],
   };
 
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'zig' }],
+    documentSelector: [{ language: ZigExtSettings.languageId, scheme: 'file' }],
     outputChannel: zlsChannel,
     revealOutputChannelOn: RevealOutputChannelOn.Never,
   };

@@ -1,3 +1,5 @@
+'use strict';
+
 import * as cp from 'child_process';
 import { Uri, window, workspace } from 'vscode';
 

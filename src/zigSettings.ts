@@ -1,138 +1,334 @@
-"use strict";
+'use strict';
 
 import * as vscode from "vscode";
 import * as path from 'path';
+import * as os from 'os';
 import * as process from 'process';
 
-export const enum BuildArtifact {
-    build = "build",
-    buildExe = "build-exe",
-    buildLib = "build-lib",
-    buildObj = "build-obj",
-}
-export interface IZigSettings {
-    binPath: string;
-    zls: {
-        binPath:  string;
-        debugLog: boolean;
-    };
-    build: {
-        rootDir:   string;
-        buildFile: string;
-        artifact:  BuildArtifact;
-        extraArgs: string[];
-    };
-    task: {
-        binDir:               string;
-        testArgs:             string[];
-        debugArgs:            string[];
-        enableProblemMatcher: boolean;
-    };
-    misc: {
-        buildOnSave:         boolean;
-        revealOnFormatError: boolean;
-    };
-}
+export type  VariableContext = { [key: string]: string | undefined };
+export const isWindows       = process.platform === 'win32';
+export const envDelimiter    = isWindows ? ";" : ":";
+export function isString            (input: any):   input is string                  { return typeof (input) === "string"            ; }
+export function isArray             (input: any):   input is any[]                   { return input instanceof Array                 ; }
+export function isArrayOfString     (input: any):   input is string[]                { return isArray(input) && input.every(isString); }
+export function findWorkspaceFolder (name: string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
+export function isZigFile           (uri: vscode.Uri | undefined): boolean           { return uri ? ".zig" === path.extname(uri.fsPath).toLowerCase() : false; }
 
-export function getExtensionSettings(): IZigSettings {
-    const config           = vscode.workspace.getConfiguration('zig');
+export function resolveVariables(input: string, baseContext?: VariableContext): string {
+    if (!input) { return ""; }
+    const config                    = vscode.workspace.getConfiguration();
+    const workspaceFolders          = vscode.workspace.workspaceFolders;
+    const activeEditor              = vscode.window.activeTextEditor;
 
-    const dfltBuildRootDir = vscode.workspace.workspaceFolders ? path.normalize(vscode.workspace.workspaceFolders[0].uri.fsPath) : "";
-    const _buildRootDir    = path.normalize(getConfigVar(config, "build.rootDir", dfltBuildRootDir));
-    let   _buildArtifact   = BuildArtifact.build;
-    switch (config.get<string>("build.artifact", "build")) {
-        case "build":     _buildArtifact = BuildArtifact.build; break;
-        case "build-exe": _buildArtifact = BuildArtifact.buildExe; break;
-        case "build-lib": _buildArtifact = BuildArtifact.buildLib; break;
-        case "build-obj": _buildArtifact = BuildArtifact.buildObj; break;
-    }
-    return {
-        binPath: path.normalize(getConfigVar(config, "binPath", "zig.exe")),
-        zls:   {
-            binPath:  path.normalize(getConfigVar(config, "zls.binPath", "zls.exe")),
-            debugLog: config.get<boolean>("zls.debugLog", false),
-        },
-        build: {
-            rootDir:   _buildRootDir,
-            buildFile: path.normalize(getConfigVar(config, "build.buildFile", path.join(_buildRootDir, "build.zig"))),
-            artifact:  _buildArtifact,
-            extraArgs: getConfigVarArray(config, "build.extraArgs"),
-        },
-        task: {
-            binDir:               path.normalize(getConfigVar(config, "task.binDir", path.join(_buildRootDir, "zig-out/bin"))),
-            testArgs:             getConfigVarArray(config, "task.testArgs"),
-            debugArgs:            getConfigVarArray(config, "task.debugArgs"),
-            enableProblemMatcher: config.get<boolean>("task.enableProblemMatcher", true),
-        },
-        misc: {
-            buildOnSave:         config.get<boolean>("misc.buildOnSave", false),
-            revealOnFormatError: config.get<boolean>("misc.revealOnFormatError", true),
-        },
-    };
-}
+    const varCtx: VariableContext = {};
+    if (baseContext) { Object.assign(varCtx, baseContext); }
+    varCtx.workspaceFolder          = varCtx.workspaceFolder          ?? workspaceFolders?.[0].uri.fsPath;
+    varCtx.workspaceFolderBasename  = varCtx.workspaceFolderBasename  ?? workspaceFolders?.[0].name;
+    varCtx.file                     = varCtx.file                     ?? activeEditor?.document.uri.fsPath;
+    varCtx.fileWorkspaceFolder      = varCtx.fileWorkspaceFolder      ?? (varCtx.file          ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(varCtx.file))?.uri.fsPath : undefined);
+    varCtx.relativeFile             = varCtx.relativeFile             ?? (varCtx.file          ? vscode.workspace.asRelativePath(vscode.Uri.file(varCtx.file))                 : undefined);
+    varCtx.relativeFileDirname      = varCtx.relativeFileDirname      ?? (varCtx.relativeFile  ? path.dirname  (varCtx.relativeFile )     : undefined);
+    varCtx.fileBasename             = varCtx.fileBasename             ?? (varCtx.file          ? path.basename (varCtx.file         )     : undefined);
+    varCtx.fileExtname              = varCtx.fileExtname              ?? (varCtx.fileBasename  ? path.extname  (varCtx.fileBasename )     : undefined);
+    varCtx.fileBasenameNoExtension  = varCtx.fileBasenameNoExtension  ?? (varCtx.file          ? path.parse    (varCtx.file         ).ext : undefined);
+    varCtx.fileDirname              = varCtx.fileDirname              ?? (varCtx.file          ? path.dirname  (varCtx.file         )     : undefined);
+    varCtx.cwd                      = varCtx.cwd                      ?? varCtx.fileDirname;
+    varCtx.lineNumber               = varCtx.lineNumber               ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
+    varCtx.selectedText             = varCtx.selectedText             ?? activeEditor?.document.getText(activeEditor.selection);
+    varCtx.execPath                 = varCtx.execPath                 ?? process.execPath;
+    varCtx.pathSeparator            = varCtx.pathSeparator            ?? path.sep;
 
 
-
-export function resolveVsCodeVars(rawString: string, recursive: boolean = false): string {
-    if (rawString.search(
-        /\${(workspaceFolder|workspaceFolderBasename|fileWorkspaceFolder|relativeFile|fileBasename|fileBasenameNoExtension|fileExtname|fileDirname|cwd|pathSeparator|lineNumber|selectedText|env:(.*?)|config:(.*?))}/
-    ) === -1) {
-        return rawString;
+    // // Replace environment and configuration variables.
+    // let regexp: () => RegExp = () => /\$\{((env|config|workspaceFolder|file|fileDirname|fileBasenameNoExtension|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
+    const varRegEx: () => RegExp = () => /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
+    let ret: string = input;
+    const cycleCache: Set<string> = new Set();
+    while (!cycleCache.has(ret)) {
+        cycleCache.add(ret);
+        ret = ret.replace(varRegEx(), (match: string, _1: string, varType: string, _3: string, name: string) => {
+            let newValue: string | undefined;
+            switch (varType) {
+                case "env":                     { newValue = varCtx[name] ?? process.env[name]; break; }
+                case "config":                  { newValue = config.get<string>(name); break; }
+                case "workspaceFolder":         { newValue = name ? findWorkspaceFolder(name)?.uri.fsPath : varCtx.workspaceFolder;         break; }
+                case "workspaceFolderBasename": { newValue = name ? findWorkspaceFolder(name)?.name       : varCtx.workspaceFolderBasename; break; }
+                default:                        { newValue = varCtx[name]                   ; break; }
+                // case "file":                    { newValue = varCtx.file                    ; break; }
+                // case "fileWorkspaceFolder":     { newValue = varCtx.fileWorkspaceFolder     ; break; }
+                // case "relativeFile":            { newValue = varCtx.relativeFile            ; break; }
+                // case "relativeFileDirname":     { newValue = varCtx.relativeFileDirname     ; break; }
+                // case "fileBasename":            { newValue = varCtx.fileBasename            ; break; }
+                // case "fileBasenameNoExtension": { newValue = varCtx.fileBasenameNoExtension ; break; }
+                // case "fileDirname":             { newValue = varCtx.fileDirname             ; break; }
+                // case "fileExtname":             { newValue = varCtx.fileExtname             ; break; }
+                // case "cwd":                     { newValue = varCtx.cwd                     ; break; }
+                // case "lineNumber":              { newValue = varCtx.lineNumber              ; break; }
+                // case "selectedText":            { newValue = varCtx.selectedText            ; break; }
+                // case "execPath":                { newValue = varCtx.execPath                ; break; }
+                // case "pathSeparator":           { newValue = varCtx.pathSeparator           ; break; }
+                // default:                        { vscode.window.showErrorMessage(`unknown variable to resolve: ${match}`); }
+            }
+            return newValue ?? match;
+        });
     }
 
-    let result = rawString;
-    if (vscode.workspace.workspaceFolders) {
-        const workspace = vscode.workspace.workspaceFolders[0];
-        result = result
-            .replace(/\${workspaceFolder}/g, workspace.uri.fsPath)
-            .replace(/\${workspaceFolderBasename}/g, workspace.name);
+    // Resolve '~' at the start of the path
+    ret = ret.replace(/^\~/g, (_match: string, _name: string) => os.homedir());
+    return ret;
+
+
+
+
+    // const findWorkspaceFolder       = (name: string): vscode.WorkspaceFolder | undefined => {
+    //     return workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase());
+    // };
+    // const selection                 = vscode.window.activeTextEditor?.selection;
+    // const activeFile                = activeEditor?.document;
+    // const activeFilePath            = activeFile        ? path.parse(activeFile.uri.fsPath)                               : undefined;
+    // const activeFileRelPath         = activeFile        ? vscode.workspace.asRelativePath(activeFile.uri)                 : undefined;
+    // const activeFileRelDir          = activeFileRelPath ? path.parse(activeFileRelPath).dir                               : undefined;
+    // const activeFileFolderName      = activeFile        ? vscode.workspace.getWorkspaceFolder(activeFile.uri)?.uri.fsPath : undefined;
+    // if (!varCtx["workspaceFolder"]         && workspaceFolders        ) { varCtx["workspaceFolder"]          = workspaceFolders[0].uri.fsPath;        }
+    // if (!varCtx["workspaceFolderBasename"] && workspaceFolders        ) { varCtx["workspaceFolderBasename"]  = workspaceFolders[0].name;              }
+    // if (!varCtx["file"]                    && activeFile              ) { varCtx["file"]                     = activeFile.uri.fsPath;                 }
+    // if (!varCtx["fileWorkspaceFolder"]     && activeFileFolderName    ) { varCtx["fileWorkspaceFolder"]      = activeFileFolderName ;                 }
+    // if (!varCtx["relativeFile"]            && activeFileRelPath       ) { varCtx["relativeFile"]             = activeFileRelPath;                     }
+    // if (!varCtx["relativeFileDirname"]     && activeFileRelDir        ) { varCtx["relativeFileDirname"]      = activeFileRelDir;                      }
+    // if (!varCtx["fileBasename"]            && activeFilePath          ) { varCtx["fileBasename"]             = activeFilePath.base;                   }
+    // if (!varCtx["fileBasenameNoExtension"] && activeFilePath          ) { varCtx["fileBasenameNoExtension"]  = activeFilePath.name;                   }
+    // if (!varCtx["fileDirname"]             && activeFilePath          ) { varCtx["fileDirname"]              = activeFilePath.dir;                    }
+    // if (!varCtx["fileExtname"]             && activeFilePath          ) { varCtx["fileExtname"]              = activeFilePath.ext;                    }
+    // if (!varCtx["cwd"]                     && activeFilePath          ) { varCtx["cwd"]                      = activeFilePath.dir;                    }
+    // if (!varCtx["lineNumber"]              && selection               ) { varCtx["lineNumber"]               = (selection.start.line + 1).toString(); }
+    // if (!varCtx["selectedText"]            && activeFile && selection ) { varCtx["selectedText"]             = activeFile.getText(selection);         }
+    // if (!varCtx["execPath"]                                           ) { varCtx["execPath"]                 = execPath;                              }
+    // if (!varCtx["pathSeparator"]                                      ) { varCtx["pathSeparator"]            = pathSeparator;                         }
+
+    //     if (rawString.search(
+    //         /\${(workspaceFolder|workspaceFolderBasename|fileWorkspaceFolder|relativeFile|fileBasename|fileBasenameNoExtension|fileExtname|fileDirname|cwd|pathSeparator|lineNumber|selectedText|env:(.*?)|config:(.*?))}/
+    //     ) === -1) {
+    //         return rawString;
+    //     }
+    //     let result = rawString;
+    //     if (vscode.workspace.workspaceFolders) {
+    //         const workspace = vscode.workspace.workspaceFolders[0];
+    //         result = result
+    //             .replace(/\${workspaceFolder}/g, workspace.uri.fsPath)
+    //             .replace(/\${workspaceFolderBasename}/g, workspace.name);
+    //     }
+    //     if (vscode.window.activeTextEditor) {
+    //         const editor = vscode.window.activeTextEditor;
+    //         const selection = editor.selection;
+    //         const filePath = editor.document.uri.fsPath;
+    //         const parsedPath = path.parse(filePath);
+    //         const relFilePath = vscode.workspace.asRelativePath(editor.document.uri);
+    //         const fileWorkspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri)?.uri.fsPath ?? "";
+    //         result = result
+    //             .replace(/\${file}/g,                    filePath)
+    //             .replace(/\${fileWorkspaceFolder}/g,     fileWorkspaceFolder)
+    //             .replace(/\${relativeFile}/g,            relFilePath)
+    //             .replace(/\${relativeFileDirname}/g,     relFilePath.substring(0, relFilePath.lastIndexOf(path.sep)))
+    //             .replace(/\${fileBasename}/g,            parsedPath.base)
+    //             .replace(/\${fileBasenameNoExtension}/g, parsedPath.name)
+    //             .replace(/\${fileExtname}/g,             parsedPath.ext)
+    //             .replace(/\${fileDirname}/g,             parsedPath.dir.substring(parsedPath.dir.lastIndexOf(path.sep) + 1))
+    //             .replace(/\${cwd}/g,                     parsedPath.dir)
+    //             .replace(/\${pathSeparator}/g,           path.sep)
+    //             .replace(/\${lineNumber}/g,              (selection.start.line + 1).toString())
+    //             .replace(/\${selectedText}/g,            editor.document.getText(new vscode.Range(selection.start, selection.end)));
+    //     }
+    //     // Resolve environment variables
+    //     result = result.replace(/\${env:(.*?)}/g, (envVar: string) => {
+    //         const envKey = envVar.match(/\${env:(.*?)}/)?.[1];
+    //         const envVal = envKey ? process.env[envKey] : undefined;
+    //         return envVal ?? "";
+    //     });
+    //     // Resolve config variables
+    //     const config = vscode.workspace.getConfiguration();
+    //     result = result.replace(/\${config:(.*?)}/g, (envVar: string) => {
+    //         const envKey = envVar.match(/\${config:(.*?)}/)?.[1];
+    //         return envKey ? config.get(envKey, "") : "";
+    //     });
+    //     return recursive ? ExtSettings.resolveVars(result, recursive) : result;
+}
+
+
+class ExtSettings {
+    private readonly config: vscode.WorkspaceConfiguration;
+    constructor(section: string, public resource?: vscode.Uri) {
+        this.config = vscode.workspace.getConfiguration(section, resource ? resource : null);
     }
 
-    if (vscode.window.activeTextEditor) {
-        const editor = vscode.window.activeTextEditor;
-        const selection = editor.selection;
-        const filePath = editor.document.uri.fsPath;
-        const parsedPath = path.parse(filePath);
-        const relFilePath = vscode.workspace.asRelativePath(editor.document.uri);
-        const fileWorkspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri)?.uri.fsPath ?? "";
-
-        result = result
-            .replace(/\${file}/g, filePath)
-            .replace(/\${fileWorkspaceFolder}/g, fileWorkspaceFolder)
-            .replace(/\${relativeFile}/g, relFilePath)
-            .replace(/\${relativeFileDirname}/g, relFilePath.substring(0, relFilePath.lastIndexOf(path.sep)))
-            .replace(/\${fileBasename}/g, parsedPath.base)
-            .replace(/\${fileBasenameNoExtension}/g, parsedPath.name)
-            .replace(/\${fileExtname}/g, parsedPath.ext)
-            .replace(/\${fileDirname}/g, parsedPath.dir.substring(parsedPath.dir.lastIndexOf(path.sep) + 1))
-            .replace(/\${cwd}/g, parsedPath.dir)
-            .replace(/\${pathSeparator}/g, path.sep)
-            .replace(/\${lineNumber}/g, (selection.start.line + 1).toString())
-            .replace(/\${selectedText}/g, editor.document.getText(new vscode.Range(selection.start, selection.end)));
+    public getWithFallback<T>(section: string, defaultValue: T): T {
+        return this.config.get<T>(section, defaultValue);
+    }
+    public getResolved<T>(section: string, defaultVal: T): string | T {
+        let configVal = this.config.get<string>(section);
+        return configVal ? resolveVariables(configVal) : defaultVal;
+    }
+    public getResolvedArray(section: string): string[] {
+        return this.config.get<string[]>(section, []).map(configVal => {
+            return resolveVariables(configVal);
+        });
+    }
+    public getResolvedPath(section: string, defaultVal: string): string {
+        return path.normalize(this.getResolved(section, defaultVal));
     }
 
-    // Resolve environment variables
-    result = result.replace(/\${env:(.*?)}/g, (envVar: string) => {
-        const envKey = envVar.match(/\${env:(.*?)}/)?.[1];
-        const envVal = envKey ? process.env[envKey] : undefined;
-        return envVal ?? "";
-    });
+    // public getWithDefault<T>(section: string): T {
+    //     const info: any = this.config.inspect<T>(section);
+    //     if (info.workspaceFolderValue !== undefined) {
+    //         return info.workspaceFolderValue;
+    //     } else if (info.workspaceValue !== undefined) {
+    //         return info.workspaceValue;
+    //     } else if (info.globalValue !== undefined) {
+    //         return info.globalValue;
+    //     }
+    //     return info.defaultValue;
+    // }
+    // protected getWithNullAsUndefined<T>(section: string): T | undefined {
+    //     const result: T | undefined | null = this.config.get<T>(section);
+    //     if (result === null) {
+    //         return undefined;
+    //     }
+    //     return result;
+    // }
 
-    // Resolve config variables
-    const config = vscode.workspace.getConfiguration();
-    result = result.replace(/\${config:(.*?)}/g, (envVar: string) => {
-        const envKey = envVar.match(/\${config:(.*?)}/)?.[1];
-        return envKey ? config.get(envKey, "") : "";
-    });
+    // public getWithUndefinedDefault<T>(section: string): T | undefined {
+    //     const info: any = this.config.inspect<T>(section);
+    //     if (info.workspaceFolderValue !== undefined) {
+    //         return info.workspaceFolderValue;
+    //     } else if (info.workspaceValue !== undefined) {
+    //         return info.workspaceValue;
+    //     } else if (info.globalValue !== undefined) {
+    //         return info.globalValue;
+    //     }
+    //     return undefined;
+    // }
 
-    return recursive ? resolveVsCodeVars(result, recursive) : result;
+    // public getEnum<T>(section: string): T {
+    //     let configVal = this.config.get<string>(section);
+    //     type BuildStepKeys = keyof typeof BuildStep; // Equiv to: type BuildStepKeys = 'buildFile' | 'buildExe' | 'buildLib' | 'buildObj';
+    //     type BuildStepMap = { [P in BuildStepKeys]: number; }; // will have strongly typed keys
+    //     declare const color: BuildStep;
+    //     declare const buildStepMap: BuildStepMap;
+    //     return buildStepMap[configVal];
+    // }
 }
-export function getConfigVar<T>(config: vscode.WorkspaceConfiguration, section: string, defaultVal: T): string | T {
-    let configVal = config.get<string>(section);
-    return configVal ? resolveVsCodeVars(configVal, false) : defaultVal;
+
+
+export const enum BuildStep {
+    buildFile,
+    buildExe,
+    buildLib,
+    buildObj,
 }
-export function getConfigVarArray(config: vscode.WorkspaceConfiguration, section: string): string[] {
-    return config.get<string[]>(section, []).map(configVal => {
-        return resolveVsCodeVars(configVal, false);
-    });
-}
+
+export class ZigExtSettings extends ExtSettings {
+    public  static readonly languageId       = 'zig';
+    private static readonly dfltBuildRootDir = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
+    private static _cached?: ZigExtSettings;
+    private _zigBinPath?               : string   ;
+    private _zlsBinPath?               : string   ;
+    private _zlsDebugLog?              : boolean  ;
+    private _buildRootDir?             : string   ;
+    private _buildBuildFile?           : string   ;
+    private _buildBuildStep?           : BuildStep;
+    private _buildExtraArgs?           : string[] ;
+    private _taskBinDir?               : string   ;
+    private _taskTestArgs?             : string[] ;
+    private _taskDebugArgs?            : string[] ;
+    private _taskEnableProblemMatcher? : boolean  ;
+    private _miscBuildOnSave?          : boolean  ;
+    private _miscRevealOnFormatError?  : boolean  ;
+
+    constructor(resource?: vscode.Uri) { super('zig', resource); }
+
+    public get zigBinPath               (): string         { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
+    public get zlsBinPath               (): string         { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
+    public get zlsDebugLog              (): boolean        { if (!this._zlsDebugLog              ) { this._zlsDebugLog              = super.getWithFallback  ("zls.debugLog"             , false                             ); } return this._zlsDebugLog;              }
+    public get buildRootDir             (): string         { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , ZigExtSettings.dfltBuildRootDir   ); } return this._buildRootDir;             }
+    public get buildBuildFile           (): string         { if (!this._buildBuildFile           ) { this._buildBuildFile           = super.getResolvedPath  ("build.buildFile"          , `${this.buildRootDir}/build.zig`  ); } return this._buildBuildFile;           }
+    public get buildBuildStep           (): BuildStep      { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
+    public get buildExtraArgs           (): string[]       { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }
+    public get taskBinDir               (): string         { if (!this._taskBinDir               ) { this._taskBinDir               = super.getResolvedPath  ("task.binDir"              , `${this.buildRootDir}/zig-out/bin`); } return this._taskBinDir;               }
+    public get taskTestArgs             (): string[]       { if (!this._taskTestArgs             ) { this._taskTestArgs             = super.getResolvedArray ("task.testArgs"                                                ); } return this._taskTestArgs;             }
+    public get taskDebugArgs            (): string[]       { if (!this._taskDebugArgs            ) { this._taskDebugArgs            = super.getResolvedArray ("task.debugArgs"                                               ); } return this._taskDebugArgs;            }
+    public get taskEnableProblemMatcher (): boolean        { if (!this._taskEnableProblemMatcher ) { this._taskEnableProblemMatcher = super.getWithFallback  ("task.enableProblemMatcher", true                              ); } return this._taskEnableProblemMatcher; }
+    public get miscBuildOnSave          (): boolean        { if (!this._miscBuildOnSave          ) { this._miscBuildOnSave          = super.getWithFallback  ("misc.buildOnSave"         , false                             ); } return this._miscBuildOnSave;          }
+    public get miscRevealOnFormatError  (): boolean        { if (!this._miscRevealOnFormatError  ) { this._miscRevealOnFormatError  = super.getWithFallback  ("misc.revealOnFormatError" , true                              ); } return this._miscRevealOnFormatError;  }
+
+
+    public static getSettings(forceReload?: boolean): ZigExtSettings {
+        if (forceReload) {
+            return new ZigExtSettings();
+        }
+        else {
+            if (!ZigExtSettings._cached) { ZigExtSettings._cached = new ZigExtSettings(); }
+            return ZigExtSettings._cached;
+        }
+    }
+
+};
+
+
+// interface IZigSettings {
+//     zigBinPath: string;
+//     zls: {
+//         binPath:  string;
+//         debugLog: boolean;
+//     };
+//     build: {
+//         rootDir:   string;
+//         buildFile: string;
+//         buildStep: BuildStep;
+//         extraArgs: string[];
+//     };
+//     task: {
+//         binDir:               string;
+//         testArgs:             string[];
+//         debugArgs:            string[];
+//         enableProblemMatcher: boolean;
+//     };
+//     misc: {
+//         buildOnSave:         boolean;
+//         revealOnFormatError: boolean;
+//     };
+// }
+// function getExtensionSettings(): IZigSettings {
+//     const config           = ZigExtSettings.getSettings();
+
+//     const dfltBuildRootDir = vscode.workspace.workspaceFolders ? path.normalize(vscode.workspace.workspaceFolders[0].uri.fsPath) : "";
+//     const _buildRootDir    = path.normalize(config.getResolved("build.rootDir", dfltBuildRootDir));
+//     let   _buildStep   = BuildStep.buildFile;
+//     switch (config.getWithFallback<string>("build.buildStep", "build")) {
+//         case "build":     _buildStep = BuildStep.buildFile; break;
+//         case "build-exe": _buildStep = BuildStep.buildExe; break;
+//         case "build-lib": _buildStep = BuildStep.buildLib; break;
+//         case "build-obj": _buildStep = BuildStep.buildObj; break;
+//     }
+//     return {
+//         zigBinPath: path.normalize(config.getResolved("binPath", "zig.exe")),
+//         zls:   {
+//             binPath:  path.normalize(config.getResolved("zls.binPath", "zls.exe")),
+//             debugLog: config.getWithFallback<boolean>("zls.debugLog", false),
+//         },
+//         build: {
+//             rootDir:   _buildRootDir,
+//             buildFile: path.normalize(config.getResolved("build.buildFile", path.join(_buildRootDir, "build.zig"))),
+//             buildStep:  _buildStep,
+//             extraArgs: config.getResolvedArray("build.extraArgs"),
+//         },
+//         task: {
+//             binDir:               path.normalize(config.getResolved("task.binDir", path.join(_buildRootDir, "zig-out/bin"))),
+//             testArgs:             config.getResolvedArray("task.testArgs"),
+//             debugArgs:            config.getResolvedArray("task.debugArgs"),
+//             enableProblemMatcher: config.getWithFallback<boolean>("task.enableProblemMatcher", true),
+//         },
+//         misc: {
+//             buildOnSave:         config.getWithFallback<boolean>("misc.buildOnSave", false),
+//             revealOnFormatError: config.getWithFallback<boolean>("misc.revealOnFormatError", true),
+//         },
+//     };
+// }

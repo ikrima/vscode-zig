@@ -100,24 +100,25 @@
       "properties": {
         "zig.binPath": {
           "type": "string",
+          "scope": "window",
           "default": "zig.exe",
           "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
         },
         "zig.zls.binPath": {
-          "scope": "resource",
           "type": "string",
+          "scope": "window",
           "default": "zls.exe",
           "description": "Path to `zls` executable. Example: `C:/zls/zig-cache/bin/zls.exe`."
         },
         "zig.zls.debugLog": {
-          "scope": "resource",
           "type": "boolean",
+          "scope": "window",
           "default": false,
           "description": "Enable debug logging in release builds of zls."
         },
         "zlsClient.trace.server": {
-          "scope": "window",
           "type": "string",
+          "scope": "window",
           "enum": [
             "off",
             "messages",
@@ -128,27 +129,31 @@
         },
         "zig.build.rootDir": {
           "type": "string",
+          "scope": "resource",
           "default": "${workspaceFolder}",
           "description": "The zig build root directory."
         },
         "zig.build.buildFile": {
           "type": "string",
+          "scope": "resource",
           "default": "${workspaceFolder}/build.zig",
           "description": "The path to build.zig. This is only required if zig.buildOptions = build."
         },
-        "zig.build.artifact": {
+        "zig.build.buildStep": {
           "type": "string",
+          "scope": "resource",
           "enum": [
-            "build",
-            "build-exe",
-            "build-lib",
-            "build-obj"
+            "buildFile",
+            "buildExe",
+            "buildLib",
+            "buildObk"
           ],
-          "default": "build",
+          "default": "buildFile",
           "description": "Which build command Zig should use to build the code."
         },
         "zig.build.extraArgs": {
           "type": "array",
+          "scope": "resource",
           "items": {
             "type": "string"
           },
@@ -157,11 +162,13 @@
         },
         "zig.task.binDir": {
           "type": "string",
+          "scope": "resource",
           "default": null,
           "description": "Test bin output path."
         },
         "zig.task.testArgs": {
           "type": "array",
+          "scope": "resource",
           "items": {
             "type": "string"
           },
@@ -170,6 +177,7 @@
         },
         "zig.task.debugArgs": {
           "type": "array",
+          "scope": "resource",
           "items": {
             "type": "string"
           },
@@ -178,19 +186,31 @@
         },
         "zig.task.enableProblemMatcher": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Highlight lines where tests failed"
         },
         "zig.misc.buildOnSave": {
           "type": "boolean",
+          "scope": "resource",
           "default": false,
           "description": "Compiles code on file save using the settings specified in 'Build Option'."
         },
         "zig.misc.revealOnFormatError": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Should output channel be raised on formatting error."
         }
+      }
+    },
+    "configurationDefaults": {
+      "[zig]": {
+        "editor.defaultFormatter": "ikrimae.zig",
+        "editor.tabSize": 4,
+        "editor.detectIndentation": false,
+        "editor.insertSpaces": true,
+        "files.eol": "\n"
       }
     },
     "commands": [
@@ -208,12 +228,6 @@
         "command": "zig.zls.restart",
         "title": "Restart Zig Language Server",
         "category": "Zls"
-      },
-      {
-        "command": "zig.build.workspace",
-        "title": "Build Zig Workspace",
-        "description": "Build the current project using 'zig build'",
-        "category": "Zig"
       },
       {
         "command": "zig.test.rerun",

@@ -3,7 +3,7 @@
 import { zigBuild } from './zigBuild';
 import * as cp from "child_process";
 import * as vscode from "vscode";
-import { getExtensionSettings } from "./zigSettings";
+import { ZigExtSettings } from "./zigSettings";
 // This will be treeshaked to only the debounce function
 import { debounce } from "lodash-es";
 
@@ -44,7 +44,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     let compiler = new ZigCompilerProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider({ language: 'zig', scheme: 'file' }, compiler)
+      vscode.languages.registerCodeActionsProvider({ language: ZigExtSettings.languageId, scheme: 'file' }, compiler)
     );
 
     // context.subscriptions.push(
@@ -60,9 +60,9 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(
         (doc) => {
-          const settings = getExtensionSettings();
+          const extSettings = ZigExtSettings.getSettings();
           if (
-            settings.misc.buildOnSave &&
+            extSettings.miscBuildOnSave &&
             compiler.dirtyChange.has(doc.uri) &&
             compiler.dirtyChange.get(doc.uri) !== doc.isDirty &&
             !doc.isDirty
@@ -86,8 +86,8 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   };
 
   private _doASTGenErrorCheck(textDocument: vscode.TextDocument) {
-    const settings = getExtensionSettings();
-    if (textDocument.languageId !== "zig") {
+    const extSettings = ZigExtSettings.getSettings();
+    if (textDocument.languageId !== ZigExtSettings.languageId) {
       return;
     }
     if (textDocument.isClosed) {
@@ -98,7 +98,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     if (!workspaceFolder) { return; }
     const cwd = workspaceFolder.uri.fsPath;
 
-    let childProcess = cp.spawn(settings.binPath, ["ast-check"], { cwd });
+    let childProcess = cp.spawn(extSettings.zigBinPath, ["ast-check"], { cwd });
 
     if (!childProcess.pid) {
       return;

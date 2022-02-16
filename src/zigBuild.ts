@@ -1,39 +1,39 @@
-"use strict";
+'use strict';
 
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
-import { BuildArtifact, getExtensionSettings } from "./zigSettings";
+import { BuildStep, ZigExtSettings } from "./zigSettings";
 
 export function zigBuild(
     textDocument: vscode.TextDocument,
     buildDiagnostics: vscode.DiagnosticCollection,
     logChannel: vscode.OutputChannel,
 ): cp.ChildProcess | null {
-    if (textDocument.languageId !== 'zig') { return null; }
+    if (textDocument.languageId !== ZigExtSettings.languageId) { return null; }
     const workspaceFolder =
         vscode.workspace.getWorkspaceFolder(textDocument.uri)
         ?? (vscode.workspace.workspaceFolders
             ? vscode.workspace.workspaceFolders[0]
             : null);
     if (!workspaceFolder) { return null; }
-    const settings = getExtensionSettings();
+    const extSettings = ZigExtSettings.getSettings();
     const workspacePath = workspaceFolder.uri.fsPath;
     const cwd = workspacePath;
 
     let processArg: string[] = [];
-    switch (settings.build.artifact) {
-        case BuildArtifact.build:
-            processArg.push("--build-file", settings.build.buildFile);
+    switch (extSettings.buildBuildStep) {
+        case BuildStep.buildFile:
+            processArg.push("--build-file", extSettings.buildBuildFile);
             break;
         default:
             processArg.push(textDocument.fileName);
             break;
     }
-    processArg.push(...settings.build.extraArgs);
+    processArg.push(...extSettings.buildExtraArgs);
     logChannel.clear();
     logChannel.appendLine(`Starting building the current workspace at ${cwd}`);
 
-    return cp.execFile(settings.binPath, processArg, { cwd }, (_err, _stdout, stderr) => {
+    return cp.execFile(extSettings.zigBinPath, processArg, { cwd }, (_err, _stdout, stderr) => {
         logChannel.appendLine(stderr);
         var diagnostics: { [id: string]: vscode.Diagnostic[]; } = {};
         let regex = /(\S.*):(\d*):(\d*): ([^:]*): (.*)/g;

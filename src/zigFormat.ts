@@ -1,7 +1,8 @@
+'use strict';
 import * as vscode from 'vscode';
-import { Range, StatusBarItem, TextEdit, OutputChannel, EndOfLine } from 'vscode';
+import { TextEdit, OutputChannel } from 'vscode';
 import { execCmd,ExecutingCmd } from './zigUtil';
-import { getExtensionSettings } from "./zigSettings";
+import { ZigExtSettings } from "./zigSettings";
 
 export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider {
     private _channel: OutputChannel;
@@ -15,7 +16,7 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
         _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
-        const settings = getExtensionSettings();
+        const extSettings = ZigExtSettings.getSettings();
         return zigFormat(document)
             .then(({ stdout }) => {
                 logger.clear();
@@ -31,7 +32,7 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
             .catch((reason) => {
                 logger.clear();
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (settings.misc.revealOnFormatError) {
+                if (extSettings.miscRevealOnFormatError) {
                     logger.show(true);
                 }
                 return [];
@@ -53,7 +54,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
         _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
-        const settings = getExtensionSettings();
+        const extSettings = ZigExtSettings.getSettings();
         return zigFormat(document)
             .then(({ stdout }) => {
                 const lastLineId = document.lineCount - 1;
@@ -70,7 +71,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
                 logger.clear();
                 logger.appendLine(`Formatting Error`);
                 logger.appendLine(reason.toString().replace('<stdin>', document.fileName));
-                if (settings.misc.revealOnFormatError) {
+                if (extSettings.miscRevealOnFormatError) {
                     logger.show(true);
                 }
                 return [];
@@ -79,14 +80,14 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
 }
 
 function zigFormat(document: vscode.TextDocument): ExecutingCmd  {
-    const settings = getExtensionSettings();
+    const extSettings = ZigExtSettings.getSettings();
 
     const options = {
         cmdArguments: ['fmt', '--stdin'],
         fileName: document.uri,
         notFoundText: 'Could not find zig. Please add zig to your PATH or specify a custom path to the zig binary in your settings.',
     };
-    const format = execCmd(settings.binPath, options);
+    const format = execCmd(extSettings.zigBinPath, options);
 
     format.stdin?.write(document.getText());
     format.stdin?.end();
