@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "publisher": "ikrimae",
   "private": true,
   "icon": "images/zig-icon.png",
@@ -208,6 +208,7 @@
       "[zig]": {
         "editor.defaultFormatter": "ikrimae.zig",
         "editor.tabSize": 4,
+        "editor.autoIndent": "full",
         "editor.detectIndentation": false,
         "editor.insertSpaces": true,
         "files.eol": "\n"
@@ -245,7 +246,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "npm run compile && node ./node_modules/vscode/bin/test",
-    "vsix": "npx vsce package && code --install-extension ./zig-0.2.7.vsix"
+    "vsix": "npx vsce package && code --install-extension ./zig-0.2.8.vsix"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.3",

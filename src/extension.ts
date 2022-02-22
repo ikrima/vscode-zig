@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from 'vscode';
-import * as zigLangClient from './zigLangClient';
+import  { ZlsClient } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
 import { ZigTaskProvider } from './zigTaskProvider';
 import { ZigExtSettings } from './zigSettings';
@@ -18,11 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
     // zigFormatStatusBar.command = "zig.build.workspace";
     // zigFormatStatusBar.show();
     const logChannel = vscode.window.createOutputChannel(ZigExtSettings.languageId);
-    const buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
     context.subscriptions.push(
         logChannel,
-        buildDiagnostics,
-        zigLangClient.activate(),
+        new ZlsClient(),
         vscode.languages.registerCodeLensProvider(
             { language: ZigExtSettings.languageId, scheme: 'file' },
             new ZigCodelensProvider(context),
@@ -30,6 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.tasks.registerTaskProvider(ZigTaskProvider.TaskType, new ZigTaskProvider(context, logChannel)),
     );
 
+    // const buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
     // context.subscriptions.push(
     //     vscode.languages.registerCodeActionsProvider(
     //         { language: ZigExtSettings.languageId, scheme: 'file' },
