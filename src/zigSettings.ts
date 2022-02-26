@@ -41,32 +41,38 @@ export function resolveVariables(input: string, baseContext?: VariableContext): 
 
     // // Replace environment and configuration variables.
     // let regexp: () => RegExp = () => /\$\{((env|config|workspaceFolder|file|fileDirname|fileBasenameNoExtension|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
-    const varRegEx: () => RegExp = () => /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
+    const varRegEx = /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
     let ret: string = input;
     const cycleCache: Set<string> = new Set();
     while (!cycleCache.has(ret)) {
         cycleCache.add(ret);
-        ret = ret.replace(varRegEx(), (match: string, _1: string, varType: string, _3: string, name: string) => {
+        ret = ret.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string) => {
             let newValue: string | undefined;
             switch (varType) {
-                case "env":                     { newValue = varCtx[name] ?? process.env[name]; break; }
-                case "config":                  { newValue = config.get<string>(name); break; }
-                case "workspaceFolder":         { newValue = name ? findWorkspaceFolder(name)?.uri.fsPath : varCtx.workspaceFolder;         break; }
-                case "workspaceFolderBasename": { newValue = name ? findWorkspaceFolder(name)?.name       : varCtx.workspaceFolderBasename; break; }
-                case "file":                    { newValue = varCtx[name]                   ; break; }
-                case "fileWorkspaceFolder":     { newValue = varCtx[name]                   ; break; }
-                case "relativeFile":            { newValue = varCtx[name]                   ; break; }
-                case "relativeFileDirname":     { newValue = varCtx[name]                   ; break; }
-                case "fileBasename":            { newValue = varCtx[name]                   ; break; }
-                case "fileBasenameNoExtension": { newValue = varCtx[name]                   ; break; }
-                case "fileDirname":             { newValue = varCtx[name]                   ; break; }
-                case "fileExtname":             { newValue = varCtx[name]                   ; break; }
-                case "cwd":                     { newValue = varCtx[name]                   ; break; }
-                case "lineNumber":              { newValue = varCtx[name]                   ; break; }
-                case "selectedText":            { newValue = varCtx[name]                   ; break; }
-                case "execPath":                { newValue = varCtx[name]                   ; break; }
-                case "pathSeparator":           { newValue = varCtx[name]                   ; break; }
-                default:                        { vscode.window.showErrorMessage(`unknown variable to resolve: ${match}`); break; }
+                case "env":                     { newValue = varCtx[name] ?? process.env[name];     break; }
+                case "config":                  { newValue = config.get<string>(name);              break; }
+                case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
+                case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
+                default:                        {
+                    switch (name) {
+                            case "workspaceFolder":         { newValue = varCtx.workspaceFolder;         break; }
+                            case "workspaceFolderBasename": { newValue = varCtx.workspaceFolderBasename; break; }
+                            case "file":                    { newValue = varCtx[name]                   ; break; }
+                            case "fileWorkspaceFolder":     { newValue = varCtx[name]                   ; break; }
+                            case "relativeFile":            { newValue = varCtx[name]                   ; break; }
+                            case "relativeFileDirname":     { newValue = varCtx[name]                   ; break; }
+                            case "fileBasename":            { newValue = varCtx[name]                   ; break; }
+                            case "fileBasenameNoExtension": { newValue = varCtx[name]                   ; break; }
+                            case "fileDirname":             { newValue = varCtx[name]                   ; break; }
+                            case "fileExtname":             { newValue = varCtx[name]                   ; break; }
+                            case "cwd":                     { newValue = varCtx[name]                   ; break; }
+                            case "lineNumber":              { newValue = varCtx[name]                   ; break; }
+                            case "selectedText":            { newValue = varCtx[name]                   ; break; }
+                            case "execPath":                { newValue = varCtx[name]                   ; break; }
+                            case "pathSeparator":           { newValue = varCtx[name]                   ; break; }
+                            default:                        { vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
+                    }
+                }
             }
             return newValue ?? match;
         });
