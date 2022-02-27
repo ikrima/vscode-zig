@@ -1,11 +1,15 @@
 'use strict';
 
 import * as vscode from 'vscode';
-const { fs } = vscode.workspace;
-import { LanguageClient, LanguageClientOptions, ServerOptions, RevealOutputChannelOn } from 'vscode-languageclient/node';
-import { ZigExtSettings } from "./zigSettings";
+import * as vscodelc from 'vscode-languageclient/node';
+import * as utils from './utils';
+import { ZigConfig } from "./zigConfig";
 
-export class ZlsClient {
+const zigDocumentSelector = [
+  { language: ZigConfig.languageId, scheme: 'file' }
+];
+
+export class ZlsClient implements vscode.Disposable {
   private zlsDiagnostics: vscode.DiagnosticCollection;
   private zlsChannel: vscode.OutputChannel;
   private activeServers: Promise<vscode.Disposable>[] = [];
@@ -23,7 +27,7 @@ export class ZlsClient {
         this.startServer();
       }),
       vscode.commands.registerCommand("zig.zls.stop", async () => {
-        try { await this.stopServers(); } catch { }
+        await this.stopServers();
       }),
       vscode.commands.registerCommand("zig.zls.restart", async () => {
         try { await this.stopServers(); } catch { }
@@ -36,7 +40,7 @@ export class ZlsClient {
 
   dispose(): void {
     this.stopServers();
-    this.disposables.map(disposable => disposable.dispose());
+    this.disposables.forEach(d => d.dispose());
   }
 
 
@@ -45,34 +49,35 @@ export class ZlsClient {
       zlsDiagnostics: vscode.DiagnosticCollection,
       zlsChannel: vscode.OutputChannel,
     ): Promise<vscode.Disposable> {
-      const extSettings = ZigExtSettings.getSettings(true);
+      const zigCfg = ZigConfig.get(true);
 
       try {
-        await fs.stat(vscode.Uri.file(extSettings.zlsBinPath));
+        await utils.fileExists(zigCfg.zlsBinPath);
       } catch (err) {
-        const errorMessage = `Failed to find zls executable ${extSettings.zlsBinPath}!`;
+        const errorMessage =
+          `Failed to find zls executable ${zigCfg.zlsBinPath}!\n`
+          + `  Please specify its path in your settings with \`zig.zls.binPath\`.\n`
+          + `  Error: ${err ?? "Unknown"}`;
         vscode.window.showErrorMessage(errorMessage);
         zlsChannel.appendLine(errorMessage);
-        zlsChannel.appendLine("Please specify its path in your settings with `zig.zls.binPath`.");
-        if (err) { zlsChannel.appendLine(`  Error: ${err}`); }
         zlsChannel.show();
         return new vscode.Disposable(() => { });
       }
       // Create the language client and start the client.
-      const serverOptions: ServerOptions = {
-        command: extSettings.zlsBinPath,
-        args: extSettings.zlsDebugLog ? ["--debug-log"] : [],
+      const serverOptions: vscodelc.ServerOptions = {
+        command: zigCfg.zlsBinPath,
+        args: zigCfg.zlsDebugLog ? ["--debug-log"] : [],
       };
 
       // Options to control the language client
-      const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ language: ZigExtSettings.languageId, scheme: 'file' }],
+      const clientOptions: vscodelc.LanguageClientOptions = {
+        documentSelector: zigDocumentSelector,
         outputChannel: zlsChannel,
         diagnosticCollectionName: zlsDiagnostics.name,
-        revealOutputChannelOn: RevealOutputChannelOn.Never,
+        revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
       };
 
-      const client = new LanguageClient(
+      const client = new vscodelc.LanguageClient(
         'zlsClient',
         'Zig Language Server Client',
         serverOptions,

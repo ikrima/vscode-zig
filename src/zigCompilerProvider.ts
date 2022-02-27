@@ -3,12 +3,12 @@
 import { zigBuild } from './zigBuild';
 import * as cp from "child_process";
 import * as vscode from "vscode";
-import { ZigExtSettings } from "./zigSettings";
+import { ZigConfig } from "./zigConfig";
 // This will be treeshaked to only the debounce function
 import { debounce } from "lodash-es";
 
 
-export default class ZigCompilerProvider implements vscode.CodeActionProvider {
+export default class ZigCompilerProvider implements vscode.CodeActionProvider, vscode.Disposable {
   private dirtyChange = new WeakMap<vscode.Uri, boolean>();
   private astDiagnostics: vscode.DiagnosticCollection;
   private _buildDiagnostics: vscode.DiagnosticCollection;
@@ -44,7 +44,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     let compiler = new ZigCompilerProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider({ language: ZigExtSettings.languageId, scheme: 'file' }, compiler)
+      vscode.languages.registerCodeActionsProvider({ language: ZigConfig.languageId, scheme: 'file' }, compiler)
     );
 
     // context.subscriptions.push(
@@ -60,9 +60,9 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(
         (doc) => {
-          const extSettings = ZigExtSettings.getSettings();
+          const zigCfg = ZigConfig.get();
           if (
-            extSettings.miscBuildOnSave &&
+            zigCfg.miscBuildOnSave &&
             compiler.dirtyChange.has(doc.uri) &&
             compiler.dirtyChange.get(doc.uri) !== doc.isDirty &&
             !doc.isDirty
@@ -86,8 +86,8 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
   };
 
   private _doASTGenErrorCheck(textDocument: vscode.TextDocument) {
-    const extSettings = ZigExtSettings.getSettings();
-    if (textDocument.languageId !== ZigExtSettings.languageId) {
+    const zigCfg = ZigConfig.get();
+    if (textDocument.languageId !== ZigConfig.languageId) {
       return;
     }
     if (textDocument.isClosed) {
@@ -98,7 +98,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     if (!workspaceFolder) { return; }
     const cwd = workspaceFolder.uri.fsPath;
 
-    let childProcess = cp.spawn(extSettings.zigBinPath, ["ast-check"], { cwd });
+    let childProcess = cp.spawn(zigCfg.zigBinPath, ["ast-check"], { cwd });
 
     if (!childProcess.pid) {
       return;
@@ -143,7 +143,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider {
     });
   }
 
-  public dispose(): void {
+  dispose(): void {
     this.astDiagnostics.clear();
     this.astDiagnostics.dispose();
   }

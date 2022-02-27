@@ -1,19 +1,54 @@
 'use strict';
-
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as os from 'os';
 import * as process from 'process';
+import * as cp from 'child_process';
 
-export type  VariableContext = { [key: string]: string | undefined };
-export const isWindows       = process.platform === 'win32';
-export const envDelimiter    = isWindows ? ";" : ":";
-export function isString            (input: any):   input is string                  { return typeof (input) === "string"            ; }
-export function isArray             (input: any):   input is any[]                   { return input instanceof Array                 ; }
-export function isArrayOfString     (input: any):   input is string[]                { return isArray(input) && input.every(isString); }
-export function findWorkspaceFolder (name: string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
-export function isZigFile           (uri: vscode.Uri | undefined): boolean           { return uri ? ".zig" === path.extname(uri.fsPath).toLowerCase() : false; }
+//#region Common helper functions
+export const isWindows    = process.platform === 'win32';
+export const envDelimiter = isWindows ? ";" : ":";
+export function isString            (a: any               ): a is string                        { return typeof (a) === "string"; }
+export function isArray             (a: any               ): a is any[]                         { return a instanceof Array; }
+export function isArrayOfString     (a: any               ): a is string[]                      { return isArray(a) && a.every(isString); }
+export function isBlank             (a: any               ): boolean                            { return !(isString(a) && /\S/g.test(a)); }
+export function max                 (a: number, b: number ): number                             { return a < b ? b : a; }
+export function min                 (a: number, b: number ): number                             { return a < b ? a : b; }
+export function findWorkspaceFolder (name: string         ): vscode.WorkspaceFolder | undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
+export function isExtensionActive   (extensionId: string  ): boolean                            { return vscode.extensions.getExtension(extensionId)?.isActive ?? false; }
 
+export async function fileExists(filePath: string): Promise<boolean> { return await vscode.workspace.fs.stat(vscode.Uri.file(filePath)).then( stats => stats.type === vscode.FileType.File,      _ => false); }
+export async function dirExists (dirPath:  string): Promise<boolean> { return await vscode.workspace.fs.stat(vscode.Uri.file(dirPath )).then( stats => stats.type === vscode.FileType.Directory, _ => false); }
+
+export function normalizeShellArg(arg: string): string {
+    arg = arg.trimLeft().trimRight();
+    // Check if the arg is enclosed in backtick,
+    // or includes unescaped double-quotes (or single-quotes on windows),
+    // or includes unescaped single-quotes on mac and linux.
+    if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
+        (process.platform.includes("win") && /.*[^\\]'.*/g.test(arg)) ||
+        (!process.platform.includes("win") && /.*[^\\]'.*/g.test(arg))) {
+        return arg;
+    }
+    // The special character double-quote is already escaped in the arg.
+    const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
+    if (!unescapedSpaces && !process.platform.includes("win")) {
+        return arg;
+    } else if (arg.includes(" ")) {
+        arg = arg.replace(/\\\s/g, " ");
+        return "\"" + arg + "\"";
+    } else {
+        return arg;
+    }
+}
+//#endregion
+
+//#region Extension Helpers
+
+export function warnNoActiveEditor()     { vscode.window.showWarningMessage("No active editor. Probably logic error in extension\n\n"); }
+export function warnNoWorkspaceFolders() { vscode.window.showWarningMessage("No workspace folders. Probably logic error in extension\n\n"); }
+
+export type VariableContext = { [key: string]: string | undefined };
 export function resolveVariables(input: string, baseContext?: VariableContext): string {
     if (!input) { return ""; }
     const config                    = vscode.workspace.getConfiguration();
@@ -83,8 +118,7 @@ export function resolveVariables(input: string, baseContext?: VariableContext): 
     return ret;
 }
 
-
-class BaseExtSettings {
+export class ExtensionConfigBase {
     private readonly config: vscode.WorkspaceConfiguration;
     constructor(section: string, public resource?: vscode.Uri) {
         this.config = vscode.workspace.getConfiguration(section, resource ? resource : null);
@@ -98,9 +132,7 @@ class BaseExtSettings {
         return configVal ? resolveVariables(configVal) : defaultVal;
     }
     public getResolvedArray(section: string): string[] {
-        return this.config.get<string[]>(section, []).map(configVal => {
-            return resolveVariables(configVal);
-        });
+        return this.config.get<string[]>(section, []).map(configVal => resolveVariables(configVal));
     }
     public getResolvedPath(section: string, defaultVal: string): string {
         return path.normalize(this.getResolved(section, defaultVal));
@@ -124,7 +156,6 @@ class BaseExtSettings {
     //     }
     //     return result;
     // }
-
     // public getWithUndefinedDefault<T>(section: string): T | undefined {
     //     const info: any = this.config.inspect<T>(section);
     //     if (info.workspaceFolderValue !== undefined) {
@@ -136,7 +167,6 @@ class BaseExtSettings {
     //     }
     //     return undefined;
     // }
-
     // public getEnum<T>(section: string): T {
     //     let configVal = this.config.get<string>(section);
     //     type BuildStepKeys = keyof typeof BuildStep; // Equiv to: type BuildStepKeys = 'buildFile' | 'buildExe' | 'buildLib' | 'buildObj';
@@ -147,110 +177,82 @@ class BaseExtSettings {
     // }
 }
 
+//#endregion
 
-export const enum BuildStep {
-    buildFile,
-    buildExe,
-    buildLib,
-    buildObj,
+
+// A promise for running process and also a wrapper to access ChildProcess-like methods
+export interface RunningCmd extends Promise<{ stdout: string; stderr: string }> {
+  kill:      () => void;  // End the process
+  isRunning: boolean;     // Is the process running
 }
 
-export class ZigExtSettings extends BaseExtSettings {
-    public  static readonly languageId       = 'zig';
-    private static readonly dfltBuildRootDir = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
-    private static _cached?: ZigExtSettings;
-    private _zigBinPath?               : string   ;
-    private _zlsBinPath?               : string   ;
-    private _zlsDebugLog?              : boolean  ;
-    private _buildRootDir?             : string   ;
-    private _buildBuildFile?           : string   ;
-    private _buildBuildStep?           : BuildStep;
-    private _buildExtraArgs?           : string[] ;
-    private _taskBinDir?               : string   ;
-    private _taskTestArgs?             : string[] ;
-    private _taskDebugArgs?            : string[] ;
-    private _taskEnableProblemMatcher? : boolean  ;
-    private _miscBuildOnSave?          : boolean  ;
-    private _miscRevealOnFormatError?  : boolean  ;
+export interface RunningCmdOptions {
+  shellArgs?:          string[];               // Any arguments
+  cwd?:                string;                 // Current working directory
+  showMessageOnError?: boolean;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
+  onStart?:            () => void;             // Called after the process successfully starts
+  onStdout?:           (data: string) => void; // Called when data is sent to stdout
+  onStderr?:           (data: string) => void; // Called when data is sent to stderr
+  onExit?:             () => void;             // Called after the command (successfully or unsuccessfully) exits
+  notFoundText?:       string;                 // Text to add when command is not found (maybe helping how to install)
+}
 
-    constructor(resource?: vscode.Uri) { super('zig', resource); }
-    public static getSettings(forceReload?: boolean): ZigExtSettings {
-        if (!ZigExtSettings._cached || forceReload) { ZigExtSettings._cached = new ZigExtSettings(); }
-        return ZigExtSettings._cached;
+// Spawns cancellable process
+export function runCmd(cmd: string, options: RunningCmdOptions = {}): RunningCmd {
+  let firstResponse = true;
+  let wasKilledbyUs = false;
+  let childProcess: cp.ChildProcess | undefined = undefined;
+  const runningCmd: any = new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    const shellArgs = (options.shellArgs ?? []).map(arg => normalizeShellArg(arg));
+    childProcess = cp.exec(
+      [cmd].concat(...shellArgs).join(' '),
+      <cp.ExecOptions>{
+        cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
+      },
+      (err: cp.ExecException | null, stdout: string, stderr: string): void => {
+        runningCmd.isRunning = false;
+        if (options.onExit) { options.onExit(); }
+        childProcess = undefined;
+        if (wasKilledbyUs || !err) {
+          resolve({ stdout, stderr });
+        } else {
+          if (options.showMessageOnError) {
+            const cmdName = cmd.split(' ', 1)[0];
+            const cmdWasNotFound = isWindows
+              ? err.message.includes(`'${cmdName}' is not recognized`)
+              : err?.code === 127;
+            vscode.window.showErrorMessage(
+              cmdWasNotFound
+                ? `${cmdName} is not available in your path. ${options.notFoundText ?? ""}`
+                : err.message
+            );
+          }
+          reject({ err, stdout, stderr });
+        }
+      },
+    );
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      if (firstResponse && options.onStart) { options.onStart(); }
+      firstResponse = false;
+      if (options.onStdout) { options.onStdout(data.toString()); }
+    });
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      if (firstResponse && options.onStart) { options.onStart(); }
+      firstResponse = false;
+      if (options.onStderr) { options.onStderr(data.toString()); }
+    });
+  });
+  runningCmd.kill = (): void => {
+    if (childProcess) {
+      wasKilledbyUs = true;
+      if (isWindows) {
+        cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']);
+      }
+      else {
+        childProcess.kill('SIGINT');
+      }
     }
-
-    public get zigBinPath               (): string         { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
-    public get zlsBinPath               (): string         { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
-    public get zlsDebugLog              (): boolean        { if (!this._zlsDebugLog              ) { this._zlsDebugLog              = super.getWithFallback  ("zls.debugLog"             , false                             ); } return this._zlsDebugLog;              }
-    public get buildRootDir             (): string         { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , ZigExtSettings.dfltBuildRootDir   ); } return this._buildRootDir;             }
-    public get buildBuildFile           (): string         { if (!this._buildBuildFile           ) { this._buildBuildFile           = super.getResolvedPath  ("build.buildFile"          , `${this.buildRootDir}/build.zig`  ); } return this._buildBuildFile;           }
-    public get buildBuildStep           (): BuildStep      { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
-    public get buildExtraArgs           (): string[]       { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }
-    public get taskBinDir               (): string         { if (!this._taskBinDir               ) { this._taskBinDir               = super.getResolvedPath  ("task.binDir"              , `${this.buildRootDir}/zig-out/bin`); } return this._taskBinDir;               }
-    public get taskTestArgs             (): string[]       { if (!this._taskTestArgs             ) { this._taskTestArgs             = super.getResolvedArray ("task.testArgs"                                                ); } return this._taskTestArgs;             }
-    public get taskDebugArgs            (): string[]       { if (!this._taskDebugArgs            ) { this._taskDebugArgs            = super.getResolvedArray ("task.debugArgs"                                               ); } return this._taskDebugArgs;            }
-    public get taskEnableProblemMatcher (): boolean        { if (!this._taskEnableProblemMatcher ) { this._taskEnableProblemMatcher = super.getWithFallback  ("task.enableProblemMatcher", true                              ); } return this._taskEnableProblemMatcher; }
-    public get miscBuildOnSave          (): boolean        { if (!this._miscBuildOnSave          ) { this._miscBuildOnSave          = super.getWithFallback  ("misc.buildOnSave"         , false                             ); } return this._miscBuildOnSave;          }
-    public get miscRevealOnFormatError  (): boolean        { if (!this._miscRevealOnFormatError  ) { this._miscRevealOnFormatError  = super.getWithFallback  ("misc.revealOnFormatError" , true                              ); } return this._miscRevealOnFormatError;  }
-};
-
-
-// interface IZigSettings {
-//     zigBinPath: string;
-//     zls: {
-//         binPath:  string;
-//         debugLog: boolean;
-//     };
-//     build: {
-//         rootDir:   string;
-//         buildFile: string;
-//         buildStep: BuildStep;
-//         extraArgs: string[];
-//     };
-//     task: {
-//         binDir:               string;
-//         testArgs:             string[];
-//         debugArgs:            string[];
-//         enableProblemMatcher: boolean;
-//     };
-//     misc: {
-//         buildOnSave:         boolean;
-//         revealOnFormatError: boolean;
-//     };
-// }
-// function getExtensionSettings(): IZigSettings {
-//     const config           = ZigExtSettings.getSettings();
-
-//     const dfltBuildRootDir = vscode.workspace.workspaceFolders ? path.normalize(vscode.workspace.workspaceFolders[0].uri.fsPath) : "";
-//     const _buildRootDir    = path.normalize(config.getResolved("build.rootDir", dfltBuildRootDir));
-//     let   _buildStep   = BuildStep.buildFile;
-//     switch (config.getWithFallback<string>("build.buildStep", "build")) {
-//         case "build":     _buildStep = BuildStep.buildFile; break;
-//         case "build-exe": _buildStep = BuildStep.buildExe; break;
-//         case "build-lib": _buildStep = BuildStep.buildLib; break;
-//         case "build-obj": _buildStep = BuildStep.buildObj; break;
-//     }
-//     return {
-//         zigBinPath: path.normalize(config.getResolved("binPath", "zig.exe")),
-//         zls:   {
-//             binPath:  path.normalize(config.getResolved("zls.binPath", "zls.exe")),
-//             debugLog: config.getWithFallback<boolean>("zls.debugLog", false),
-//         },
-//         build: {
-//             rootDir:   _buildRootDir,
-//             buildFile: path.normalize(config.getResolved("build.buildFile", path.join(_buildRootDir, "build.zig"))),
-//             buildStep:  _buildStep,
-//             extraArgs: config.getResolvedArray("build.extraArgs"),
-//         },
-//         task: {
-//             binDir:               path.normalize(config.getResolved("task.binDir", path.join(_buildRootDir, "zig-out/bin"))),
-//             testArgs:             config.getResolvedArray("task.testArgs"),
-//             debugArgs:            config.getResolvedArray("task.debugArgs"),
-//             enableProblemMatcher: config.getWithFallback<boolean>("task.enableProblemMatcher", true),
-//         },
-//         misc: {
-//             buildOnSave:         config.getWithFallback<boolean>("misc.buildOnSave", false),
-//             revealOnFormatError: config.getWithFallback<boolean>("misc.revealOnFormatError", true),
-//         },
-//     };
-// }
+  };
+  runningCmd.isRunning = true;
+  return runningCmd as RunningCmd;
+}

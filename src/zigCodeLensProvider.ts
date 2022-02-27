@@ -2,7 +2,7 @@
 import * as vscode from "vscode";
 
 
-export class ZigCodelensProvider implements vscode.CodeLensProvider {
+export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
   private codeLenses: vscode.CodeLens[] = [];
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
