@@ -57,18 +57,19 @@ export class ZlsContext implements vscode.Disposable {
     this.zlsChannel.appendLine("Starting Zls...");
 
     const zigCfg = ZigConfig.get(true);
-
-    const zlsExe: vscodelc.Executable = {
-      command: zigCfg.zlsforceDebugMode ? zigCfg.zlsDebugBinPath : zigCfg.zlsBinPath,
-      args: zigCfg.zlsforceDebugMode ? ["--debug-log"] : [],
-
-    };
+    if (zigCfg.zlsEnableDebugMode && !zigCfg.zlsDebugBinPath) {
+      const msg = "Zls Debug mode requested but `zig.zls.zlsDebugBinPath` is not set. Falling back to `zig.zls.binPath`";
+      vscode.window.showWarningMessage(msg);
+      this.zlsChannel.appendLine(msg);
+    }
+    const zlsPath = (zigCfg.zlsEnableDebugMode && zigCfg.zlsDebugBinPath) ? zigCfg.zlsDebugBinPath : zigCfg.zlsBinPath;
+    const zlsArgs = zigCfg.zlsEnableDebugMode ? ["--debug-log"] : [];
     try {
-      await utils.fileExists(zlsExe.command);
+      await utils.fileExists(zlsPath);
     } catch (err) {
-      const zlsBinCfgVar = zigCfg.zlsforceDebugMode ? "`zig.zls.zlsDebugBinPath`" : "`zig.zls.binPath`";
+      const zlsBinCfgVar = zigCfg.zlsEnableDebugMode ? "`zig.zls.zlsDebugBinPath`" : "`zig.zls.binPath`";
       const errorMessage =
-        `Failed to find zls executable ${zlsExe.command}!\n`
+        `Failed to find zls executable ${zlsPath}!\n`
         + `  Please specify its path in your settings with ${zlsBinCfgVar}\n`
         + `  Error: ${err ?? "Unknown"}`;
       vscode.window.showErrorMessage(errorMessage);
@@ -77,8 +78,11 @@ export class ZlsContext implements vscode.Disposable {
       return;
     }
 
-    // Create the language client and start the client.
-    const serverOptions: vscodelc.ServerOptions = zlsExe;
+    // Create the language client and start the client
+    const serverOptions: vscodelc.ServerOptions = {
+      command: zlsPath,
+      args: zlsArgs,
+    };
 
     // Options to control the language client
     const clientOptions: vscodelc.LanguageClientOptions = {

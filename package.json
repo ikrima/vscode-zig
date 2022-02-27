@@ -115,7 +115,7 @@
           "scope": "window",
           "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`."
         },
-        "zig.zls.debugLog": {
+        "zig.zls.enableDebugMode": {
           "type": "boolean",
           "scope": "window",
           "default": false,
