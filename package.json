@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "publisher": "ikrimae",
   "private": true,
   "icon": "images/zig-icon.png",
@@ -108,7 +108,12 @@
           "type": "string",
           "scope": "window",
           "default": "zls.exe",
-          "description": "Path to `zls` executable. Example: `C:/zls/zig-cache/bin/zls.exe`."
+          "description": "Path to `zls` executable. Example: `C:/zls/zig-out/bin/zls.exe`."
+        },
+        "zig.zls.debugBinPath": {
+          "type": "string",
+          "scope": "window",
+          "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`."
         },
         "zig.zls.debugLog": {
           "type": "boolean",
@@ -240,13 +245,15 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "esbuild  --bundle --sourcemap=external --minify  --external:vscode src/extension.ts --outdir=out --platform=node --format=cjs",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "rimraf out && npm run -S esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --sourcemap=external --tsconfig=./tsconfig.json --external:vscode --outfile=out/extension.js --platform=node --format=cjs",
+    "watch": "npm run -S esbuild-base -- --sourcemap --sources-content=false --watch",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "npm run compile && node ./node_modules/vscode/bin/test",
-    "vsix": "npx vsce package && code --install-extension ./zig-0.2.8.vsix"
+    "compile": "npm run -S esbuild-base -- --sourcemap --sources-content=false",
+    "package": "vsce package",
+    "vsix": "npm run package && code --install-extension ./zig-0.2.9.vsix"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.3",
@@ -257,7 +264,7 @@
     "@typescript-eslint/eslint-plugin": "^5.9.1",
     "@typescript-eslint/parser": "^5.9.1",
     "@vscode/test-electron": "^2.0.3",
-    "esbuild": "^0.12.29",
+    "esbuild": "^0.14.21",
     "eslint": "^8.6.0",
     "mocha": "^9.1.3",
     "typescript": "^4.5.4",

@@ -44,7 +44,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider, v
     let compiler = new ZigCompilerProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider({ language: ZigConfig.languageId, scheme: 'file' }, compiler)
+      vscode.languages.registerCodeActionsProvider(ZigConfig.zigDocumentSelector, compiler)
     );
 
     // context.subscriptions.push(

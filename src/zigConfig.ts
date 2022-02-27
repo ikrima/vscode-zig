@@ -11,12 +11,15 @@ export const enum BuildStep {
 }
 
 export class ZigConfig extends ExtensionConfigBase {
-    public  static readonly languageId       = 'zig';
-    private static readonly dfltBuildRootDir = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
-    private static _cached?: ZigConfig;
+    public  static readonly languageId          = 'zig';
+    public  static readonly zigDocumentSelector = [{ language: ZigConfig.languageId, scheme: 'file' }];
+    private static readonly dfltBuildRootDir    = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
+    private static _cached?: ZigConfig          = undefined;
+
     private _zigBinPath?               : string   ;
     private _zlsBinPath?               : string   ;
-    private _zlsDebugLog?              : boolean  ;
+    private _zlsDebugBinPath?          : string   ;
+    private _zlsforceDebugMode?        : boolean  ;
     private _buildRootDir?             : string   ;
     private _buildBuildFile?           : string   ;
     private _buildBuildStep?           : BuildStep;
@@ -33,11 +36,11 @@ export class ZigConfig extends ExtensionConfigBase {
         return ZigConfig._cached;
     }
     constructor(resource?: vscode.Uri) { super('zig', resource); }
-
     public get zigBinPath               (): string         { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
     public get zlsBinPath               (): string         { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
-    public get zlsDebugLog              (): boolean        { if (!this._zlsDebugLog              ) { this._zlsDebugLog              = super.getWithFallback  ("zls.debugLog"             , false                             ); } return this._zlsDebugLog;              }
-    public get buildRootDir             (): string         { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , ZigConfig.dfltBuildRootDir   ); } return this._buildRootDir;             }
+    public get zlsDebugBinPath          (): string         { if (!this._zlsDebugBinPath          ) { this._zlsDebugBinPath          = super.getResolvedPath  ("zls.debugBinPath"         , ""                                ); } return this._zlsDebugBinPath;          }
+    public get zlsforceDebugMode        (): boolean        { if (!this._zlsforceDebugMode        ) { this._zlsforceDebugMode        = super.getWithFallback  ("zls.forceDebugMode"       , false                             ); } return this._zlsforceDebugMode;        }
+    public get buildRootDir             (): string         { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , ZigConfig.dfltBuildRootDir        ); } return this._buildRootDir;             }
     public get buildBuildFile           (): string         { if (!this._buildBuildFile           ) { this._buildBuildFile           = super.getResolvedPath  ("build.buildFile"          , `${this.buildRootDir}/build.zig`  ); } return this._buildBuildFile;           }
     public get buildBuildStep           (): BuildStep      { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
     public get buildExtraArgs           (): string[]       { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }
