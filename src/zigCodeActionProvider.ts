@@ -8,7 +8,7 @@ import { ZigConfig } from "./zigConfig";
 import { debounce } from "lodash-es";
 
 
-export default class ZigCompilerProvider implements vscode.CodeActionProvider, vscode.Disposable {
+export default class ZigCodeActionProvider implements vscode.CodeActionProvider, vscode.Disposable {
   private dirtyChange = new WeakMap<vscode.Uri, boolean>();
   private astDiagnostics: vscode.DiagnosticCollection;
   private _buildDiagnostics: vscode.DiagnosticCollection;
@@ -41,7 +41,7 @@ export default class ZigCompilerProvider implements vscode.CodeActionProvider, v
     buildDiagnostics: vscode.DiagnosticCollection,
     logChannel: vscode.OutputChannel,
   ): void {
-    let compiler = new ZigCompilerProvider(buildDiagnostics, logChannel);
+    let compiler = new ZigCodeActionProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
       vscode.languages.registerCodeActionsProvider(ZigConfig.zigDocumentSelector, compiler)

@@ -1,18 +1,28 @@
 'use strict';
 import * as vscode from "vscode";
+import { ZigConfig } from "./zigConfig";
 
 
 export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
+  private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void>;
+  public  readonly onDidChangeCodeLenses: vscode.Event<void>;
   private codeLenses: vscode.CodeLens[] = [];
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
+  private registrations: vscode.Disposable[] = [];
 
-  constructor(context: vscode.ExtensionContext) {
-    context.subscriptions.push(
-      vscode.workspace.onDidChangeConfiguration(_ => this._onDidChangeCodeLenses.fire())
-    );
+  constructor() {
+    this._onDidChangeCodeLenses = new vscode.EventEmitter<void>();
+    this.onDidChangeCodeLenses  = this._onDidChangeCodeLenses.event;
+    this.registrations.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+          if (e.affectsConfiguration(ZigConfig.extensionId)) {
+            this._onDidChangeCodeLenses.fire();
+          }
+        })
+      );
   }
   dispose(): void {
+    this.registrations.forEach(d => d.dispose());
+    this.registrations = [];
     this._onDidChangeCodeLenses.dispose();
   }
 

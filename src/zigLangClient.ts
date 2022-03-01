@@ -1,11 +1,12 @@
 'use strict';
-
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import * as utils from './utils';
+import { log } from './utils';
 import { ZigConfig } from "./zigConfig";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
+  lspSubscriptions: vscode.Disposable[] = [];
   // // Default implementation logs failures to output panel that's meant for extension debugging
   // // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
   // handleFailedRequest<T>(type: vscodelc.MessageSignature, error: any, defaultValue: T): T {
@@ -19,20 +20,15 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsContext implements vscode.Disposable {
+  private zlsChannel:     vscode.OutputChannel;
   private zlsDiagnostics: vscode.DiagnosticCollection;
-  private zlsChannel: vscode.OutputChannel;
-  private client!: ZlsLanguageClient;
-  private disposables: vscode.Disposable[] = [];
-  private lspSubscriptions: vscode.Disposable[] = [];
+  private zlsClient?:     ZlsLanguageClient;
+  private registrations:  vscode.Disposable[] = [];
 
   constructor() {
+    this.zlsChannel     = vscode.window.createOutputChannel("Zig Language Server");
     this.zlsDiagnostics = vscode.languages.createDiagnosticCollection('zls');
-    this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
-    this.disposables = [
-      this.zlsDiagnostics,
-      this.zlsChannel,
-
-      // register commands
+    this.registrations.push(
       vscode.commands.registerCommand("zig.zls.start", async () => {
         await this.startClient();
       }),
@@ -40,27 +36,31 @@ export class ZlsContext implements vscode.Disposable {
         await this.stopClient();
       }),
       vscode.commands.registerCommand("zig.zls.restart", async () => {
-        try { await this.stopClient(); } catch { }
+        await this.stopClient();
         await this.startClient();
       }),
-    ];
+    );
   }
 
-  dispose(): void {
-    this.stopClient();
-    this.disposables.forEach(d => d.dispose());
-    this.disposables = [];
+  async dispose() {
+    this.registrations.forEach(d => d.dispose());
+    this.registrations = [];
+    try { await this.stopClient(); } catch { }
+    this.zlsDiagnostics.dispose();
+    this.zlsChannel.dispose();
   }
 
 
   async startClient(): Promise<void> {
-    this.zlsChannel.appendLine("Starting Zls...");
+    if (this.zlsClient) {
+      log.info(this.zlsChannel, "Client already started", true);
+      return;
+    }
+    log.info(this.zlsChannel, "Starting Zls...");
 
     const zigCfg = ZigConfig.get(true);
     if (zigCfg.zlsEnableDebugMode && !zigCfg.zlsDebugBinPath) {
-      const msg = "Zls Debug mode requested but `zig.zls.zlsDebugBinPath` is not set. Falling back to `zig.zls.binPath`";
-      vscode.window.showWarningMessage(msg);
-      this.zlsChannel.appendLine(msg);
+      log.warn(this.zlsChannel, "Zls Debug mode requested but `zig.zls.zlsDebugBinPath` is not set. Falling back to `zig.zls.binPath`");
     }
     const zlsPath = (zigCfg.zlsEnableDebugMode && zigCfg.zlsDebugBinPath) ? zigCfg.zlsDebugBinPath : zigCfg.zlsBinPath;
     const zlsArgs = zigCfg.zlsEnableDebugMode ? ["--debug-log"] : [];
@@ -68,23 +68,21 @@ export class ZlsContext implements vscode.Disposable {
       await utils.fileExists(zlsPath);
     } catch (err) {
       const zlsBinCfgVar = zigCfg.zlsEnableDebugMode ? "`zig.zls.zlsDebugBinPath`" : "`zig.zls.binPath`";
-      const errorMessage =
+      log.error(this.zlsChannel,
         `Failed to find zls executable ${zlsPath}!\n`
         + `  Please specify its path in your settings with ${zlsBinCfgVar}\n`
-        + `  Error: ${err ?? "Unknown"}`;
-      vscode.window.showErrorMessage(errorMessage);
-      this.zlsChannel.appendLine(errorMessage);
-      this.zlsChannel.show();
+        + `  Error: ${err ?? "Unknown"}`
+      );
       return;
     }
 
-    // Create the language client and start the client
+    // Options for launching the language server
     const serverOptions: vscodelc.ServerOptions = {
       command: zlsPath,
       args: zlsArgs,
     };
 
-    // Options to control the language client
+    // Options for launching the language client
     const clientOptions: vscodelc.LanguageClientOptions = {
       documentSelector: ZigConfig.zigDocumentSelector,
       outputChannel: this.zlsChannel,
@@ -140,16 +138,16 @@ export class ZlsContext implements vscode.Disposable {
     };
 
 
-    this.client = new ZlsLanguageClient(
+    // Create the language client and start the client
+    this.zlsClient = new ZlsLanguageClient(
       'zlsClient',
       'Zig Language Server Client',
       serverOptions,
       clientOptions,
     );
-
     //#region todo: custom language features
-    // this.client.clientOptions.errorHandler = this.client.createDefaultErrorHandler(zigCfg.getWithFallback('maxRestartCount', 0));
-    // this.client.registerFeature(new EnableEditsNearCursorFeature);
+    // this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.getWithFallback('maxRestartCount', 0));
+    // this.zlsClient.registerFeature(new EnableEditsNearCursorFeature);
     // typeHierarchy.activate(this);
     // inlayHints.activate(this);
     // memoryUsage.activate(this);
@@ -160,28 +158,18 @@ export class ZlsContext implements vscode.Disposable {
     // configFileWatcher.activate(this);
     //#endregion
 
-    this.lspSubscriptions.push(this.client.start());
-    await this.client.onReady();
+    this.zlsClient.lspSubscriptions.push(this.zlsClient.start());
+    await this.zlsClient.onReady();
   }
 
-  private async stopClient() {
-    this.zlsChannel.appendLine("Stopping Zls...");
-    const oldLspSubscriptions = this.lspSubscriptions.slice(0);
-    this.lspSubscriptions = [];
-    oldLspSubscriptions.forEach(d => d.dispose());
+  async stopClient(): Promise<void> {
+    if (!this.zlsClient) { return; }
 
-    // const oldServers = this.activeServers.slice(0);
-    // this.activeServers = [];
-    // try {
-    //   const result = await Promise.allSettled(oldServers);
-    //   for (const item of result) {
-    //     if (item.status === 'fulfilled') {
-    //       item.value.dispose();
-    //     }
-    //   }
-    // }
-    // catch { }
-
+    log.info(this.zlsChannel, "Stopping Zls...");
+    const zlsClient = this.zlsClient;
+    this.zlsClient = undefined;
+    await zlsClient.stop();
+    zlsClient.lspSubscriptions.forEach(d => d.dispose());
   }
 
 }

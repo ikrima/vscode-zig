@@ -45,8 +45,11 @@ export function normalizeShellArg(arg: string): string {
 
 //#region Extension Helpers
 
-export function warnNoActiveEditor() { vscode.window.showWarningMessage("No active editor. Probably logic error in extension\n\n"); }
-export function warnNoWorkspaceFolders() { vscode.window.showWarningMessage("No workspace folders. Probably logic error in extension\n\n"); }
+export namespace log {
+  export function info  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = false): void { chan.appendLine(msg); if (showMsg) { vscode.window.showInformationMessage(msg); } }
+  export function warn  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { vscode.window.showWarningMessage(msg);     } }
+  export function error (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { vscode.window.showErrorMessage(msg);       } }
+}
 
 export type VariableContext = { [key: string]: string | undefined };
 export function resolveVariables(input: string, baseContext?: VariableContext): string {
@@ -182,78 +185,86 @@ export class ExtensionConfigBase {
 
 
 // A promise for running process and also a wrapper to access ChildProcess-like methods
-export interface RunningCmd extends Promise<{ stdout: string; stderr: string }> {
-  kill: () => void;  // End the process
-  isRunning: boolean;     // Is the process running
+
+export interface RunningProcOptions {
+  shellArgs?:          string[];               // Any arguments
+  cwd?:                string;                 // Current working directory
+  showMessageOnError?: boolean;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
+  onStart?:            () => void;             // Called after the process successfully starts
+  onStdout?:           (data: string) => void; // Called when data is sent to stdout
+  onStderr?:           (data: string) => void; // Called when data is sent to stderr
+  onExit?:             () => void;             // Called after the command (successfully or unsuccessfully) exits
+  notFoundText?:       string;                 // Text to add when command is not found (maybe helping how to install)
 }
 
-export interface RunningCmdOptions {
-  shellArgs?: string[];               // Any arguments
-  cwd?: string;                 // Current working directory
-  showMessageOnError?: boolean;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
-  onStart?: () => void;             // Called after the process successfully starts
-  onStdout?: (data: string) => void; // Called when data is sent to stdout
-  onStderr?: (data: string) => void; // Called when data is sent to stderr
-  onExit?: () => void;             // Called after the command (successfully or unsuccessfully) exits
-  notFoundText?: string;                 // Text to add when command is not found (maybe helping how to install)
-}
+export interface RunningProc {
+  procCmd:      string;
+  childProcess: cp.ChildProcess | undefined;
+  isRunning:    () => boolean;
+  kill:         () => void;
+};
 
 // Spawns cancellable process
-export function runCmd(cmd: string, options: RunningCmdOptions = {}): RunningCmd {
+export function runProc(cmd: string, options: RunningProcOptions = {}): [RunningProc, Promise<{ stdout: string; stderr: string }>] {
   let firstResponse = true;
   let wasKilledbyUs = false;
-  let childProcess: cp.ChildProcess | undefined = undefined;
-  const runningCmd: any = new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    const shellArgs = (options.shellArgs ?? []).map(arg => normalizeShellArg(arg));
-    childProcess = cp.exec(
-      [cmd].concat(...shellArgs).join(' '),
-      <cp.ExecOptions>{
-        cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
+  let isRunning     = true;
+  let childProcess: cp.ChildProcess | undefined;
+
+  const procCmd = [cmd]
+    .concat(options.shellArgs ?? [])
+    .map(arg => normalizeShellArg(arg))
+    .join(' ');
+  return [
+    <RunningProc>{
+      procCmd: procCmd,
+      childProcess: childProcess,
+      isRunning: () => isRunning,
+      kill: () => {
+        if (!childProcess) { return; }
+        wasKilledbyUs = true;
+        if (isWindows) { cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
+        else           { childProcess.kill('SIGINT'); }
       },
-      (err: cp.ExecException | null, stdout: string, stderr: string): void => {
-        runningCmd.isRunning = false;
-        if (options.onExit) { options.onExit(); }
-        childProcess = undefined;
-        if (wasKilledbyUs || !err) {
-          resolve({ stdout, stderr });
-        } else {
-          if (options.showMessageOnError) {
-            const cmdName = cmd.split(' ', 1)[0];
-            const cmdWasNotFound = isWindows
-              ? err.message.includes(`'${cmdName}' is not recognized`)
-              : err?.code === 127;
-            vscode.window.showErrorMessage(
-              cmdWasNotFound
-                ? `${cmdName} is not available in your path. ${options.notFoundText ?? ""}`
-                : err.message
-            );
+    },
+    new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      childProcess = cp.exec(
+        procCmd,
+        <cp.ExecOptions>{
+          cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
+        },
+        (err: cp.ExecException | null, stdout: string, stderr: string): void => {
+          isRunning = false;
+          if (options.onExit) { options.onExit(); }
+          childProcess = undefined;
+          if (wasKilledbyUs || !err) {
+            resolve({ stdout, stderr });
+          } else {
+            if (options.showMessageOnError) {
+              const cmdName = cmd.split(' ', 1)[0];
+              const cmdWasNotFound = isWindows
+                ? err.message.includes(`'${cmdName}' is not recognized`)
+                : err?.code === 127;
+              vscode.window.showErrorMessage(
+                cmdWasNotFound
+                  ? `${cmdName} is not available in your path. ${options.notFoundText ?? ""}`
+                  : err.message
+              );
+            }
+            reject({ err, stdout, stderr });
           }
-          reject({ err, stdout, stderr });
-        }
-      },
-    );
-    childProcess.stdout?.on('data', (data: Buffer) => {
-      if (firstResponse && options.onStart) { options.onStart(); }
-      firstResponse = false;
-      if (options.onStdout) { options.onStdout(data.toString()); }
-    });
-    childProcess.stderr?.on('data', (data: Buffer) => {
-      if (firstResponse && options.onStart) { options.onStart(); }
-      firstResponse = false;
-      if (options.onStderr) { options.onStderr(data.toString()); }
-    });
-  });
-  runningCmd.kill = (): void => {
-    if (childProcess) {
-      wasKilledbyUs = true;
-      if (isWindows) {
-        cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']);
-      }
-      else {
-        childProcess.kill('SIGINT');
-      }
-    }
-  };
-  runningCmd.isRunning = true;
-  return runningCmd as RunningCmd;
+        },
+      );
+      childProcess.stdout?.on('data', (data: Buffer) => {
+        if (firstResponse && options.onStart) { options.onStart(); }
+        firstResponse = false;
+        if (options.onStdout) { options.onStdout(data.toString()); }
+      });
+      childProcess.stderr?.on('data', (data: Buffer) => {
+        if (firstResponse && options.onStart) { options.onStart(); }
+        firstResponse = false;
+        if (options.onStderr) { options.onStderr(data.toString()); }
+      });
+    }),
+  ];
 }

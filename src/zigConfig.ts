@@ -12,6 +12,7 @@ export const enum BuildStep {
 
 export class ZigConfig extends ExtensionConfigBase {
     public  static readonly languageId          = 'zig';
+    public  static readonly extensionId         = 'zig';
     public  static readonly zigDocumentSelector = [{ language: ZigConfig.languageId, scheme: 'file' }];
     private static readonly dfltBuildRootDir    = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
     private static _cached?: ZigConfig          = undefined;
@@ -35,7 +36,7 @@ export class ZigConfig extends ExtensionConfigBase {
         if (!ZigConfig._cached || forceReload) { ZigConfig._cached = new ZigConfig(); }
         return ZigConfig._cached;
     }
-    constructor(resource?: vscode.Uri) { super('zig', resource); }
+    constructor(resource?: vscode.Uri) { super(ZigConfig.extensionId, resource); }
     public get zigBinPath               (): string             { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
     public get zlsBinPath               (): string             { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
     public get zlsDebugBinPath          (): string | undefined { if (!this._zlsDebugBinPath          ) { this._zlsDebugBinPath          = super.getResolvedPath  ("zls.debugBinPath"         , undefined                         ); } return this._zlsDebugBinPath;          }
