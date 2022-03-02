@@ -22,7 +22,7 @@ modify the `Zig Path` setting to point to the `zig` binary.
 
 ```
 npm install
-npm run compile
+npm run build
 npx vsce package
-npm run vsix
+npm run deploy
 ```

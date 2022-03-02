@@ -245,15 +245,15 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "rimraf out && npm run -S esbuild-base -- --minify",
-    "esbuild-base": "esbuild ./src/extension.ts --bundle --sourcemap=external --tsconfig=./tsconfig.json --external:vscode --outfile=out/extension.js --platform=node --format=cjs",
-    "watch": "npm run -S esbuild-base -- --sourcemap --sources-content=false --watch",
-    "pretest": "npm run compile && npm run lint",
+    "compile": "tsc -p ./",
     "lint": "eslint src --ext ts",
-    "test": "npm run compile && node ./node_modules/vscode/bin/test",
-    "compile": "npm run -S esbuild-base -- --sourcemap --sources-content=false",
-		"package": "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
-		"deploy": "npm run package && code --uninstall-extension ikrima.%npm_package_name% && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix"
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
+    "build": "npm run -S esbuild-base -- --sourcemap --sources-content=false",
+    "watch": "npm run -S esbuild-base -- --sourcemap --sources-content=false --watch",
+    "test": "npm run compile && npm run lint && node ./node_modules/vscode/bin/test",
+    "vscode:prepublish": "rimraf out && npm run -S esbuild-base -- --minify",
+    "package": "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
+    "deploy": "npm run package && code --uninstall-extension ikrima.%npm_package_name% && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix"
   },
   "devDependencies": {
     "@types/node": "^14.14.0",
