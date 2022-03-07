@@ -6,7 +6,6 @@ import { log } from './utils';
 import { ZigConfig } from "./zigConfig";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
-  lspSubscriptions: vscode.Disposable[] = [];
   // // Default implementation logs failures to output panel that's meant for extension debugging
   // // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
   // handleFailedRequest<T>(type: vscodelc.MessageSignature, error: any, defaultValue: T): T {
@@ -20,14 +19,13 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsContext implements vscode.Disposable {
-  private zlsChannel:     vscode.OutputChannel;
-  private zlsDiagnostics: vscode.DiagnosticCollection;
-  private zlsClient?:     ZlsLanguageClient;
-  private registrations:  vscode.Disposable[] = [];
+  static readonly diagnosticCollectionName = 'zls';
+  private zlsChannel: vscode.OutputChannel;
+  private zlsClient?: ZlsLanguageClient;
+  private registrations: vscode.Disposable[] = [];
 
   constructor() {
-    this.zlsChannel     = vscode.window.createOutputChannel("Zig Language Server");
-    this.zlsDiagnostics = vscode.languages.createDiagnosticCollection('zls');
+    this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
     this.registrations.push(
       vscode.commands.registerCommand("zig.zls.start", async () => {
         await this.startClient();
@@ -42,18 +40,19 @@ export class ZlsContext implements vscode.Disposable {
     );
   }
 
-  async dispose() {
+  dispose() { this.asyncDispose(); }
+
+  async asyncDispose() {
     this.registrations.forEach(d => d.dispose());
     this.registrations = [];
-    try { await this.stopClient(); } catch { }
-    this.zlsDiagnostics.dispose();
+    if (this.zlsClient) { try { await this.stopClient(); } catch { } }
     this.zlsChannel.dispose();
   }
 
 
   async startClient(): Promise<void> {
     if (this.zlsClient) {
-      log.info(this.zlsChannel, "Client already started", true);
+      log.warn(this.zlsChannel, "Client already started");
       return;
     }
     log.info(this.zlsChannel, "Starting Zls...");
@@ -64,14 +63,12 @@ export class ZlsContext implements vscode.Disposable {
     }
     const zlsPath = (zigCfg.zlsEnableDebugMode && zigCfg.zlsDebugBinPath) ? zigCfg.zlsDebugBinPath : zigCfg.zlsBinPath;
     const zlsArgs = zigCfg.zlsEnableDebugMode ? ["--debug-log"] : [];
-    try {
-      await utils.fileExists(zlsPath);
-    } catch (err) {
+
+    if (!(await utils.fileExists(zlsPath))) {
       const zlsBinCfgVar = zigCfg.zlsEnableDebugMode ? "`zig.zls.zlsDebugBinPath`" : "`zig.zls.binPath`";
       log.error(this.zlsChannel,
-        `Failed to find zls executable ${zlsPath}!\n`
-        + `  Please specify its path in your settings with ${zlsBinCfgVar}\n`
-        + `  Error: ${err ?? "Unknown"}`
+        `Failed to find zls executable ${zlsPath}!\n` +
+        `  Please specify its path in your settings with ${zlsBinCfgVar}\n`
       );
       return;
     }
@@ -86,7 +83,7 @@ export class ZlsContext implements vscode.Disposable {
     const clientOptions: vscodelc.LanguageClientOptions = {
       documentSelector: ZigConfig.zigDocumentSelector,
       outputChannel: this.zlsChannel,
-      diagnosticCollectionName: this.zlsDiagnostics.name,
+      diagnosticCollectionName: ZlsContext.diagnosticCollectionName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
 
       //#region todo: advanced options
@@ -158,18 +155,23 @@ export class ZlsContext implements vscode.Disposable {
     // configFileWatcher.activate(this);
     //#endregion
 
-    this.zlsClient.lspSubscriptions.push(this.zlsClient.start());
-    await this.zlsClient.onReady();
+    this.zlsClient.start();
+    return this.zlsClient.onReady();
   }
 
   async stopClient(): Promise<void> {
-    if (!this.zlsClient) { return; }
-
-    log.info(this.zlsChannel, "Stopping Zls...");
     const zlsClient = this.zlsClient;
     this.zlsClient = undefined;
-    await zlsClient.stop();
-    zlsClient.lspSubscriptions.forEach(d => d.dispose());
+    if (!(zlsClient?.needsStop())) {
+      log.warn(this.zlsChannel, "Client already stopped");
+      return;
+    }
+
+    log.info(this.zlsChannel, "Stopping Zls...");
+    return zlsClient.stop().catch(err => {
+      log.error(this.zlsChannel, `zls.stop failed during dispose.\n  Error: ${err}`);
+    });
+
   }
 
 }

@@ -10,23 +10,23 @@ import { ZigConfig } from './zigConfig';
 // import { stringify } from 'querystring';
 
 // The extension deactivate method is asynchronous, so we handle the disposables ourselves instead of using extensonContext.subscriptions
-class ZigExtension {
-    extContext:          vscode.ExtensionContext;
-    zlsContext:          ZlsContext;
-    zigChannel:          vscode.OutputChannel;
+class ZigContext {
+    readonly extContext: vscode.ExtensionContext;
+    zlsContext: ZlsContext;
+    zigChannel: vscode.OutputChannel;
     zigCodeLensProvider: ZigCodelensProvider;
-    zigTaskProvider:     ZigTaskProvider;
-    registrations:       vscode.Disposable[] = [];
+    zigTaskProvider: ZigTaskProvider;
+    registrations: vscode.Disposable[] = [];
 
     constructor(context: vscode.ExtensionContext) {
-        this.extContext          = context;
-        this.zigChannel          = vscode.window.createOutputChannel(ZigConfig.extensionId);
-        this.zlsContext          = new ZlsContext();
+        this.extContext = context;
+        this.zigChannel = vscode.window.createOutputChannel(ZigConfig.extensionId);
+        this.zlsContext = new ZlsContext();
         this.zigCodeLensProvider = new ZigCodelensProvider();
-        this.zigTaskProvider     = new ZigTaskProvider(this.zigChannel);
+        this.zigTaskProvider = new ZigTaskProvider(this.zigChannel);
         this.registrations.push(
-            vscode.languages.registerCodeLensProvider (ZigConfig.zigDocumentSelector, this.zigCodeLensProvider),
-            vscode.tasks.registerTaskProvider         (ZigTaskProvider.TaskType,      this.zigTaskProvider),
+            vscode.languages.registerCodeLensProvider(ZigConfig.zigDocumentSelector, this.zigCodeLensProvider),
+            vscode.tasks.registerTaskProvider(ZigTaskProvider.ScriptType, this.zigTaskProvider),
         );
 
         // let zigFormatStatusBar: vscode.StatusBarItem;
@@ -61,25 +61,25 @@ class ZigExtension {
         this.zlsContext.startClient();
     }
 
-    async deactivate() {
+    async deactivate(): Promise<void> {
         this.registrations.forEach(d => d.dispose());
         this.registrations = [];
         this.zigTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
-        await this.zlsContext.dispose();
+        try { await this.zlsContext.asyncDispose(); } catch {}
         this.zigChannel.dispose();
     }
-
 };
-let zigExtension: ZigExtension | undefined;
 
-export async function activate(context: vscode.ExtensionContext) {
-    zigExtension = new ZigExtension(context);
-    await zigExtension.activate();
+let zigContext: ZigContext | undefined;
+export function activate(context: vscode.ExtensionContext) {
+    zigContext = new ZigContext(context);
+    zigContext.activate();
 }
 
-export async function deactivate() {
-    if (!zigExtension) { return; }
-    await zigExtension.deactivate();
-    zigExtension = undefined;
+export async function deactivate(): Promise<void> {
+    if (!zigContext) { return; }
+    const zctx = zigContext;
+    zigContext = undefined;
+    return zctx.deactivate();
 }

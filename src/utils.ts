@@ -60,21 +60,21 @@ export function resolveVariables(input: string, baseContext?: VariableContext): 
 
   const varCtx: VariableContext = {};
   if (baseContext) { Object.assign(varCtx, baseContext); }
-  varCtx.workspaceFolder = varCtx.workspaceFolder ?? workspaceFolders?.[0].uri.fsPath;
+  varCtx.workspaceFolder         = varCtx.workspaceFolder         ?? workspaceFolders?.[0].uri.fsPath;
   varCtx.workspaceFolderBasename = varCtx.workspaceFolderBasename ?? workspaceFolders?.[0].name;
-  varCtx.file = varCtx.file ?? activeEditor?.document.uri.fsPath;
-  varCtx.fileWorkspaceFolder = varCtx.fileWorkspaceFolder ?? (varCtx.file ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(varCtx.file))?.uri.fsPath : undefined);
-  varCtx.relativeFile = varCtx.relativeFile ?? (varCtx.file ? vscode.workspace.asRelativePath(vscode.Uri.file(varCtx.file)) : undefined);
-  varCtx.relativeFileDirname = varCtx.relativeFileDirname ?? (varCtx.relativeFile ? path.dirname(varCtx.relativeFile) : undefined);
-  varCtx.fileBasename = varCtx.fileBasename ?? (varCtx.file ? path.basename(varCtx.file) : undefined);
-  varCtx.fileExtname = varCtx.fileExtname ?? (varCtx.fileBasename ? path.extname(varCtx.fileBasename) : undefined);
+  varCtx.file                    = varCtx.file                    ?? activeEditor?.document.uri.fsPath;
+  varCtx.fileWorkspaceFolder     = varCtx.fileWorkspaceFolder     ?? (varCtx.file ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(varCtx.file))?.uri.fsPath : undefined);
+  varCtx.relativeFile            = varCtx.relativeFile            ?? (varCtx.file ? vscode.workspace.asRelativePath(vscode.Uri.file(varCtx.file)) : undefined);
+  varCtx.relativeFileDirname     = varCtx.relativeFileDirname     ?? (varCtx.relativeFile ? path.dirname(varCtx.relativeFile) : undefined);
+  varCtx.fileBasename            = varCtx.fileBasename            ?? (varCtx.file ? path.basename(varCtx.file) : undefined);
+  varCtx.fileExtname             = varCtx.fileExtname             ?? (varCtx.fileBasename ? path.extname(varCtx.fileBasename) : undefined);
   varCtx.fileBasenameNoExtension = varCtx.fileBasenameNoExtension ?? (varCtx.file ? path.parse(varCtx.file).ext : undefined);
-  varCtx.fileDirname = varCtx.fileDirname ?? (varCtx.file ? path.dirname(varCtx.file) : undefined);
-  varCtx.cwd = varCtx.cwd ?? varCtx.fileDirname;
-  varCtx.lineNumber = varCtx.lineNumber ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
-  varCtx.selectedText = varCtx.selectedText ?? activeEditor?.document.getText(activeEditor.selection);
-  varCtx.execPath = varCtx.execPath ?? process.execPath;
-  varCtx.pathSeparator = varCtx.pathSeparator ?? path.sep;
+  varCtx.fileDirname             = varCtx.fileDirname             ?? (varCtx.file ? path.dirname(varCtx.file) : undefined);
+  varCtx.cwd                     = varCtx.cwd                     ?? varCtx.fileDirname;
+  varCtx.lineNumber              = varCtx.lineNumber              ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
+  varCtx.selectedText            = varCtx.selectedText            ?? activeEditor?.document.getText(activeEditor.selection);
+  varCtx.execPath                = varCtx.execPath                ?? process.execPath;
+  varCtx.pathSeparator           = varCtx.pathSeparator           ?? path.sep;
 
 
   // // Replace environment and configuration variables.
@@ -233,25 +233,25 @@ export function runProc(cmd: string, options: RunningProcOptions = {}): [Running
         <cp.ExecOptions>{
           cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
         },
-        (err: cp.ExecException | null, stdout: string, stderr: string): void => {
+        (error: cp.ExecException | null, stdout: string, stderr: string): void => {
           isRunning = false;
           if (options.onExit) { options.onExit(); }
           childProcess = undefined;
-          if (wasKilledbyUs || !err) {
+          if (wasKilledbyUs || !error) {
             resolve({ stdout, stderr });
           } else {
             if (options.showMessageOnError) {
               const cmdName = cmd.split(' ', 1)[0];
               const cmdWasNotFound = isWindows
-                ? err.message.includes(`'${cmdName}' is not recognized`)
-                : err?.code === 127;
+                ? error.message.includes(`'${cmdName}' is not recognized`)
+                : error?.code === 127;
               vscode.window.showErrorMessage(
                 cmdWasNotFound
                   ? `${cmdName} is not available in your path. ${options.notFoundText ?? ""}`
-                  : err.message
+                  : error.message
               );
             }
-            reject({ err, stdout, stderr });
+            reject(Object.assign(error, {stdout: stdout, stderr: stderr}));
           }
         },
       );
