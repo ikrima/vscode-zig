@@ -26,8 +26,6 @@ export class ZigConfig extends ExtensionConfigBase {
     private _buildBuildStep?           : BuildStep;
     private _buildExtraArgs?           : string[] ;
     private _taskBinDir?               : string   ;
-    private _taskTestArgs?             : string[] ;
-    private _taskDebugArgs?            : string[] ;
     private _taskEnableProblemMatcher? : boolean  ;
     private _miscBuildOnSave?          : boolean  ;
     private _miscRevealOnFormatError?  : boolean  ;
@@ -46,8 +44,6 @@ export class ZigConfig extends ExtensionConfigBase {
     public get buildBuildStep           (): BuildStep          { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
     public get buildExtraArgs           (): string[]           { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }
     public get taskBinDir               (): string             { if (!this._taskBinDir               ) { this._taskBinDir               = super.getResolvedPath  ("task.binDir"              , `${this.buildRootDir}/zig-out/bin`); } return this._taskBinDir;               }
-    public get taskTestArgs             (): string[]           { if (!this._taskTestArgs             ) { this._taskTestArgs             = super.getResolvedArray ("task.testArgs"                                                ); } return this._taskTestArgs;             }
-    public get taskDebugArgs            (): string[]           { if (!this._taskDebugArgs            ) { this._taskDebugArgs            = super.getResolvedArray ("task.debugArgs"                                               ); } return this._taskDebugArgs;            }
     public get taskEnableProblemMatcher (): boolean            { if (!this._taskEnableProblemMatcher ) { this._taskEnableProblemMatcher = super.getWithFallback  ("task.enableProblemMatcher", true                              ); } return this._taskEnableProblemMatcher; }
     public get miscBuildOnSave          (): boolean            { if (!this._miscBuildOnSave          ) { this._miscBuildOnSave          = super.getWithFallback  ("misc.buildOnSave"         , false                             ); } return this._miscBuildOnSave;          }
     public get miscRevealOnFormatError  (): boolean            { if (!this._miscRevealOnFormatError  ) { this._miscRevealOnFormatError  = super.getWithFallback  ("misc.revealOnFormatError" , true                              ); } return this._miscRevealOnFormatError;  }

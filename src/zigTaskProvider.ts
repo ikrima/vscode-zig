@@ -10,9 +10,10 @@ const cppToolsExtId = "ms-vscode.cpptools";
 const lldbExtId = "vadimcn.vscode-lldb";
 
 interface ZigTaskDefinition extends vscode.TaskDefinition {
-  isDebugTask: boolean;
+  runInDebugger: boolean;
   srcFilePath: string;
   testArgs?: string[];
+  debugArgs?: string[],
   testFilter?: string;
   mainPkgPath?: string;
   emitBinPath?: string;
@@ -25,8 +26,6 @@ export class ZigTask extends vscode.Task {
   constructor(
     public zigBinPath: string,
     public emitBinPath: string,
-    public isDebugTask: boolean,
-    public debugArgs: string[],
     taskDef: ZigTaskDefinition,
     scope: vscode.WorkspaceFolder | vscode.TaskScope.Global | vscode.TaskScope.Workspace,
     name: string,
@@ -65,7 +64,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       vscode.commands.registerCommand("zig.test.run", async (filename: vscode.Uri, filter: string) => {
         const zigTask = this.getTask({
           type: ZigTaskProvider.ScriptType,
-          isDebugTask: false,
+          runInDebugger: false,
           srcFilePath: filename.fsPath,
           testFilter: filter,
         });
@@ -74,7 +73,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       vscode.commands.registerCommand("zig.test.debug", async (filename: vscode.Uri, filter: string) => {
         const zigTask = this.getTask({
           type: ZigTaskProvider.ScriptType,
-          isDebugTask: true,
+          runInDebugger: true,
           srcFilePath: filename.fsPath,
           testFilter: filter,
         });
@@ -200,17 +199,17 @@ export class ZigTaskProvider implements vscode.TaskProvider {
           if (e.execution !== execution) { return; }
           disposable!.dispose();
           disposable = undefined;
-          if (zigTask.isDebugTask) {
+          if (zigTask.definition.runInDebugger) {
             try {
               await this._launchDebugger(
                 zigTask.scope as vscode.WorkspaceFolder,
                 zigTask.zigBinPath,
                 zigTask.emitBinPath,
-                zigTask.debugArgs,
+                zigTask.definition.debugArgs,
               );
             }
             catch (err: any) {
-              log.error(this.logChannel, `Could not launch debugger\n ${err.message ?? "Error: Unknown"}`);
+              log.error(this.logChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
               reject();
             }
           }
@@ -225,7 +224,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
   }
 
   private getTask(
-    _def: ZigTaskDefinition,
+    taskDef: ZigTaskDefinition,
     _folder?: vscode.WorkspaceFolder,
     _presentationOptions?: vscode.TaskPresentationOptions,
   ): ZigTask {
@@ -235,36 +234,23 @@ export class ZigTaskProvider implements vscode.TaskProvider {
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
         : vscode.workspace.workspaceFolders?.[0]);
 
-    const presentationOptions = _presentationOptions ?? <vscode.TaskPresentationOptions>{};
-    presentationOptions.echo = true;
-    presentationOptions.showReuseMessage = false;
-    presentationOptions.clear = true;
-    presentationOptions.reveal = _presentationOptions?.reveal ?? (_def.isDebugTask
-      ? vscode.TaskRevealKind.Silent
-      : vscode.TaskRevealKind.Always);
 
-    const debugArgs = _def.debugArgs ?? zigCfg.taskDebugArgs;
-    const emitBinPath = _def.emitBinPath ?? path.join(zigCfg.taskBinDir, folder ? `test-${folder.name}.exe` : "test-zig.exe");
+    const emitBinPath = taskDef.emitBinPath ?? path.join(zigCfg.taskBinDir, folder ? `test-${folder.name}.exe` : "test-zig.exe");
     const testName = path.parse(emitBinPath).name;
-    const testDetail = `zig build task: ${testName}`;
+
+    taskDef.srcFilePath = path.normalize(taskDef.srcFilePath);
+    taskDef.debugArgs   = taskDef.debugArgs ?? [];
+    taskDef.testArgs    = taskDef.testArgs ?? [];
+    taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.buildRootDir;
+    taskDef.emitBinPath = emitBinPath;
+    taskDef.options     = {
+      cwd: taskDef.options?.cwd ?? zigCfg.buildRootDir,
+    };
+
     return new ZigTask(
       zigCfg.zigBinPath,
       emitBinPath,
-      _def.isDebugTask,
-      debugArgs.map((configVal: string) => utils.resolveVariables(configVal)) ?? [],
-      <ZigTaskDefinition>{
-        type: ZigTaskProvider.ScriptType,
-        isDebugTask: _def.isDebugTask,
-        srcFilePath: path.normalize(_def.srcFilePath),
-        testArgs: _def.testArgs ?? zigCfg.taskTestArgs,
-        debugArgs: debugArgs,
-        testFilter: _def.testFilter,
-        mainPkgPath: _def.mainPkgPath ?? zigCfg.buildRootDir,
-        emitBinPath: emitBinPath,
-        options: {
-          cwd: zigCfg.buildRootDir,
-        },
-      },
+      taskDef,
       folder ? folder : vscode.TaskScope.Workspace,
       testName,
       new vscode.CustomExecution(async (resolvedTaskDef: vscode.TaskDefinition): Promise<vscode.Pseudoterminal> => {
@@ -276,8 +262,16 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       }),
       zigCfg.taskEnableProblemMatcher,
       vscode.TaskGroup.Build,
-      testDetail,
-      presentationOptions,
+      `zig build task: ${testName}`,
+      Object.assign(
+        <vscode.TaskPresentationOptions>{
+          reveal: taskDef.runInDebugger ? vscode.TaskRevealKind.Silent : vscode.TaskRevealKind.Always,
+          echo: true,
+          showReuseMessage: false,
+          clear: true,
+        },
+        _presentationOptions ?? {}
+      ),
     );
   }
 
@@ -311,7 +305,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
               `-femit-bin=${this.taskDef.emitBinPath!}`,
               ...(this.taskDef.testFilter ? ["--test-filter", this.taskDef.testFilter] : []),
               ...(this.taskDef.testArgs ?? []),
-              ...(this.taskDef.isDebugTask ? [`--test-no-exec`] : []),
+              ...(this.taskDef.runInDebugger ? [`--test-no-exec`] : []),
               "--name",
               this.testName,
               "--enable-cache",

@@ -11,28 +11,28 @@
     "type": "git",
     "url": "https://github.com/ikrima/vscode-zig"
   },
-  "engines": {
-    "vscode": "^1.64.0"
-  },
   "categories": [
     "Programming Languages"
   ],
+  "engines": {
+    "vscode": "^1.64.0"
+  },
+  "main": "./out/extension",
   "activationEvents": [
     "onLanguage:zig"
   ],
-  "main": "./out/extension",
   "contributes": {
     "taskDefinitions": [
       {
         "type": "zig",
         "required": [
-          "isDebugTask",
+          "runInDebugger",
           "srcFilePath"
         ],
         "properties": {
-          "isDebugTask": {
+          "runInDebugger": {
             "type": "boolean",
-            "description": "Run in debug mode"
+            "description": "Launch in debugger"
           },
           "srcFilePath": {
             "type": "string",
@@ -40,7 +40,19 @@
           },
           "testArgs": {
             "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
             "description": "Additional args to pass \"zig test\""
+          },
+          "debugArgs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "Additional flags to to pass \"zig test\" when running in debugger"
           },
           "testFilter": {
             "type": "string",
@@ -177,24 +189,6 @@
           "scope": "resource",
           "default": null,
           "description": "Test bin output path."
-        },
-        "zig.task.testArgs": {
-          "type": "array",
-          "scope": "resource",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Workspace Default additional flags to pass \"zig test\""
-        },
-        "zig.task.debugArgs": {
-          "type": "array",
-          "scope": "resource",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "markdownDescription": "Additional flags to to pass \"zig test\" in debug mode"
         },
         "zig.task.enableProblemMatcher": {
           "type": "boolean",
