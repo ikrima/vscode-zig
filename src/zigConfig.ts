@@ -19,7 +19,7 @@ export class ZigConfig extends ExtensionConfigBase {
 
     private _zigBinPath?               : string   ;
     private _zlsBinPath?               : string   ;
-    private _zlsDebugBinPath?          : string   ;
+    private _zlsDebugBinPath?          : string | undefined;
     private _zlsEnableDebugMode?       : boolean  ;
     private _buildRootDir?             : string   ;
     private _buildBuildFile?           : string   ;

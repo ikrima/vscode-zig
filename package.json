@@ -17,7 +17,7 @@
   "engines": {
     "vscode": "^1.64.0"
   },
-  "main": "./out/extension",
+  "main": "./dist/extension",
   "activationEvents": [
     "onLanguage:zig"
   ],
@@ -246,15 +246,16 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "lint": "eslint src --ext ts",
-    "esbuild-base": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
-    "build": "npm run -S esbuild-base -- --sourcemap --sources-content=false",
-    "watch": "npm run -S esbuild-base -- --sourcemap --sources-content=false --watch",
-    "test": "npm run compile && npm run lint && node ./node_modules/vscode/bin/test",
-    "vscode:prepublish": "rimraf out && npm run -S esbuild-base -- --minify",
-    "package": "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
-    "deploy": "npm run package && code --uninstall-extension ikrima.%npm_package_name% && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix"
+    "compile":           "tsc -p ./",
+    "lint":              "eslint src --ext ts",
+    "esbuild-base":      "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=dist/extension.js",
+    "build":             "npm run esbuild-base -- --sourcemap",
+    "watch":             "npm run esbuild-base -- --sourcemap --watch",
+    "test":              "npm run compile && npm run lint && node ./node_modules/vscode/bin/test",
+    "pre-deploy":        "npx rimraf out && npx rimraf dist && tsc -p ./ --noEmit",
+    "vscode:prepublish": "npm run pre-deploy && npm run esbuild-base -- --minify",
+    "package":           "vsce package -o dist/%npm_package_name%-%npm_package_version%.vsix",
+    "deploy":            "npm run package && code --uninstall-extension %npm_package_publisher%.%npm_package_name% && code --install-extension dist/%npm_package_name%-%npm_package_version%.vsix"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.6",

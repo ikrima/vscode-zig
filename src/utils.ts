@@ -6,19 +6,19 @@ import * as process from 'process';
 import * as cp from 'child_process';
 
 //#region Common helper functions
-export const isWindows = process.platform === 'win32';
-export const envDelimiter = isWindows ? ";" : ":";
-export function isString(a: any): a is string { return typeof (a) === "string"; }
-export function isArray(a: any): a is any[] { return a instanceof Array; }
-export function isArrayOfString(a: any): a is string[] { return isArray(a) && a.every(isString); }
-export function isBlank(a: any): boolean { return !(isString(a) && /\S/g.test(a)); }
-export function max(a: number, b: number): number { return a < b ? b : a; }
-export function min(a: number, b: number): number { return a < b ? a : b; }
-export function findWorkspaceFolder(name: string): vscode.WorkspaceFolder | undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
-export function isExtensionActive(extensionId: string): boolean { return vscode.extensions.getExtension(extensionId)?.isActive ?? false; }
+export const    isWindows = process.platform === 'win32';
+export const    envDelimiter = isWindows ? ";" : ":";
+export function isString            (a:           any              ): a is string   { return typeof (a) === "string";                                        }
+export function isArray             (a:           any              ): a is any[]    { return a instanceof Array;                                             }
+export function isArrayOfString     (a:           any              ): a is string[] { return isArray(a) && a.every(isString);                                }
+export function isBlank             (a:           any              ): boolean       { return !(isString(a) && /\S/g.test(a));                                }
+export function max                 (a:           number, b: number): number        { return a < b ? b : a;                                                  }
+export function min                 (a:           number, b: number): number        { return a < b ? a : b;                                                  }
+export function isExtensionActive   (extensionId: string           ): boolean       { return vscode.extensions.getExtension(extensionId)?.isActive ?? false; }
+export function findWorkspaceFolder (name:        string           ): vscode.WorkspaceFolder | undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
 
 export async function fileExists(filePath: string): Promise<boolean> { return await vscode.workspace.fs.stat(vscode.Uri.file(filePath)).then(stats => stats.type === vscode.FileType.File, _ => false); }
-export async function dirExists(dirPath: string): Promise<boolean> { return await vscode.workspace.fs.stat(vscode.Uri.file(dirPath)).then(stats => stats.type === vscode.FileType.Directory, _ => false); }
+export async function dirExists (dirPath:  string): Promise<boolean> { return await vscode.workspace.fs.stat(vscode.Uri.file(dirPath)).then(stats => stats.type === vscode.FileType.Directory, _ => false); }
 
 export function normalizeShellArg(arg: string): string {
   arg = arg.trimLeft().trimRight();
@@ -51,15 +51,33 @@ export namespace log {
   export function error (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { vscode.window.showErrorMessage(msg);       } }
 }
 
-export type VariableContext = { [key: string]: string | undefined };
+export interface VariableContext {
+  workspaceFolder?:         string | undefined;
+  workspaceFolderBasename?: string | undefined;
+  file?:                    string | undefined;
+  fileWorkspaceFolder?:     string | undefined;
+  relativeFile?:            string | undefined;
+  relativeFileDirname?:     string | undefined;
+  fileBasename?:            string | undefined;
+  fileExtname?:             string | undefined;
+  fileBasenameNoExtension?: string | undefined;
+  fileDirname?:             string | undefined;
+  cwd?:                     string | undefined;
+  lineNumber?:              string | undefined;
+  selectedText?:            string | undefined;
+  execPath?:                string | undefined;
+  pathSeparator?:           string | undefined;
+  [key: string]:            string | undefined
+};
 export function resolveVariables(input: string, baseContext?: VariableContext): string {
   if (!input) { return ""; }
-  const config = vscode.workspace.getConfiguration();
+  const config           = vscode.workspace.getConfiguration();
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  const activeEditor = vscode.window.activeTextEditor;
+  const activeEditor     = vscode.window.activeTextEditor;
 
-  const varCtx: VariableContext = {};
-  if (baseContext) { Object.assign(varCtx, baseContext); }
+  const varCtx: VariableContext = baseContext
+    ? Object.assign({}, baseContext)
+    : {};
   varCtx.workspaceFolder         = varCtx.workspaceFolder         ?? workspaceFolders?.[0].uri.fsPath;
   varCtx.workspaceFolderBasename = varCtx.workspaceFolderBasename ?? workspaceFolders?.[0].name;
   varCtx.file                    = varCtx.file                    ?? activeEditor?.document.uri.fsPath;
@@ -87,28 +105,28 @@ export function resolveVariables(input: string, baseContext?: VariableContext): 
     ret = ret.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string) => {
       let newValue: string | undefined;
       switch (varType) {
-        case "env": { newValue = varCtx[name] ?? process.env[name]; break; }
-        case "config": { newValue = config.get<string>(name); break; }
-        case "workspaceFolder": { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
-        case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name; break; }
+        case "env":                     { newValue = varCtx[name] ?? process.env[name];     break; }
+        case "config":                  { newValue = config.get<string>(name);              break; }
+        case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
+        case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
         default: {
           switch (name) {
-            case "workspaceFolder": { newValue = varCtx.workspaceFolder; break; }
+            case "workspaceFolder":         { newValue = varCtx.workspaceFolder;         break; }
             case "workspaceFolderBasename": { newValue = varCtx.workspaceFolderBasename; break; }
-            case "file": { newValue = varCtx[name]; break; }
-            case "fileWorkspaceFolder": { newValue = varCtx[name]; break; }
-            case "relativeFile": { newValue = varCtx[name]; break; }
-            case "relativeFileDirname": { newValue = varCtx[name]; break; }
-            case "fileBasename": { newValue = varCtx[name]; break; }
-            case "fileBasenameNoExtension": { newValue = varCtx[name]; break; }
-            case "fileDirname": { newValue = varCtx[name]; break; }
-            case "fileExtname": { newValue = varCtx[name]; break; }
-            case "cwd": { newValue = varCtx[name]; break; }
-            case "lineNumber": { newValue = varCtx[name]; break; }
-            case "selectedText": { newValue = varCtx[name]; break; }
-            case "execPath": { newValue = varCtx[name]; break; }
-            case "pathSeparator": { newValue = varCtx[name]; break; }
-            default: { vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
+            case "file":                    { newValue = varCtx[name];                   break; }
+            case "fileWorkspaceFolder":     { newValue = varCtx[name];                   break; }
+            case "relativeFile":            { newValue = varCtx[name];                   break; }
+            case "relativeFileDirname":     { newValue = varCtx[name];                   break; }
+            case "fileBasename":            { newValue = varCtx[name];                   break; }
+            case "fileBasenameNoExtension": { newValue = varCtx[name];                   break; }
+            case "fileDirname":             { newValue = varCtx[name];                   break; }
+            case "fileExtname":             { newValue = varCtx[name];                   break; }
+            case "cwd":                     { newValue = varCtx[name];                   break; }
+            case "lineNumber":              { newValue = varCtx[name];                   break; }
+            case "selectedText":            { newValue = varCtx[name];                   break; }
+            case "execPath":                { newValue = varCtx[name];                   break; }
+            case "pathSeparator":           { newValue = varCtx[name];                   break; }
+            default:                        { vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
           }
         }
       }

@@ -1,24 +1,38 @@
 {
   "compilerOptions": {
-    "module":                     "commonjs",
-    "target":                     "ES2020",
-    "lib":                        ["ES2020"],
-    "rootDir":                    "src",
-    "outDir":                     "out",
-    "sourceMap":                  true,
-    "strict":                     true,
+    "module":                             "commonjs",
+    "target":                             "ES2020",
+    "lib":                                ["ES2020"],
+    "rootDir":                            "src",
+    "outDir":                             "out",
+    "sourceMap":                          true,
+    "esModuleInterop":                    true,
 
-    // /Additional Checks
-    "noImplicitReturns":          true, // Report error when not all code paths in function return a value
-    "noFallthroughCasesInSwitch": true, // Report errors for fallthrough cases in switch statement
-    "noUnusedParameters":         true, // Report errors on unused parameters
-    "alwaysStrict":               true,
-    "noImplicitAny":              true,
-    "removeComments":             false,
-    "preserveConstEnums":         true,
+    "strict":                             true,
+    "alwaysStrict":                       true,
+    "skipLibCheck":                       true,
+    "forceConsistentCasingInFileNames":   true,
+    "allowUnusedLabels":                  false,
+    "allowUnreachableCode":               false,
+    "exactOptionalPropertyTypes":         true,
+    "noFallthroughCasesInSwitch":         true,    // Report errors for fallthrough cases in switch statement
+    "noImplicitAny":                      true,
+    "noImplicitOverride":                 true,
+    "noImplicitReturns":                  true,    // Report error when not all code paths in function return a value
+    "noPropertyAccessFromIndexSignature": true,
+    // "noUncheckedIndexedAccess":        true,
+    "noUnusedLocals":                     true,
+    "noUnusedParameters":                 true,    // Report errors on unused parameters
+    "importsNotUsedAsValues":             "error",
+    "checkJs":                            true,
   },
   "exclude": [
     "node_modules",
-    ".vscode-test"
+    ".vscode-test",
+    "dist",
+    "out",
+    "src/zigBuild.ts",
+    "src/zigCodeActionProvider.ts",
+    "src/zigUtil.ts",
   ]
 }

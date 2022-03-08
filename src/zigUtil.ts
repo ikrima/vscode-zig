@@ -46,10 +46,10 @@ export function execCmd(cmd: string, options: ExecCmdOptions = {}): ExecutingCmd
     let childProcess: cp.ChildProcess;
 
     let executingCmd: any = new Promise((resolve, reject) => {
-        const cmdArguments = options?.cmdArguments ?? [];
+        const args = cmdArguments ?? [];
         const cwd = (fileName ? workspace.getWorkspaceFolder(fileName)?.uri.fsPath : "") ?? "";
         childProcess = cp.exec(
-            [cmd].concat(...cmdArguments).join(' '),
+            [cmd].concat(...args).join(' '),
             { cwd: cwd },
             handleExit);
         executingCmd.stdin = childProcess.stdin;

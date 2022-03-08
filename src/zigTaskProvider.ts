@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as path from 'path';
 import * as utils from './utils';
 import { ZigConfig } from "./zigConfig";
-import { log } from './utils';
+import { log, RunningProcOptions } from './utils';
 // import * as jsyaml from 'js-yaml';
 
 const cppToolsExtId = "ms-vscode.cpptools";
@@ -199,13 +199,14 @@ export class ZigTaskProvider implements vscode.TaskProvider {
           if (e.execution !== execution) { return; }
           disposable!.dispose();
           disposable = undefined;
-          if (zigTask.definition.runInDebugger) {
+          const taskDef = <ZigTaskDefinition>zigTask.definition;
+          if (taskDef.runInDebugger) {
             try {
               await this._launchDebugger(
                 zigTask.scope as vscode.WorkspaceFolder,
                 zigTask.zigBinPath,
                 zigTask.emitBinPath,
-                zigTask.definition.debugArgs,
+                taskDef.debugArgs!,
               );
             }
             catch (err: any) {
@@ -239,11 +240,11 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     const testName = path.parse(emitBinPath).name;
 
     taskDef.srcFilePath = path.normalize(taskDef.srcFilePath);
-    taskDef.debugArgs   = taskDef.debugArgs ?? [];
-    taskDef.testArgs    = taskDef.testArgs ?? [];
+    taskDef.debugArgs = taskDef.debugArgs ?? [];
+    taskDef.testArgs = taskDef.testArgs ?? [];
     taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.buildRootDir;
     taskDef.emitBinPath = emitBinPath;
-    taskDef.options     = {
+    taskDef.options = {
       cwd: taskDef.options?.cwd ?? zigCfg.buildRootDir,
     };
 
@@ -283,7 +284,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   private closeEmitter = new vscode.EventEmitter<number>();
   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
   onDidClose: vscode.Event<number> = this.closeEmitter.event;
-  private buildProc?: utils.RunningProc;
+  private buildProc?: utils.RunningProc | undefined;
 
   constructor(
     private readonly zigBinPath: string,
@@ -297,7 +298,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
       // Do build.
       const [proc, execResult] = utils.runProc(
         this.zigBinPath, // utils.isWindows ? `cmd /c chcp 65001>nul && ${this.zigBinPath}` : this.zigBinPath;
-        {
+        <RunningProcOptions>{
           shellArgs: ["test"]
             .concat(
               this.taskDef.srcFilePath,
@@ -311,12 +312,12 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
               "--enable-cache",
             )
             .map(arg => utils.resolveVariables(arg)),
-          cwd: this.taskDef.options?.cwd,
+          cwd:                this.taskDef.options?.cwd,
           showMessageOnError: true,
-          onStart: () => this.emitLine("Starting build..."),
-          onStdout: (str) => this.splitWriteEmitter(str),
-          onStderr: (str) => this.splitWriteEmitter(str),
-          notFoundText: `${this.zigBinPath} not found`,
+          onStart:            () => this.emitLine("Starting build..."),
+          onStdout:           (str) => this.splitWriteEmitter(str),
+          onStderr:           (str) => this.splitWriteEmitter(str),
+          notFoundText:       `${this.zigBinPath} not found`,
         }
       );
       // Emit Resolved command

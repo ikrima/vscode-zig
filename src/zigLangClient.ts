@@ -21,7 +21,7 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 export class ZlsContext implements vscode.Disposable {
   static readonly diagnosticCollectionName = 'zls';
   private zlsChannel: vscode.OutputChannel;
-  private zlsClient?: ZlsLanguageClient;
+  private zlsClient?: ZlsLanguageClient | undefined;
   private registrations: vscode.Disposable[] = [];
 
   constructor() {

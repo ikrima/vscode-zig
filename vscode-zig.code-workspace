@@ -14,5 +14,10 @@
 			"package-lock.json": true,
 			"out": true,
 		},
+
+		// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+		"typescript.tsc.autoDetect": "off",
+		"typescript.reportStyleChecksAsWarnings": true,
+		"typescript.validate.enable": true
 	}
 }

@@ -6,18 +6,31 @@
 		{
 			"label":          "npm: watch",
 			"type":           "npm",
-			"group":          "build",
 			"script":         "watch",
+			"group":          "build",
 			"isBackground":   true,
 			"problemMatcher": "$esbuild-watch",
 		},
 		{
 			"label":          "npm: build",
 			"type":           "npm",
-			"group":          "build",
 			"script":         "build",
-			"isBackground":   false,
+			"group":          "build",
 			"problemMatcher": "$esbuild",
 		},
+    {
+      "label":          "npm: compile",
+      "type":           "npm",
+      "script":         "compile",
+      "group":          { "kind": "build", "isDefault": true },
+      "problemMatcher": "$tsc",
+      "presentation":   {
+        "echo":   true,
+        "reveal": "always",
+        "focus":  false,
+        "panel":  "shared",
+        "clear":  true,
+      },
+    }
 	]
 }
