@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import { TextEdit, OutputChannel } from 'vscode';
 import { execCmd,ExecutingCmd } from './zigUtil';
-import { ZigContext } from "./zigContext";
+import { zigContext } from "./zigContext";
 
 export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider {
     private _channel: OutputChannel;
@@ -16,7 +16,7 @@ export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider 
         _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
-        const zigCfg = ZigContext.inst.getConfig();
+        const zigCfg = zigContext!.getConfig();
         return zigFormat(document)
             .then(({ stdout }) => {
                 logger.clear();
@@ -54,7 +54,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
         _token?: vscode.CancellationToken,
     ): Thenable<TextEdit[]> {
         const logger = this._channel;
-        const zigCfg = ZigContext.inst.getConfig();
+        const zigCfg = zigContext.getConfig();
         return zigFormat(document)
             .then(({ stdout }) => {
                 const lastLineId = document.lineCount - 1;
@@ -80,7 +80,7 @@ export class ZigRangeFormatProvider implements vscode.DocumentRangeFormattingEdi
 }
 
 function zigFormat(document: vscode.TextDocument): ExecutingCmd  {
-    const zigCfg = ZigContext.inst.getConfig();
+    const zigCfg = zigContext.getConfig();
 
     const options = {
         cmdArguments: ['fmt', '--stdin'],

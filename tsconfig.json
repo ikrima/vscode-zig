@@ -34,10 +34,7 @@
   "exclude": [
     "node_modules",
     ".vscode-test",
-    "dist",
     "out",
-    "src/zigBuild.ts",
-    "src/zigCodeActionProvider.ts",
-    "src/zigUtil.ts",
+    "deprecated_src",
   ]
 }

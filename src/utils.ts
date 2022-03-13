@@ -257,7 +257,7 @@ export namespace proc {
       childProcess: childProcess,
       isRunning: () => isRunning,
       kill: () => {
-        if (!childProcess) { return; }
+        if (!childProcess || !childProcess.pid) { return; }
         wasKilledbyUs = true;
         if (isWindows) { cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
         else { childProcess.kill('SIGINT'); }

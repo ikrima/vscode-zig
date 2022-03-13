@@ -17,7 +17,7 @@
   "engines": {
     "vscode": "^1.64.0"
   },
-  "main": "./dist/extension",
+  "main": "./out/extension",
   "activationEvents": [
     "onLanguage:zig"
   ],
@@ -246,21 +246,21 @@
     ]
   },
   "scripts": {
-    "compile":           "tsc -p ./",
+    "compile":           "tsc -p ./ --noEmit",
     "lint":              "eslint src --ext ts",
-    "esbuild-base":      "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=dist/extension.js",
+    "esbuild-base":      "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
     "build":             "npm run esbuild-base -- --sourcemap",
-    "watch":             "npm run esbuild-base -- --sourcemap --watch",
+    "watch":             "tsc -watch -p ./",
     "test":              "npm run compile && npm run lint && node ./node_modules/vscode/bin/test",
-    "pre-deploy":        "npx rimraf out && npx rimraf dist && tsc -p ./ --noEmit",
-    "vscode:prepublish": "npm run pre-deploy && npm run esbuild-base -- --minify",
-    "package":           "vsce package -o dist/%npm_package_name%-%npm_package_version%.vsix",
-    "deploy":            "npm run package && code --uninstall-extension %npm_package_publisher%.%npm_package_name% && code --install-extension dist/%npm_package_name%-%npm_package_version%.vsix"
+    "vscode:prepublish": "npx rimraf out && tsc -p ./ --noEmit && npm run esbuild-base -- --minify",
+    "package":           "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
+    "deploy":            "npm run package && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix",
+    "undeploy":          "code --uninstall-extension ikrima.%npm_package_name%"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.6",
     "@types/mocha": "^9.1.0",
-    "@types/node": "^14.18.12",
+    "@types/node": "^17.0.21",
     "@types/vscode": "^1.64.2",
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
@@ -270,7 +270,7 @@
     "mocha": "^9.2.1",
     "rimraf": "^3.0.2",
     "typescript": "^4.6.2",
-    "vsce": "^2.6.7"
+    "vsce": "^2.7.0"
   },
   "dependencies": {
     "lodash-es": "^4.17.21",

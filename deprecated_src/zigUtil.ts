@@ -78,7 +78,7 @@ export function execCmd(cmd: string, options: ExecCmdOptions = {}): ExecutingCmd
         function killProcess(): void {
             wasKilledbyUs = true;
             if (isWindows) {
-                cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']);
+                cp.spawn('taskkill', ['/pid', childProcess.pid!.toString(), '/f', '/t']);
             } else {
                 childProcess.kill('SIGINT');
             }

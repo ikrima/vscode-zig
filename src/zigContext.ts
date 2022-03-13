@@ -2,61 +2,50 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import { ext } from './utils';
-
+import { ZigConst } from './zigConst';
 import { ZlsContext } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
 import { ZigTaskProvider } from './zigTaskProvider';
 
 // The extension deactivate method is asynchronous, so we handle the disposables ourselves instead of using extensonContext.subscriptions
 
+export let zigContext: ZigContext;
+export async function initZigContext(context: vscode.ExtensionContext): Promise<void> {
+    zigContext = new ZigContext(context);
+    return zigContext.backgroundInit();
+}
+export async function deinitZigContext(): Promise<void> {
+    if (!zigContext) { return Promise.resolve(); }
+    await zigContext.backgroundDeinit();
+}
 
-export class ZigContext {
-    private static _inst: ZigContext | undefined = undefined;
-    public static readonly languageId          = 'zig';
-    public static readonly extensionId         = 'zig';
-    public static readonly zigDocumentSelector = [{ language: ZigContext.languageId, scheme: 'file' }];
-
-    public readonly extContext:  vscode.ExtensionContext;
-    public readonly zigChannel:  vscode.OutputChannel;
-    private zigConfig:           ZigConfig;
-    private zlsContext:          ZlsContext;
-    private zigCodeLensProvider: ZigCodelensProvider;
-    private zigTaskProvider:     ZigTaskProvider;
-    private registrations:       vscode.Disposable[] = [];
-    private constructor(context: vscode.ExtensionContext) {
+class ZigContext {
+    readonly extContext:  vscode.ExtensionContext;
+    readonly zigChannel:  vscode.OutputChannel;
+    zigCfg:               ZigConfig;
+    zlsContext:           ZlsContext;
+    zigCodeLensProvider:  ZigCodelensProvider;
+    zigTaskProvider:      ZigTaskProvider;
+    registrations:        vscode.Disposable[] = [];
+    constructor(context: vscode.ExtensionContext) {
         this.extContext          = context;
-        this.zigConfig           = new ZigConfig();
-        this.zigChannel          = vscode.window.createOutputChannel(ZigContext.extensionId);
+        this.zigChannel          = vscode.window.createOutputChannel(ZigConst.extensionId);
+        this.zigCfg           = new ZigConfig();
         this.zlsContext          = new ZlsContext();
         this.zigCodeLensProvider = new ZigCodelensProvider();
         this.zigTaskProvider     = new ZigTaskProvider();
         this.registrations.push(
-            vscode.languages.registerCodeLensProvider(ZigContext.zigDocumentSelector, this.zigCodeLensProvider),
-            vscode.tasks.registerTaskProvider(ZigTaskProvider.ScriptType, this.zigTaskProvider),
+            vscode.languages.registerCodeLensProvider(ZigConst.documentSelector, this.zigCodeLensProvider),
+            vscode.tasks.registerTaskProvider(ZigConst.taskScriptType, this.zigTaskProvider),
         );
     }
-
-    public static get inst(): ZigContext { return ZigContext._inst!; }
-
-    public static async activate(context: vscode.ExtensionContext): Promise<void> {
-        ZigContext._inst = new ZigContext(context);
-        return ZigContext._inst.backgroundInit();
+    public reloadConfig(): void {
+        this.zigCfg = new ZigConfig();
     }
-    public static async deactivate(): Promise<void> {
-        if (!ZigContext._inst) { return Promise.resolve(); }
-        const zctx = ZigContext._inst;
-        ZigContext._inst = undefined;
-        await zctx.backgroundDeinit();
-    }
-
-    public getConfig(forceReload?: boolean): ZigConfig {
-        if (forceReload) { this.zigConfig = new ZigConfig(); }
-        return this.zigConfig;
-    }
-    private async backgroundInit(): Promise<void> {
+    async backgroundInit(): Promise<void> {
         return this.zlsContext.startClient();
     }
-    private async backgroundDeinit(): Promise<void> {
+    async backgroundDeinit(): Promise<void> {
         this.registrations.forEach(d => d.dispose());
         this.registrations = [];
         this.zigTaskProvider.dispose();
@@ -102,7 +91,6 @@ export const enum BuildStep {
 }
 
 class ZigConfig extends ext.ExtensionConfigBase {
-    private static readonly dfltBuildRootDir = path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "");
 
     private _zigBinPath?:               string;
     private _zlsBinPath?:               string;
@@ -117,12 +105,12 @@ class ZigConfig extends ext.ExtensionConfigBase {
     private _miscBuildOnSave?:          boolean;
     private _miscRevealOnFormatError?:  boolean;
 
-    constructor(resource?: vscode.Uri) { super(ZigContext.extensionId, resource); }
+    constructor(resource?: vscode.Uri) { super(ZigConst.extensionId, resource); }
     public get zigBinPath               (): string             { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
     public get zlsBinPath               (): string             { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
     public get zlsDebugBinPath          (): string | undefined { if (!this._zlsDebugBinPath          ) { this._zlsDebugBinPath          = super.getResolvedPath  ("zls.debugBinPath"         , undefined                         ); } return this._zlsDebugBinPath;          }
     public get zlsEnableDebugMode       (): boolean            { if (!this._zlsEnableDebugMode       ) { this._zlsEnableDebugMode       = super.getWithFallback  ("zls.enableDebugMode"      , false                             ); } return this._zlsEnableDebugMode;       }
-    public get buildRootDir             (): string             { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , ZigConfig.dfltBuildRootDir        ); } return this._buildRootDir;             }
+    public get buildRootDir             (): string             { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "")        ); } return this._buildRootDir;             }
     public get buildBuildFile           (): string             { if (!this._buildBuildFile           ) { this._buildBuildFile           = super.getResolvedPath  ("build.buildFile"          , `${this.buildRootDir}/build.zig`  ); } return this._buildBuildFile;           }
     public get buildBuildStep           (): BuildStep          { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
     public get buildExtraArgs           (): string[]           { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }

@@ -2,7 +2,8 @@
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { log, fs } from './utils';
-import { ZigContext } from "./zigContext";
+import { ZigConst } from "./zigConst";
+import { zigContext } from "./zigContext";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
   // // Default implementation logs failures to output panel that's meant for extension debugging
@@ -18,7 +19,6 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsContext implements vscode.Disposable {
-  static readonly diagnosticCollectionName = 'zls';
   private zlsChannel: vscode.OutputChannel;
   private zlsClient?: ZlsLanguageClient | undefined;
   private registrations: vscode.Disposable[] = [];
@@ -56,7 +56,8 @@ export class ZlsContext implements vscode.Disposable {
     }
     log.info(this.zlsChannel, "Starting Zls...");
 
-    const zigCfg = ZigContext.inst.getConfig(true);
+    zigContext.reloadConfig();
+    const zigCfg = zigContext.zigCfg;
     if (zigCfg.zlsEnableDebugMode && !zigCfg.zlsDebugBinPath) {
       log.warn(this.zlsChannel, "Zls Debug mode requested but `zig.zls.zlsDebugBinPath` is not set. Falling back to `zig.zls.binPath`");
     }
@@ -80,9 +81,9 @@ export class ZlsContext implements vscode.Disposable {
 
     // Options for launching the language client
     const clientOptions: vscodelc.LanguageClientOptions = {
-      documentSelector: ZigContext.zigDocumentSelector,
+      documentSelector: ZigConst.documentSelector,
       outputChannel: this.zlsChannel,
-      diagnosticCollectionName: ZlsContext.diagnosticCollectionName,
+      diagnosticCollectionName: ZigConst.zlsDiagnosticsName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
 
       //#region todo: advanced options

@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from "vscode";
-import { ZigContext } from "./zigContext";
+import { ZigConst } from "./zigConst";
 
 
 export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
@@ -12,10 +12,10 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
   constructor() {
     this.registrations.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-          if (e.affectsConfiguration(ZigContext.extensionId)) {
+          if (e.affectsConfiguration(ZigConst.extensionId)) {
             this._onDidChangeCodeLenses.fire();
           }
-        })
+        }),
       );
   }
   dispose(): void {

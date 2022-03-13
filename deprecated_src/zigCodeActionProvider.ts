@@ -3,7 +3,8 @@
 import { zigBuild } from './zigBuild';
 import * as cp from "child_process";
 import * as vscode from "vscode";
-import { ZigContext } from "./zigContext";
+import { zigConst } from "./zigConst";
+import { zigContext } from "./zigContext";
 // This will be treeshaked to only the debounce function
 import { debounce } from "lodash-es";
 
@@ -44,7 +45,7 @@ export default class ZigCodeActionProvider implements vscode.CodeActionProvider,
     let compiler = new ZigCodeActionProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider(ZigContext.zigDocumentSelector, compiler)
+      vscode.languages.registerCodeActionsProvider(zigConst.documentSelector, compiler)
     );
 
     // context.subscriptions.push(
@@ -60,7 +61,7 @@ export default class ZigCodeActionProvider implements vscode.CodeActionProvider,
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(
         (doc) => {
-          const zigCfg = ZigContext.inst.getConfig();
+          const zigCfg = zigContext.getConfig();
           if (
             zigCfg.miscBuildOnSave &&
             compiler.dirtyChange.has(doc.uri) &&
@@ -86,8 +87,8 @@ export default class ZigCodeActionProvider implements vscode.CodeActionProvider,
   };
 
   private _doASTGenErrorCheck(textDocument: vscode.TextDocument) {
-    const zigCfg = ZigContext.inst.getConfig();
-    if (textDocument.languageId !== ZigContext.languageId) {
+    const zigCfg = zigContext.getConfig();
+    if (textDocument.languageId !== zigConst.languageId) {
       return;
     }
     if (textDocument.isClosed) {

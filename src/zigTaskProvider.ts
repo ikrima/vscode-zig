@@ -1,7 +1,8 @@
 'use strict';
 import * as vscode from "vscode";
 import * as path from 'path';
-import { ZigContext } from "./zigContext";
+import { ZigConst } from "./zigConst";
+import { zigContext } from "./zigContext";
 import { log, proc, fs, ext, isBlankString } from './utils';
 // import * as jsyaml from 'js-yaml';
 
@@ -21,7 +22,6 @@ interface ZigTaskDefinition extends vscode.TaskDefinition {
   };
 };
 export class ZigTask extends vscode.Task {
-  static readonly ProblemMatcher: string = '$zig'; // eslint-disable-line @typescript-eslint/naming-convention
   constructor(
     public zigBinPath: string,
     public emitBinPath: string,
@@ -38,9 +38,9 @@ export class ZigTask extends vscode.Task {
       taskDef,
       scope,
       name,
-      ZigTaskProvider.SourceStr,
+      ZigConst.taskProviderSourceStr,
       taskExec,
-      enableProblemMatcher ? ZigTask.ProblemMatcher : undefined,
+      enableProblemMatcher ? ZigConst.problemMatcher : undefined,
     );
     this.group = group;
     this.detail = detail;
@@ -51,8 +51,6 @@ export class ZigTask extends vscode.Task {
 
 
 export class ZigTaskProvider implements vscode.TaskProvider {
-  static readonly SourceStr: string = ZigContext.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
-  static readonly ScriptType: string = ZigContext.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
   private lastRanZigTask?: ZigTask = undefined;
   private registrations: vscode.Disposable[] = [];
 
@@ -60,7 +58,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     this.registrations.push(
       vscode.commands.registerCommand("zig.test.run", async (filename: vscode.Uri, filter: string) => {
         const zigTask = this.getTask({
-          type: ZigTaskProvider.ScriptType,
+          type: ZigConst.taskScriptType,
           runInDebugger: false,
           srcFilePath: filename.fsPath,
           testFilter: filter,
@@ -69,7 +67,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       }),
       vscode.commands.registerCommand("zig.test.debug", async (filename: vscode.Uri, filter: string) => {
         const zigTask = this.getTask({
-          type: ZigTaskProvider.ScriptType,
+          type: ZigConst.taskScriptType,
           runInDebugger: true,
           srcFilePath: filename.fsPath,
           testFilter: filter,
@@ -184,7 +182,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
     if (!(await fs.dirExists(testEmitBinDir))) {
       try { await vscode.workspace.fs.createDirectory(vscode.Uri.file(testEmitBinDir)); } catch (err) {
-        log.error(ZigContext.inst.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
+        log.error(zigContext.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
         return;
       }
     }
@@ -207,7 +205,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
               );
             }
             catch (err: any) {
-              log.error(ZigContext.inst.zigChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
+              log.error(zigContext.zigChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
               reject();
             }
           }
@@ -216,7 +214,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       });
     }
     catch (err) {
-      log.error(ZigContext.inst.zigChannel, `Could not execute task: ${zigTask.name}.\n  Error: ${err ?? "Unknown"}`);
+      log.error(zigContext.zigChannel, `Could not execute task: ${zigTask.name}.\n  Error: ${err ?? "Unknown"}`);
       return;
     }
   }
@@ -226,7 +224,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     _folder?: vscode.WorkspaceFolder,
     _presentationOptions?: vscode.TaskPresentationOptions,
   ): ZigTask {
-    const zigCfg = ZigContext.inst.getConfig();
+    const zigCfg = zigContext.zigCfg;
     const folder: vscode.WorkspaceFolder | undefined = _folder
       ?? (vscode.window.activeTextEditor
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
