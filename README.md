@@ -5,7 +5,7 @@
 
 [Zig](http://ziglang.org/) support for Visual Studio Code.
 
-![Syntax Highlighting](./images/example.png)
+![Syntax Highlighting](./assets/example.png)
 
 ## Features
 

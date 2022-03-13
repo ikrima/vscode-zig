@@ -2,10 +2,10 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "publisher": "ikrima",
   "private": true,
-  "icon": "images/zig-icon.png",
+  "icon": "assets/zig-icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
