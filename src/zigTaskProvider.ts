@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from "vscode";
 import * as path from 'path';
-import { ZigConfig } from "./zigConfig";
+import { ZigContext } from "./zigContext";
 import { log, proc, fs, ext, isBlankString } from './utils';
 // import * as jsyaml from 'js-yaml';
 
@@ -51,14 +51,12 @@ export class ZigTask extends vscode.Task {
 
 
 export class ZigTaskProvider implements vscode.TaskProvider {
-  static readonly SourceStr: string = ZigConfig.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
-  static readonly ScriptType: string = ZigConfig.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
+  static readonly SourceStr: string = ZigContext.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
+  static readonly ScriptType: string = ZigContext.extensionId;  // eslint-disable-line @typescript-eslint/naming-convention
   private lastRanZigTask?: ZigTask = undefined;
   private registrations: vscode.Disposable[] = [];
-  private logChannel: vscode.OutputChannel;
 
-  constructor(logChannel: vscode.OutputChannel) {
-    this.logChannel = logChannel;
+  constructor() {
     this.registrations.push(
       vscode.commands.registerCommand("zig.test.run", async (filename: vscode.Uri, filter: string) => {
         const zigTask = this.getTask({
@@ -186,7 +184,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
     if (!(await fs.dirExists(testEmitBinDir))) {
       try { await vscode.workspace.fs.createDirectory(vscode.Uri.file(testEmitBinDir)); } catch (err) {
-        log.error(this.logChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
+        log.error(ZigContext.inst.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
         return;
       }
     }
@@ -209,7 +207,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
               );
             }
             catch (err: any) {
-              log.error(this.logChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
+              log.error(ZigContext.inst.zigChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
               reject();
             }
           }
@@ -218,7 +216,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       });
     }
     catch (err) {
-      log.error(this.logChannel, `Could not execute task: ${zigTask.name}.\n  Error: ${err ?? "Unknown"}`);
+      log.error(ZigContext.inst.zigChannel, `Could not execute task: ${zigTask.name}.\n  Error: ${err ?? "Unknown"}`);
       return;
     }
   }
@@ -228,7 +226,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     _folder?: vscode.WorkspaceFolder,
     _presentationOptions?: vscode.TaskPresentationOptions,
   ): ZigTask {
-    const zigCfg = ZigConfig.get();
+    const zigCfg = ZigContext.inst.getConfig();
     const folder: vscode.WorkspaceFolder | undefined = _folder
       ?? (vscode.window.activeTextEditor
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)

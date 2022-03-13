@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { log, fs } from './utils';
-import { ZigConfig } from "./zigConfig";
+import { ZigContext } from "./zigContext";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
   // // Default implementation logs failures to output panel that's meant for extension debugging
@@ -56,7 +56,7 @@ export class ZlsContext implements vscode.Disposable {
     }
     log.info(this.zlsChannel, "Starting Zls...");
 
-    const zigCfg = ZigConfig.get(true);
+    const zigCfg = ZigContext.inst.getConfig(true);
     if (zigCfg.zlsEnableDebugMode && !zigCfg.zlsDebugBinPath) {
       log.warn(this.zlsChannel, "Zls Debug mode requested but `zig.zls.zlsDebugBinPath` is not set. Falling back to `zig.zls.binPath`");
     }
@@ -80,7 +80,7 @@ export class ZlsContext implements vscode.Disposable {
 
     // Options for launching the language client
     const clientOptions: vscodelc.LanguageClientOptions = {
-      documentSelector: ZigConfig.zigDocumentSelector,
+      documentSelector: ZigContext.zigDocumentSelector,
       outputChannel: this.zlsChannel,
       diagnosticCollectionName: ZlsContext.diagnosticCollectionName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
@@ -167,14 +167,10 @@ export class ZlsContext implements vscode.Disposable {
     }
 
     log.info(this.zlsChannel, "Stopping Zls...");
-    try {
-      await zlsClient.stop();
-    } catch (err) {
+    return zlsClient.stop().catch(err => {
       log.error(this.zlsChannel, `zls.stop failed during dispose.\n  Error: ${err}`);
       return Promise.reject();
-    };
-    return;
-
+    });
   }
 
 }
