@@ -1,8 +1,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
-import * as utils from './utils';
-import { log } from './utils';
+import { log, fs } from './utils';
 import { ZigConfig } from "./zigConfig";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
@@ -45,7 +44,7 @@ export class ZlsContext implements vscode.Disposable {
   async asyncDispose() {
     this.registrations.forEach(d => d.dispose());
     this.registrations = [];
-    if (this.zlsClient) { try { await this.stopClient(); } catch { } }
+    if (this.zlsClient) { await this.stopClient().catch(() => { }); }
     this.zlsChannel.dispose();
   }
 
@@ -53,7 +52,7 @@ export class ZlsContext implements vscode.Disposable {
   async startClient(): Promise<void> {
     if (this.zlsClient) {
       log.warn(this.zlsChannel, "Client already started");
-      return;
+      return Promise.resolve();
     }
     log.info(this.zlsChannel, "Starting Zls...");
 
@@ -64,13 +63,13 @@ export class ZlsContext implements vscode.Disposable {
     const zlsPath = (zigCfg.zlsEnableDebugMode && zigCfg.zlsDebugBinPath) ? zigCfg.zlsDebugBinPath : zigCfg.zlsBinPath;
     const zlsArgs = zigCfg.zlsEnableDebugMode ? ["--debug-log"] : [];
 
-    if (!(await utils.fileExists(zlsPath))) {
+    if (!(await fs.fileExists(zlsPath))) {
       const zlsBinCfgVar = zigCfg.zlsEnableDebugMode ? "`zig.zls.zlsDebugBinPath`" : "`zig.zls.binPath`";
       log.error(this.zlsChannel,
         `Failed to find zls executable ${zlsPath}!\n` +
         `  Please specify its path in your settings with ${zlsBinCfgVar}\n`
       );
-      return;
+      return Promise.reject();
     }
 
     // Options for launching the language server
@@ -164,13 +163,17 @@ export class ZlsContext implements vscode.Disposable {
     this.zlsClient = undefined;
     if (!(zlsClient?.needsStop())) {
       log.warn(this.zlsChannel, "Client already stopped");
-      return;
+      return Promise.resolve();
     }
 
     log.info(this.zlsChannel, "Stopping Zls...");
-    return zlsClient.stop().catch(err => {
+    try {
+      await zlsClient.stop();
+    } catch (err) {
       log.error(this.zlsChannel, `zls.stop failed during dispose.\n  Error: ${err}`);
-    });
+      return Promise.reject();
+    };
+    return;
 
   }
 

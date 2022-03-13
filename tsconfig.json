@@ -25,6 +25,11 @@
     "noUnusedParameters":                 true,    // Report errors on unused parameters
     "importsNotUsedAsValues":             "error",
     "checkJs":                            true,
+    "strictNullChecks":                   true,
+    "strictPropertyInitialization":       true,
+    "strictBindCallApply":                true,
+    "strictFunctionTypes":                true,
+    "noImplicitThis":                     true,
   },
   "exclude": [
     "node_modules",

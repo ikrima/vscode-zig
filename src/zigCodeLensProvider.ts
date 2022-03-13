@@ -4,14 +4,12 @@ import { ZigConfig } from "./zigConfig";
 
 
 export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
-  private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void>;
-  public  readonly onDidChangeCodeLenses: vscode.Event<void>;
+  private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  public  readonly onDidChangeCodeLenses:  vscode.Event<void>        = this._onDidChangeCodeLenses.event;
   private codeLenses: vscode.CodeLens[] = [];
   private registrations: vscode.Disposable[] = [];
 
   constructor() {
-    this._onDidChangeCodeLenses = new vscode.EventEmitter<void>();
-    this.onDidChangeCodeLenses  = this._onDidChangeCodeLenses.event;
     this.registrations.push(
         vscode.workspace.onDidChangeConfiguration(e => {
           if (e.affectsConfiguration(ZigConfig.extensionId)) {

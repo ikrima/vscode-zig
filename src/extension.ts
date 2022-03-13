@@ -57,8 +57,8 @@ class ZigContext {
         // );
     }
 
-    async activate() {
-        this.zlsContext.startClient();
+    async backgroundInit(): Promise<void> {
+        return this.zlsContext.startClient();
     }
 
     async deactivate(): Promise<void> {
@@ -66,19 +66,20 @@ class ZigContext {
         this.registrations = [];
         this.zigTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
-        try { await this.zlsContext.asyncDispose(); } catch {}
+        try { await this.zlsContext.asyncDispose(); } catch { }
         this.zigChannel.dispose();
     }
 };
 
 let zigContext: ZigContext | undefined;
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
     zigContext = new ZigContext(context);
-    zigContext.activate();
+    zigContext.backgroundInit();
+    return Promise.resolve();
 }
 
 export async function deactivate(): Promise<void> {
-    if (!zigContext) { return; }
+    if (!zigContext) { return Promise.resolve(); }
     const zctx = zigContext;
     zigContext = undefined;
     return zctx.deactivate();

@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from "vscode";
 import * as path from 'path';
-import {ExtensionConfigBase} from './utils';
+import {ext} from './utils';
 
 export const enum BuildStep {
     buildFile,
@@ -10,7 +10,7 @@ export const enum BuildStep {
     buildObj,
 }
 
-export class ZigConfig extends ExtensionConfigBase {
+export class ZigConfig extends ext.ExtensionConfigBase {
     public  static readonly languageId          = 'zig';
     public  static readonly extensionId         = 'zig';
     public  static readonly zigDocumentSelector = [{ language: ZigConfig.languageId, scheme: 'file' }];

@@ -1,9 +1,8 @@
 'use strict';
 import * as vscode from "vscode";
 import * as path from 'path';
-import * as utils from './utils';
 import { ZigConfig } from "./zigConfig";
-import { log, RunningProcOptions } from './utils';
+import { log, proc, fs, ext, isBlankString } from './utils';
 // import * as jsyaml from 'js-yaml';
 
 const cppToolsExtId = "ms-vscode.cpptools";
@@ -133,12 +132,12 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     testBinPath: string,
     debugArgs: string[],
   ): Promise<void> {
-    const cppToolsExtActive = utils.isExtensionActive(cppToolsExtId);
-    const codeLLDBExtActive = utils.isExtensionActive(lldbExtId);
+    const cppToolsExtActive = ext.isExtensionActive(cppToolsExtId);
+    const codeLLDBExtActive = ext.isExtensionActive(lldbExtId);
     if (!cppToolsExtActive && !codeLLDBExtActive) {
       throw new Error("cpptools/vscode-lldb extension must be enabled or installed.");
     }
-    if (!(await utils.fileExists(testBinPath))) {
+    if (!(await fs.fileExists(testBinPath))) {
       throw new Error(`Failed to find compiled test binary: (${testBinPath})`);
     }
 
@@ -185,7 +184,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     }
 
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
-    if (!(await utils.dirExists(testEmitBinDir))) {
+    if (!(await fs.dirExists(testEmitBinDir))) {
       try { await vscode.workspace.fs.createDirectory(vscode.Uri.file(testEmitBinDir)); } catch (err) {
         log.error(this.logChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
         return;
@@ -284,7 +283,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   private closeEmitter = new vscode.EventEmitter<number>();
   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
   onDidClose: vscode.Event<number> = this.closeEmitter.event;
-  private buildProc?: utils.RunningProc | undefined;
+  private buildProc?: proc.ProcessRun | undefined;
 
   constructor(
     private readonly zigBinPath: string,
@@ -296,9 +295,9 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   async open(_initialDimensions: vscode.TerminalDimensions | undefined): Promise<void> {
     try {
       // Do build.
-      const [proc, execResult] = utils.runProc(
-        this.zigBinPath, // utils.isWindows ? `cmd /c chcp 65001>nul && ${this.zigBinPath}` : this.zigBinPath;
-        <RunningProcOptions>{
+      const processRun = proc.runProcess(
+        this.zigBinPath, // proc.isWindows ? `cmd /c chcp 65001>nul && ${this.zigBinPath}` : this.zigBinPath;
+        <proc.ProcessRunOptions>{
           shellArgs: ["test"]
             .concat(
               this.taskDef.srcFilePath,
@@ -311,7 +310,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
               this.testName,
               "--enable-cache",
             )
-            .map(arg => utils.resolveVariables(arg)),
+            .map(arg => ext.resolveVariables(arg)),
           cwd:                this.taskDef.options?.cwd,
           showMessageOnError: true,
           onStart:            () => this.emitLine("Starting build..."),
@@ -321,13 +320,13 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
         }
       );
       // Emit Resolved command
-      this.buildProc = proc;
-      this.emitLine(this.buildProc.procCmd);
-      const { stdout, stderr } = await execResult;
+      this.emitLine(processRun.procCmd);
+      this.buildProc = processRun;
+      const { stdout, stderr } = await processRun.completion;
 
       // printBuildSummary
-      const hasStdOut = !utils.isBlank(stdout);
-      const hasStdErr = !utils.isBlank(stderr);
+      const hasStdOut = !isBlankString(stdout);
+      const hasStdErr = !isBlankString(stderr);
       if (
         (!hasStdOut && hasStdErr && stderr.includes("error"))
         || (hasStdOut && stdout.includes("error"))
