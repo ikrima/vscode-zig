@@ -38,7 +38,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
 
       const previousWord =
         possibleTestKeyword > -1
-          ? text[possibleTestKeyword - 1].trimLeft()
+          ? text[possibleTestKeyword - 1].trimStart()
           : "";
 
       if (!(previousWord === "" || previousWord === "}")) {
@@ -46,7 +46,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
         continue;
       }
 
-      switch (text[possibleTestKeyword + 5].trimLeft()) {
+      switch (text[possibleTestKeyword + 5].trimStart()) {
         case '"':
         case "{":
           break;

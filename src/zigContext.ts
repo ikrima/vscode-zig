@@ -8,7 +8,6 @@ import { ZigCodelensProvider } from './zigCodeLensProvider';
 import { ZigTaskProvider } from './zigTaskProvider';
 
 // The extension deactivate method is asynchronous, so we handle the disposables ourselves instead of using extensonContext.subscriptions
-
 export let zigContext: ZigContext;
 export async function initZigContext(context: vscode.ExtensionContext): Promise<void> {
     zigContext = new ZigContext(context);
@@ -30,7 +29,7 @@ class ZigContext {
     constructor(context: vscode.ExtensionContext) {
         this.extContext          = context;
         this.zigChannel          = vscode.window.createOutputChannel(ZigConst.extensionId);
-        this.zigCfg           = new ZigConfig();
+        this.zigCfg              = new ZigConfig();
         this.zlsContext          = new ZlsContext();
         this.zigCodeLensProvider = new ZigCodelensProvider();
         this.zigTaskProvider     = new ZigTaskProvider();
