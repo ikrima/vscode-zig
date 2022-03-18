@@ -55,11 +55,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("zig.build.workspace", () => zigBuild())
   );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("zig.format.file", () =>
-      console.log("test")
-    )
-  );
 
   const resolveTask = function resolveTask(task: vscode.Task, token) {
     if (!task.presentationOptions) {
@@ -84,11 +79,8 @@ export function activate(context: vscode.ExtensionContext) {
     const filter = task.definition.filter as string;
     const config = vscode.workspace.getConfiguration("zig");
     const bin = (config.get("zigPath") as string) || "zig";
-    const testCmd = (
-      (config.get(isDebug ? "beforeDebugCmd" : "testCmd") as string) || ""
-    )
-      .split(" ")
-      .filter(Boolean);
+    var testCmd =
+      (config.get(isDebug ? "beforeDebugCmd" : "testCmd") as string) || "";
 
     let femitBinPath = (task.definition.bin || "") as string;
 
@@ -112,62 +104,25 @@ export function activate(context: vscode.ExtensionContext) {
     const relativeFilename =
       filename && path.relative(workspaceFolder.uri.fsPath, filename.fsPath);
     if (testCmd && testCmd.length > 0) {
-      for (let i = 0; i < testCmd.length; i++) {
-        if (testCmd[i] === "${filename}") {
-          if (relativeFilename) {
-            testCmd[i] = relativeFilename;
-          } else {
-            testCmd.splice(i, 1);
-          }
-        }
-
-        if (testCmd[i] === "${filter}") {
-          if (filter && filter.length > 0) {
-            testCmd[i] = filter;
-          } else {
-            testCmd.splice(i, 1);
-          }
-        }
-
-        if (testCmd[i] === "${bin}") {
-          if (femitBinPath && femitBinPath.length > 0) {
-            testCmd[i] = femitBinPath;
-          } else {
-            testCmd.splice(i, 1);
-          }
-        }
-      }
+      testCmd = testCmd.replaceAll("${bin}", femitBinPath);
+      testCmd = testCmd.replaceAll(
+        "${filename}",
+        relativeFilename ? relativeFilename : ""
+      );
+      testCmd = testCmd.replaceAll(
+        "${file}",
+        relativeFilename ? relativeFilename : ""
+      );
+      testCmd = testCmd.replaceAll(
+        "${filter}",
+        filter && filter.length > 0 ? filter : ""
+      );
     }
 
     const testOptions = (task.definition.args as string) || "";
 
-    let joined = "";
-
-    if (testCmd && testCmd.length > 0) {
-      joined = testCmd.filter(Boolean).join(" ");
-    } else {
+    if (testCmd.length == 0) {
       var main_package_path = "";
-
-      if (!joined.includes("-femit-bin="))
-        joined += ` -femit-bin=${femitBinPath} `;
-      else {
-        let binI = joined.indexOf("-femit-bin") + "-femit-bin".length;
-        if (joined[binI] === '"') binI++;
-        const end = joined.indexOf(" ", binI);
-        femitBinPath = joined.substring(binI, end);
-        if (femitBinPath.endsWith('"'))
-          femitBinPath = femitBinPath.substring(0, femitBinPath.length - 1);
-        if (
-          femitBinPath.length === 0 ||
-          femitBinPath === "/" ||
-          femitBinPath === "." ||
-          femitBinPath === "/dev" ||
-          femitBinPath === "C:\\" ||
-          femitBinPath === "C:\\Windows"
-        ) {
-          femitBinPath = null;
-        }
-      }
 
       try {
         main_package_path = path.resolve(
@@ -188,17 +143,17 @@ export function activate(context: vscode.ExtensionContext) {
         testOptions,
       ].filter((a) => Boolean(a));
 
-      joined = args.join(" ");
+      testCmd = args.join(" ");
 
       if (isDebug) {
-        if (!joined.includes("--test-no-exec")) joined += `--test-no-exec `;
+        if (!testCmd.includes("--test-no-exec")) testCmd += `--test-no-exec `;
       }
     }
 
     task.problemMatchers = !config.get("disableProblemMatcherForTest")
       ? ["zig"]
       : [];
-    task.execution = new vscode.ShellExecution(joined, {});
+    task.execution = new vscode.ShellExecution(testCmd, {});
 
     return task;
   };
@@ -221,14 +176,14 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.workspace.workspaceFolders[0],
             "test",
             "zig",
-            new vscode.ShellExecution("zig test")
+            null
           ),
           new vscode.Task(
             { type: "zig", task: "debug" },
             vscode.workspace.workspaceFolders[0],
             "debug",
             "zig",
-            new vscode.ShellExecution("zig test")
+            null
           ),
         ];
       },
