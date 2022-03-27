@@ -1,49 +1,61 @@
 'use strict';
 import * as vscode from "vscode";
-import * as path from 'path';
 import * as os from 'os';
-import * as process from 'process';
+import * as process_ from 'process';
+import * as path_ from 'path';
+import * as fs_ from 'fs';
 import * as cp from 'child_process';
 import { promisify } from 'util';
-import * as fs_ from 'fs';
 
-//------------------------------------------------------------------------------------------------------------------------
-// #region Common helper functions
-export function isUndefined         (o: any    ): o is undefined             { return o === undefined;                                                     }
-export function isNull              (o: any    ): o is null                  { return o === null;                                                          }
-export function isNullOrUndefined   (o: any    ): o is null|undefined        { return o === null || o === undefined;                                       }
-export function isSymbol            (o: any    ): o is symbol                { return typeof o === 'symbol';                                               }
-export function isBoolean           (o: any    ): o is boolean               { return typeof o === "boolean";                                              }
-export function isNumber            (o: any    ): o is number                { return typeof o === "number";                                               }
-export function isString            (o: any    ): o is string                { return typeof o === "string";                                               }
-export function isArray<T>          (o: any    ): o is T[]                   { return o instanceof Array;                                                  }
-export function isObject            (o: any    ): boolean                    { return o !== null && typeof o === 'object';                                 }
-export function isScalarValue       (o: any    ): boolean                    { return isNullOrUndefined(o) || isBoolean (o) || isNumber(o) || isString(o); }
-export function isArrayOfString     (o: any    ): o is string[]              { return isArray(o) && o.every(isString);                                     }
-export function isBlankString       (o: string ): boolean                    { return o.length === 0 || /\S/g.test(o) === false;                           }
-// #endregion
-//------------------------------------------------------------------------------------------------------------------------
+// Common helper functions
+export namespace types {
+  export function isUndefined         (o: unknown): o is undefined      { return (typeof o === 'undefined');                                          }
+  export function isNull              (o: unknown): o is null           { return o === null;                                                          }
+  export function isNullOrUndefined   (o: unknown): o is undefined|null { return (isUndefined(o) || o === null);                                      }
+  export function isSymbol            (o: unknown): o is symbol         { return typeof o === 'symbol'  || o instanceof Symbol;                       }
+  export function isBoolean           (o: unknown): o is boolean        { return (o === true || o === false);                                         }
+  export function isNumber            (o: unknown): o is number         { return typeof o === "number"  || o instanceof Number;                       }
+  export function isString            (o: unknown): o is string         { return typeof o === "string"  || o instanceof String;                       }
+  export function isArray<T>          (o: unknown): o is T[]            { return Array.isArray(o);                                                    }
+  export function isObject            (o: unknown): o is Object         { return (typeof o === 'object') && o !== null && !Array.isArray(o) && !(o instanceof RegExp) && !(o instanceof Date); } // eslint-disable-line @typescript-eslint/ban-types
+  export function isFunction          (o: unknown): o is Function       { return (typeof o === 'function');                                             } // eslint-disable-line @typescript-eslint/ban-types
+  export function isScalarValue       (o: unknown): boolean             { return isNullOrUndefined(o) || isBoolean (o) || isNumber(o) || isString(o); }
+  export function isStringArray       (o: unknown): o is string[]       { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e)); }
+  export function isBlankString       (o: string ): boolean             { return o.length === 0 || /\S/g.test(o) === false;                           }
+}
 
+export namespace path {
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  export const {
+    normalize,
+    dirname,
+    basename,
+    extname,
+    parse,
+    join,
+    isAbsolute,
+    sep,
+  } = path_;
 
-export namespace fs {
-  export const stat = promisify(fs_.stat);
-  export async function tryStat   (filePath: fs_.PathLike): Promise<fs_.Stats|null> { return  await stat(filePath ).catch (_ => null);         }
-  export async function fileExists(filePath: string      ): Promise<boolean>        { return (await tryStat(filePath))?.isFile()     ?? false; }
-  export async function dirExists (dirPath: string       ): Promise<boolean>        { return (await tryStat(dirPath))?.isDirectory() ?? false; }
-
+  // export const pathNormalize  = path_.normalize;
+  // export const dirname    = path_.dirname;
+  // export const basename   = path_.basename;
+  // export const extname    = path_.extname;
+  // export const parse      = path_.parse;
+  // export const sep        = path_.sep;
   export function normalizeShellArg(arg: string): string {
     arg = arg.trimStart().trimEnd();
     // Check if the arg is enclosed in backtick,
     // or includes unescaped double-quotes (or single-quotes on windows),
     // or includes unescaped single-quotes on mac and linux.
     if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
-      (process.platform.includes("win") && /.*[^\\]'.*/g.test(arg)) ||
-      (!process.platform.includes("win") && /.*[^\\]'.*/g.test(arg))) {
+      (proc.isWindows && /.*[^\\]'.*/g.test(arg)) ||
+      (!proc.isWindows && /.*[^\\]'.*/g.test(arg))) {
       return arg;
     }
     // The special character double-quote is already escaped in the arg.
     const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
-    if (!unescapedSpaces && !process.platform.includes("win")) {
+    if (!unescapedSpaces && !proc.isWindows) {
       return arg;
     } else if (arg.includes(" ")) {
       arg = arg.replace(/\\\s/g, " ");
@@ -54,16 +66,26 @@ export namespace fs {
   }
 }
 
+export namespace fs {
+  export const stat = promisify(fs_.stat);
+  export const mkdir = promisify(fs_.mkdir);
+  export async function tryStat   (filePath: fs_.PathLike): Promise<fs_.Stats|null> { return  await stat(filePath ).catch (_ => null);         }
+  export async function fileExists(filePath: string      ): Promise<boolean>        { return (await tryStat(filePath))?.isFile()     ?? false; }
+  export async function dirExists (dirPath:  string      ): Promise<boolean>        { return (await tryStat(dirPath))?.isDirectory() ?? false; }
+  export async function createDir (dirPath:  string      )                          { return vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath)); }
+}
+
 export namespace log {
-  export function info  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = false): void { chan.appendLine(msg); if (showMsg) { vscode.window.showInformationMessage(msg); } }
-  export function warn  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { vscode.window.showWarningMessage(msg);     } }
-  export function error (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { vscode.window.showErrorMessage(msg);       } }
+  export function info  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = false): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showInformationMessage(msg); } }
+  export function warn  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showWarningMessage(msg);     } }
+  export function error (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showErrorMessage(msg);       } }
 }
 
 export namespace ext {
-  export function isExtensionActive  (extId: string): boolean                          { return vscode.extensions.getExtension(extId)?.isActive ?? false; }
-  export function findWorkspaceFolder(name:  string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
-
+  export function isExtensionActive      (extId: string): boolean                          { return vscode.extensions.getExtension(extId)?.isActive ?? false; }
+  export function findWorkspaceFolder    (name:  string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
+  export function defaultWksFolder       ():              vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.[0]; }
+  export function defaultWksFolderPath   ():              string|undefined                 { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
   // export type Environment = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
   // export type EnvironmentWithNull = Record<string, string | undefined | null>;
 
@@ -83,8 +105,8 @@ export namespace ext {
     selectedText?:            string | undefined;
     execPath?:                string | undefined;
     pathSeparator?:           string | undefined;
-    [key: string]:            string | undefined
-  };
+    [key: string]:            string | undefined;
+  }
   export function resolveVariables(input: string, baseContext?: VariableContext): string {
     if (!input) { return ""; }
     const config           = vscode.workspace.getConfiguration();
@@ -107,7 +129,7 @@ export namespace ext {
     varCtx.cwd                     = varCtx.cwd                     ?? varCtx.fileDirname;
     varCtx.lineNumber              = varCtx.lineNumber              ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
     varCtx.selectedText            = varCtx.selectedText            ?? activeEditor?.document.getText(activeEditor.selection);
-    varCtx.execPath                = varCtx.execPath                ?? process.execPath;
+    varCtx.execPath                = varCtx.execPath                ?? proc.execPath;
     varCtx.pathSeparator           = varCtx.pathSeparator           ?? path.sep;
 
     // Replace environment and configuration variables.
@@ -119,7 +141,7 @@ export namespace ext {
       ret = ret.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string) => {
         let newValue: string | undefined;
         switch (varType) {
-          case "env":                     { newValue = varCtx[name] ?? process.env[name];     break; }
+          case "env":                     { newValue = varCtx[name] ?? proc.env[name];        break; }
           case "config":                  { newValue = config.get<string>(name);              break; }
           case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
           case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
@@ -140,7 +162,7 @@ export namespace ext {
               case "selectedText":            { newValue = varCtx[name];                   break; }
               case "execPath":                { newValue = varCtx[name];                   break; }
               case "pathSeparator":           { newValue = varCtx[name];                   break; }
-              default:                        { vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
+              default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
             }
           }
         }
@@ -149,7 +171,7 @@ export namespace ext {
     }
 
     // Resolve '~' at the start of the path
-    ret = ret.replace(/^\~/g, (_match: string, _name: string) => os.homedir());
+    ret = ret.replace(/^~/g, (_match: string, _name: string) => os.homedir());
     return ret;
   }
 
@@ -159,18 +181,18 @@ export namespace ext {
       this.config = vscode.workspace.getConfiguration(section, resource ? resource : null);
     }
 
-    public getWithFallback<T>(section: string, defaultValue: T): T {
+    public fallbackGet<T>(section: string, defaultValue: T): T {
       return this.config.get<T>(section, defaultValue);
     }
-    public getResolved<T>(section: string, defaultVal: T): string | T {
-      let configVal = this.config.get<string>(section);
+    public resolvedGet<T>(section: string, defaultVal: T): string | T {
+      const configVal = this.config.get<string>(section);
       return configVal ? resolveVariables(configVal) : defaultVal;
     }
-    public getResolvedArray(section: string): string[] {
+    public resolvedArray(section: string): string[] {
       return this.config.get<string[]>(section, []).map(configVal => resolveVariables(configVal));
     }
-    public getResolvedPath<T>(section: string, defaultVal: T): string | T {
-      let configVal = this.config.get<string>(section);
+    public resolvedPath<T>(section: string, defaultVal: T): string | T {
+      const configVal = this.config.get<string>(section);
       return configVal ? path.normalize(resolveVariables(configVal)) : defaultVal;
     }
 
@@ -215,8 +237,9 @@ export namespace ext {
 }
 
 export namespace proc {
-  export const    isWindows = process.platform === 'win32';
-  export const    envDelimiter = isWindows ? ";" : ":";
+  export const { execPath, env, platform } = process_;
+  export const isWindows    = platform.includes("win");
+  export const envDelimiter = isWindows ? ";" : ":";
 
   // A promise for running process and also a wrapper to access ChildProcess-like methods
   export interface ProcessRunOptions {
@@ -235,7 +258,7 @@ export namespace proc {
     childProcess: cp.ChildProcess | undefined;
     isRunning:    () => boolean;
     kill: () => void;
-    completion: Promise<{ stdout: string; stderr: string }>,
+    completion: Promise<{ stdout: string; stderr: string }>;
   };
 
   // Spawns cancellable process
@@ -247,7 +270,7 @@ export namespace proc {
 
     const procCmd = [cmd]
       .concat(options.shellArgs ?? [])
-      .map(arg => fs.normalizeShellArg(arg))
+      .map(arg => path.normalizeShellArg(arg))
       .join(' ');
     return <ProcessRun>{
       procCmd: procCmd,
@@ -277,9 +300,9 @@ export namespace proc {
                 const cmdWasNotFound = isWindows
                   ? error.message.includes(`'${cmdName}' is not recognized`)
                   : error?.code === 127;
-                vscode.window.showErrorMessage(
+                void vscode.window.showErrorMessage(
                   cmdWasNotFound
-                    ? `${cmdName} is not available in your path. ${options.notFoundText ?? ""}`
+                    ? `${cmdName} is not available in your path; ${options.notFoundText ?? ""}`
                     : error.message
                 );
               }

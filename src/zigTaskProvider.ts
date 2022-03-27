@@ -1,9 +1,8 @@
 'use strict';
 import * as vscode from "vscode";
-import * as path from 'path';
 import { ZigConst } from "./zigConst";
 import { zigContext } from "./zigContext";
-import { log, proc, fs, ext, isBlankString } from './utils';
+import { log, proc, types, fs, ext, path } from './utils';
 // import * as jsyaml from 'js-yaml';
 
 const cppToolsExtId = "ms-vscode.cpptools";
@@ -181,7 +180,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
 
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
     if (!(await fs.dirExists(testEmitBinDir))) {
-      try { await vscode.workspace.fs.createDirectory(vscode.Uri.file(testEmitBinDir)); } catch (err) {
+      try { await fs.mkdir(testEmitBinDir); } catch (err) {
         log.error(zigContext.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
         return;
       }
@@ -231,32 +230,32 @@ export class ZigTaskProvider implements vscode.TaskProvider {
         : vscode.workspace.workspaceFolders?.[0]);
 
 
-    const emitBinPath = taskDef.emitBinPath ?? path.join(zigCfg.taskBinDir, folder ? `test-${folder.name}.exe` : "test-zig.exe");
+    const emitBinPath = taskDef.emitBinPath ?? path.join(zigCfg.task_binDir, folder ? `test-${folder.name}.exe` : "test-zig.exe");
     const testName = path.parse(emitBinPath).name;
 
     taskDef.srcFilePath = path.normalize(taskDef.srcFilePath);
     taskDef.debugArgs = taskDef.debugArgs ?? [];
     taskDef.testArgs = taskDef.testArgs ?? [];
-    taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.buildRootDir;
+    taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.build_rootDir;
     taskDef.emitBinPath = emitBinPath;
     taskDef.options = {
-      cwd: taskDef.options?.cwd ?? zigCfg.buildRootDir,
+      cwd: taskDef.options?.cwd ?? zigCfg.build_rootDir,
     };
 
     return new ZigTask(
-      zigCfg.zigBinPath,
+      zigCfg.binPath,
       emitBinPath,
       taskDef,
       folder ? folder : vscode.TaskScope.Workspace,
       testName,
       new vscode.CustomExecution(async (resolvedTaskDef: vscode.TaskDefinition): Promise<vscode.Pseudoterminal> => {
         return new ZigBuildTerminal(
-          zigCfg.zigBinPath,
+          zigCfg.binPath,
           testName,
           <ZigTaskDefinition>resolvedTaskDef,
         );
       }),
-      zigCfg.taskEnableProblemMatcher,
+      zigCfg.task_enableProblemMatcher,
       vscode.TaskGroup.Build,
       `zig build task: ${testName}`,
       Object.assign(
@@ -321,8 +320,8 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
       const { stdout, stderr } = await processRun.completion;
 
       // printBuildSummary
-      const hasStdOut = !isBlankString(stdout);
-      const hasStdErr = !isBlankString(stderr);
+      const hasStdOut = !types.isBlankString(stdout);
+      const hasStdErr = !types.isBlankString(stderr);
       if (
         (!hasStdOut && hasStdErr && stderr.includes("error"))
         || (hasStdOut && stdout.includes("error"))

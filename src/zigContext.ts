@@ -1,7 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as vscode from "vscode";
-import * as path from 'path';
-import { ext } from './utils';
+import { ext, path } from './utils';
 import { ZigConst } from './zigConst';
 import { ZlsContext } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
@@ -90,31 +90,30 @@ export const enum BuildStep {
 }
 
 class ZigConfig extends ext.ExtensionConfigBase {
-
-    private _zigBinPath?:               string;
-    private _zlsBinPath?:               string;
-    private _zlsDebugBinPath?:          string | undefined;
-    private _zlsEnableDebugMode?:       boolean;
-    private _buildRootDir?:             string;
-    private _buildBuildFile?:           string;
-    private _buildBuildStep?:           BuildStep;
-    private _buildExtraArgs?:           string[];
-    private _taskBinDir?:               string;
-    private _taskEnableProblemMatcher?: boolean;
-    private _miscBuildOnSave?:          boolean;
-    private _miscRevealOnFormatError?:  boolean;
+    private _binPath?:                   string;
+    private _zls_binPath?:               string;
+    private _zls_debugBinPath?:          string | undefined;
+    private _zls_enableDebug?:           boolean;
+    private _build_rootDir?:             string;
+    private _build_buildFile?:           string;
+    private _build_buildStep?:           BuildStep;
+    private _build_extraArgs?:           string[];
+    private _task_binDir?:               string;
+    private _task_enableProblemMatcher?: boolean;
+    private _misc_buildOnSave?:          boolean;
+    private _misc_revealOnFormatError?:  boolean;
 
     constructor(resource?: vscode.Uri) { super(ZigConst.extensionId, resource); }
-    public get zigBinPath               (): string             { if (!this._zigBinPath               ) { this._zigBinPath               = super.getResolvedPath  ("binPath"                  , "zig.exe"                         ); } return this._zigBinPath;               }
-    public get zlsBinPath               (): string             { if (!this._zlsBinPath               ) { this._zlsBinPath               = super.getResolvedPath  ("zls.binPath"              , "zls.exe"                         ); } return this._zlsBinPath;               }
-    public get zlsDebugBinPath          (): string | undefined { if (!this._zlsDebugBinPath          ) { this._zlsDebugBinPath          = super.getResolvedPath  ("zls.debugBinPath"         , undefined                         ); } return this._zlsDebugBinPath;          }
-    public get zlsEnableDebugMode       (): boolean            { if (!this._zlsEnableDebugMode       ) { this._zlsEnableDebugMode       = super.getWithFallback  ("zls.enableDebugMode"      , false                             ); } return this._zlsEnableDebugMode;       }
-    public get buildRootDir             (): string             { if (!this._buildRootDir             ) { this._buildRootDir             = super.getResolvedPath  ("build.rootDir"            , path.normalize(vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? "")        ); } return this._buildRootDir;             }
-    public get buildBuildFile           (): string             { if (!this._buildBuildFile           ) { this._buildBuildFile           = super.getResolvedPath  ("build.buildFile"          , `${this.buildRootDir}/build.zig`  ); } return this._buildBuildFile;           }
-    public get buildBuildStep           (): BuildStep          { if (!this._buildBuildStep           ) { this._buildBuildStep           = super.getWithFallback  ("build.buildStep"          , BuildStep.buildFile               ); } return this._buildBuildStep;           }
-    public get buildExtraArgs           (): string[]           { if (!this._buildExtraArgs           ) { this._buildExtraArgs           = super.getResolvedArray ("build.extraArgs"                                              ); } return this._buildExtraArgs;           }
-    public get taskBinDir               (): string             { if (!this._taskBinDir               ) { this._taskBinDir               = super.getResolvedPath  ("task.binDir"              , `${this.buildRootDir}/zig-out/bin`); } return this._taskBinDir;               }
-    public get taskEnableProblemMatcher (): boolean            { if (!this._taskEnableProblemMatcher ) { this._taskEnableProblemMatcher = super.getWithFallback  ("task.enableProblemMatcher", true                              ); } return this._taskEnableProblemMatcher; }
-    public get miscBuildOnSave          (): boolean            { if (!this._miscBuildOnSave          ) { this._miscBuildOnSave          = super.getWithFallback  ("misc.buildOnSave"         , false                             ); } return this._miscBuildOnSave;          }
-    public get miscRevealOnFormatError  (): boolean            { if (!this._miscRevealOnFormatError  ) { this._miscRevealOnFormatError  = super.getWithFallback  ("misc.revealOnFormatError" , true                              ); } return this._miscRevealOnFormatError;  }
+    public get binPath                   (): string           { if (!this._binPath                   ) { this._binPath                   = super.resolvedPath  ("binPath"                  , "zig.exe"                                     ); } return this._binPath;                   }
+    public get zls_binPath               (): string           { if (!this._zls_binPath               ) { this._zls_binPath               = super.resolvedPath  ("zls.binPath"              , "zls.exe"                                     ); } return this._zls_binPath;               }
+    public get zls_debugBinPath          (): string|undefined { if (!this._zls_debugBinPath          ) { this._zls_debugBinPath          = super.resolvedPath  ("zls.debugBinPath"         , undefined                                     ); } return this._zls_debugBinPath;          }
+    public get zls_enableDebug           (): boolean          { if (!this._zls_enableDebug           ) { this._zls_enableDebug           = super.fallbackGet   ("zls.enableDebug"          , false                                         ); } return this._zls_enableDebug;           }
+    public get build_rootDir             (): string           { if (!this._build_rootDir             ) { this._build_rootDir             = super.resolvedPath  ("build.rootDir"            , ext.defaultWksFolderPath() ?? ""              ); } return this._build_rootDir;             }
+    public get build_buildFile           (): string           { if (!this._build_buildFile           ) { this._build_buildFile           = super.resolvedPath  ("build.buildFile"          , path.join(this.build_rootDir,"build.zig")     ); } return this._build_buildFile;           }
+    public get build_buildStep           (): BuildStep        { if (!this._build_buildStep           ) { this._build_buildStep           = super.fallbackGet   ("build.buildStep"          , BuildStep.buildFile                           ); } return this._build_buildStep;           }
+    public get build_extraArgs           (): string[]         { if (!this._build_extraArgs           ) { this._build_extraArgs           = super.resolvedArray ("build.extraArgs"                                                          ); } return this._build_extraArgs;           }
+    public get task_binDir               (): string           { if (!this._task_binDir               ) { this._task_binDir               = super.resolvedPath  ("task.binDir"              , path.join(this.build_rootDir,"zig-out","bin") ); } return this._task_binDir;               }
+    public get task_enableProblemMatcher (): boolean          { if (!this._task_enableProblemMatcher ) { this._task_enableProblemMatcher = super.fallbackGet   ("task.enableProblemMatcher", true                                          ); } return this._task_enableProblemMatcher; }
+    public get misc_buildOnSave          (): boolean          { if (!this._misc_buildOnSave          ) { this._misc_buildOnSave          = super.fallbackGet   ("misc.buildOnSave"         , false                                         ); } return this._misc_buildOnSave;          }
+    public get misc_revealOnFormatError  (): boolean          { if (!this._misc_revealOnFormatError  ) { this._misc_revealOnFormatError  = super.fallbackGet   ("misc.revealOnFormatError" , true                                          ); } return this._misc_revealOnFormatError;  }
 };
