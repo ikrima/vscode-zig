@@ -45,11 +45,11 @@ class ZigContext {
         return this.zlsContext.startClient();
     }
     async backgroundDeinit(): Promise<void> {
-        this.registrations.forEach(d => d.dispose());
+        this.registrations.forEach(d => void d.dispose());
         this.registrations = [];
         this.zigTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
-        await this.zlsContext.asyncDispose().catch(() => { });
+        await this.zlsContext.asyncDispose().catch();
         this.zigChannel.dispose();
     }
 
@@ -80,7 +80,7 @@ class ZigContext {
     //         zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel);
     //     }),
     // );
-};
+}
 
 export const enum BuildStep {
     buildFile,
@@ -116,4 +116,4 @@ class ZigConfig extends ext.ExtensionConfigBase {
     public get task_enableProblemMatcher (): boolean          { if (!this._task_enableProblemMatcher ) { this._task_enableProblemMatcher = super.fallbackGet   ("task.enableProblemMatcher", true                                          ); } return this._task_enableProblemMatcher; }
     public get misc_buildOnSave          (): boolean          { if (!this._misc_buildOnSave          ) { this._misc_buildOnSave          = super.fallbackGet   ("misc.buildOnSave"         , false                                         ); } return this._misc_buildOnSave;          }
     public get misc_revealOnFormatError  (): boolean          { if (!this._misc_revealOnFormatError  ) { this._misc_revealOnFormatError  = super.fallbackGet   ("misc.revealOnFormatError" , true                                          ); } return this._misc_revealOnFormatError;  }
-};
+}

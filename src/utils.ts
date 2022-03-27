@@ -78,7 +78,14 @@ export namespace fs {
 export namespace log {
   export function info  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = false): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showInformationMessage(msg); } }
   export function warn  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showWarningMessage(msg);     } }
-  export function error (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showErrorMessage(msg);       } }
+  export function error (chan: vscode.OutputChannel, msg: string, err: unknown | null = null, showMsg: boolean = true ): void {
+    chan.appendLine(msg);
+    const detailMsg   = (err instanceof Error) ? err.message : String(err);
+    const detailStack = (err instanceof Error) ? err.stack : null;
+    if (detailMsg  ) { chan.appendLine(`  Error: ${detailMsg}`);       }
+    if (detailStack) { chan.appendLine(`  StackTrace: ${detailStack}`);}
+    if (showMsg    ) { void vscode.window.showErrorMessage(msg); }
+  }
 }
 
 export namespace ext {
@@ -261,6 +268,10 @@ export namespace proc {
     completion: Promise<{ stdout: string; stderr: string }>;
   };
 
+  export interface ProcRunException extends cp.ExecException {
+    stdout?: string|undefined;
+    stderr?: string|undefined;
+  }
   // Spawns cancellable process
   export function runProcess(cmd: string, options: ProcessRunOptions = {}): ProcessRun {
     let firstResponse = true;
@@ -306,7 +317,10 @@ export namespace proc {
                     : error.message
                 );
               }
-              reject(Object.assign(error, {stdout: stdout, stderr: stderr}));
+              reject(Object.assign(
+                <ProcRunException>(error ?? { name: "RunException", message: "Unknown" }),
+                { stdout: stdout, stderr: stderr }
+              ));
             }
           },
         );

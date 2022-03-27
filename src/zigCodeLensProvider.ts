@@ -19,7 +19,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
       );
   }
   dispose(): void {
-    this.registrations.forEach(d => d.dispose());
+    this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
     this._onDidChangeCodeLenses.dispose();
   }

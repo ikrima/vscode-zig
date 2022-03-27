@@ -7,10 +7,10 @@ import { initZigContext, deinitZigContext } from './zigContext';
 // import { stringify } from 'querystring';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    initZigContext(context);
+    void initZigContext(context);
     return Promise.resolve();
 }
 
 export async function deactivate(): Promise<void> {
-    deinitZigContext();
+    await deinitZigContext();
 }

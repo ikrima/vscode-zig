@@ -12,14 +12,14 @@ interface ZigTaskDefinition extends vscode.TaskDefinition {
   runInDebugger: boolean;
   srcFilePath: string;
   testArgs?: string[];
-  debugArgs?: string[],
+  debugArgs?: string[];
   testFilter?: string;
   mainPkgPath?: string;
   emitBinPath?: string;
   options?: {
     cwd?: string;
   };
-};
+}
 export class ZigTask extends vscode.Task {
   constructor(
     public zigBinPath: string,
@@ -82,7 +82,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
   }
 
   dispose(): void {
-    this.registrations.forEach(d => d.dispose());
+    this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
   }
 
@@ -103,22 +103,22 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       //   new vscode.ShellExecution("zig test")
       // ),
     ];
-    return result;
+    return Promise.resolve(result);
 
   }
 
   public async resolveTask(task: ZigTask): Promise<ZigTask | undefined> {
-    const execution: any = task.execution;
+    const execution = task.execution;
     if (!execution) {
-      const taskDef: ZigTaskDefinition = <any>task.definition;
+      const taskDef: ZigTaskDefinition = task.definition as ZigTaskDefinition;
       task = this.getTask(
         taskDef,
         task.scope as vscode.WorkspaceFolder,
         task.presentationOptions,
       );
-      return task;
+      return Promise.resolve(task);
     }
-    return undefined;
+    return Promise.resolve(undefined);
   }
 
   private async _launchDebugger(
@@ -175,13 +175,13 @@ export class ZigTaskProvider implements vscode.TaskProvider {
   private async _runTask(zigTask: ZigTask, updateLastRun: boolean): Promise<void> {
     if (updateLastRun) {
       this.lastRanZigTask = zigTask;
-      vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
+      void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
     }
 
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
     if (!(await fs.dirExists(testEmitBinDir))) {
       try { await fs.mkdir(testEmitBinDir); } catch (err) {
-        log.error(zigContext.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.\n  Error: ${err ?? "Unknown"}`);
+        log.error(zigContext.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.`, err);
         return;
       }
     }
@@ -191,7 +191,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       await new Promise<void>((resolve, reject) => {
         let disposable: vscode.Disposable | undefined = vscode.tasks.onDidEndTask(async (e) => {
           if (e.execution !== execution) { return; }
-          disposable!.dispose();
+          disposable?.dispose();
           disposable = undefined;
           const taskDef = <ZigTaskDefinition>zigTask.definition;
           if (taskDef.runInDebugger) {
@@ -200,11 +200,11 @@ export class ZigTaskProvider implements vscode.TaskProvider {
                 zigTask.scope as vscode.WorkspaceFolder,
                 zigTask.zigBinPath,
                 zigTask.emitBinPath,
-                taskDef.debugArgs!,
+                taskDef.debugArgs ?? [],
               );
             }
-            catch (err: any) {
-              log.error(zigContext.zigChannel, `Could not launch debugger\n  Error ${err ?? "Error: Unknown"}`);
+            catch (err) {
+              log.error(zigContext.zigChannel, `Could not launch debugger`, err);
               reject();
             }
           }
@@ -213,7 +213,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       });
     }
     catch (err) {
-      log.error(zigContext.zigChannel, `Could not execute task: ${zigTask.name}.\n  Error: ${err ?? "Unknown"}`);
+      log.error(zigContext.zigChannel, `Could not execute task: ${zigTask.name}.`, err);
       return;
     }
   }
@@ -249,11 +249,11 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       folder ? folder : vscode.TaskScope.Workspace,
       testName,
       new vscode.CustomExecution(async (resolvedTaskDef: vscode.TaskDefinition): Promise<vscode.Pseudoterminal> => {
-        return new ZigBuildTerminal(
+        return Promise.resolve(new ZigBuildTerminal(
           zigCfg.binPath,
           testName,
           <ZigTaskDefinition>resolvedTaskDef,
-        );
+        ));
       }),
       zigCfg.task_enableProblemMatcher,
       vscode.TaskGroup.Build,
@@ -297,7 +297,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
             .concat(
               this.taskDef.srcFilePath,
               ...(this.taskDef.mainPkgPath ? ["--main-pkg-path", this.taskDef.mainPkgPath] : []),
-              `-femit-bin=${this.taskDef.emitBinPath!}`,
+              `-femit-bin=${this.taskDef.emitBinPath ?? ""}`,
               ...(this.taskDef.testFilter ? ["--test-filter", this.taskDef.testFilter] : []),
               ...(this.taskDef.testArgs ?? []),
               ...(this.taskDef.runInDebugger ? [`--test-no-exec`] : []),
@@ -338,12 +338,14 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
       this.buildProc = undefined;
       this.closeEmitter.fire(0);
     }
-    catch (err: any) {
+    catch (err) {
       this.buildProc = undefined;
       this.emitLine("Build run was terminated");
-      if (err) { this.splitWriteEmitter(`${err}`); }
-      if (err?.stderr) { this.splitWriteEmitter(err.stderr); }
-      if (err?.stdout) { this.splitWriteEmitter(err.stdout); }
+      const stdout = (err as proc.ProcRunException)?.stdout;
+      const stderr = (err as proc.ProcRunException)?.stderr;
+      if (err   ) { this.splitWriteEmitter(String(err)); }
+      if (stdout) { this.splitWriteEmitter(stdout);      }
+      if (stderr) { this.splitWriteEmitter(stderr);      }
       this.closeEmitter.fire(-1);
     }
   }
@@ -362,7 +364,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   }
   private splitWriteEmitter(lines: string | Buffer) {
     const splitLines: string[] = lines.toString().split(/\r?\n/g);
-    for (let i: number = 0; i < splitLines.length; i++) {
+    for (let i = 0; i < splitLines.length; i++) {
       let line = splitLines[i];
       // We may not get full lines, only output an eol when a full line is detected
       if (i !== splitLines.length - 1) { line += ZigBuildTerminal.endOfLine; }
