@@ -2,7 +2,7 @@
 import * as vscode from "vscode";
 import { ZigConst } from "./zigConst";
 import { zigContext } from "./zigContext";
-import { log, proc, types, fs, ext, path } from './utils';
+import { proc, types, fs, ext, path } from './utils';
 // import * as jsyaml from 'js-yaml';
 
 const cppToolsExtId = "ms-vscode.cpptools";
@@ -181,7 +181,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     const testEmitBinDir = path.dirname(zigTask.emitBinPath);
     if (!(await fs.dirExists(testEmitBinDir))) {
       try { await fs.mkdir(testEmitBinDir); } catch (err) {
-        log.error(zigContext.zigChannel, `Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.`, err);
+        zigContext.logger.error(`Could not create testEmitBinDir: (${zigTask.emitBinPath}) does not exists.`, err);
         return;
       }
     }
@@ -204,7 +204,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
               );
             }
             catch (err) {
-              log.error(zigContext.zigChannel, `Could not launch debugger`, err);
+              zigContext.logger.error(`Could not launch debugger`, err);
               reject();
             }
           }
@@ -213,7 +213,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
       });
     }
     catch (err) {
-      log.error(zigContext.zigChannel, `Could not execute task: ${zigTask.name}.`, err);
+      zigContext.logger.error(`Could not execute task: ${zigTask.name}.`, err);
       return;
     }
   }
@@ -223,7 +223,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     _folder?: vscode.WorkspaceFolder,
     _presentationOptions?: vscode.TaskPresentationOptions,
   ): ZigTask {
-    const zigCfg = zigContext.zigExtCfg.cfgData;
+    const zigCfg = zigContext.extConfig.cfgData;
     const folder: vscode.WorkspaceFolder | undefined = _folder
       ?? (vscode.window.activeTextEditor
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)

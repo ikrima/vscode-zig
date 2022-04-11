@@ -19,12 +19,14 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsContext implements vscode.Disposable {
-  private zlsChannel: vscode.OutputChannel;
-  private zlsClient?: ZlsLanguageClient | undefined;
-  private registrations: vscode.Disposable[] = [];
+  private  zlsChannel:    vscode.OutputChannel;
+  readonly logger:        log.Logger;
+  private  zlsClient?:    ZlsLanguageClient | undefined;
+  private  registrations: vscode.Disposable[] = [];
 
   constructor() {
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
+    this.logger     = log.makeChannelLogger(log.LogLevel.warn, this.zlsChannel);
     this.registrations.push(
       vscode.commands.registerCommand("zig.zls.start", async () => {
         await this.startClient();
@@ -51,12 +53,12 @@ export class ZlsContext implements vscode.Disposable {
 
   async startClient(): Promise<void> {
     if (this.zlsClient) {
-      log.warn(this.zlsChannel, "Client already started");
+      this.logger.warn("Client already started");
       return Promise.resolve();
     }
-    log.info(this.zlsChannel, "Starting Zls...");
-    zigContext.zigExtCfg.reload();
-    const zigCfg = zigContext.zigExtCfg.cfgData;
+    this.logger.info("Starting Zls...");
+    zigContext.extConfig.reload();
+    const zigCfg = zigContext.extConfig.cfgData;
     const zlsEnableDebug = zigCfg.zls.enableDebug;
     const zlsPath = zigCfg.zls.binPath;
     const zlsArgs = <string[]>[];
@@ -68,7 +70,7 @@ export class ZlsContext implements vscode.Disposable {
 
     try {
       if (zlsEnableDebug && !zigCfg.zls.debugBinPath) {
-        log.warn(this.zlsChannel,
+        this.logger.warn(
           "Using Zls debug mode without `zig.zls.debugBinPath`;\n" +
           "  Fallback to `zig.zls.binPath`");
       }
@@ -77,7 +79,7 @@ export class ZlsContext implements vscode.Disposable {
           ? Promise.resolve()
           : fs.fileExists(zlsPath).then(exists => {
             if (!exists) {
-              log.error(this.zlsChannel,
+              this.logger.error(
                 `Failed to find zls executable ${zlsPath}\n` +
                 `  Please specify its path in your settings with "zig.zls.binPath"`);
             }
@@ -87,7 +89,7 @@ export class ZlsContext implements vscode.Disposable {
           ? Promise.resolve()
           : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
-              log.error(this.zlsChannel,
+              this.logger.error(
                 `Failed to find zls debug executable ${zlsDbgPath}\n` +
                 `  Please specify its path in your settings with "zig.zls.zlsDebugBinPath"\n` +
                 `  Fallback to "zig.zls.binPath"`);
@@ -150,13 +152,13 @@ export class ZlsContext implements vscode.Disposable {
     const zlsClient = this.zlsClient;
     this.zlsClient = undefined;
     if (!(zlsClient?.needsStop())) {
-      log.warn(this.zlsChannel, "Client already stopped");
+      this.logger.warn("Client already stopped");
       return Promise.resolve();
     }
 
-    log.info(this.zlsChannel, "Stopping Zls...");
+    this.logger.info("Stopping Zls...");
     return zlsClient.stop().catch(err => {
-      log.error(this.zlsChannel, `zls.stop failed during dispose.`, err);
+      this.logger.error(`zls.stop failed during dispose.`, err);
       return Promise.reject();
     });
   }

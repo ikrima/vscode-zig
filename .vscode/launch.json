@@ -6,29 +6,24 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"preLaunchTask": "npm: watch"
+			"name":          "Run Extension",
+			"type":          "extensionHost",
+			"preLaunchTask": "npm: watch",
+			"request":       "launch",
+			"args":          [ "--extensionDevelopmentPath=${workspaceFolder}" ],
+			"sourceMaps": 	 true,
+			"outFiles":      [ "${workspaceFolder}/out/**/*.js" ],
 		},
 		{
-			"name": "Extension Tests",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
+			"name":		 			  "Extension Tests",
+			"type":		 			  "extensionHost",
+			"preLaunchTask":  "npm: build",
+			"request": 			  "launch",
+			"args": 					[
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
 			],
-			"outFiles": [
-				"${workspaceFolder}/out/test/**/*.js"
-			],
-			"preLaunchTask": "npm: build"
+			"outFiles": 			[ "${workspaceFolder}/out/test/**/*.js" ],
 		}
 	]
 }

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as vscode from "vscode";
-import { ext } from './utils';
+import { log, ext } from './utils';
 import { ZigConst } from './zigConst';
 import { ZlsContext } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
@@ -19,17 +19,19 @@ export async function deinitZigContext(): Promise<void> {
 }
 
 class ZigContext {
-    readonly extContext:  vscode.ExtensionContext;
-    readonly zigChannel:  vscode.OutputChannel;
-    readonly zigExtCfg:   ZigExtConfig;
-    zlsContext:           ZlsContext;
-    zigCodeLensProvider:  ZigCodelensProvider;
-    zigTaskProvider:      ZigTaskProvider;
-    registrations:        vscode.Disposable[] = [];
+    readonly extContext:           vscode.ExtensionContext;
+    readonly extConfig:            ZigExtConfig;
+    readonly logger:               log.Logger;
+    private  extChannel:           vscode.OutputChannel;
+    private  zlsContext:           ZlsContext;
+    private  zigCodeLensProvider:  ZigCodelensProvider;
+    private  zigTaskProvider:      ZigTaskProvider;
+    private  registrations:        vscode.Disposable[] = [];
     constructor(context: vscode.ExtensionContext) {
         this.extContext          = context;
-        this.zigChannel          = vscode.window.createOutputChannel(ZigConst.extensionId);
-        this.zigExtCfg           = new ZigExtConfig();
+        this.extChannel          = vscode.window.createOutputChannel(ZigConst.extensionId);
+        this.logger              = log.makeChannelLogger(log.LogLevel.warn, this.extChannel);
+        this.extConfig           = new ZigExtConfig();
         this.zlsContext          = new ZlsContext();
         this.zigCodeLensProvider = new ZigCodelensProvider();
         this.zigTaskProvider     = new ZigTaskProvider();
@@ -47,7 +49,7 @@ class ZigContext {
         this.zigTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
         await this.zlsContext.asyncDispose().catch();
-        this.zigChannel.dispose();
+        this.extChannel.dispose();
     }
 
 

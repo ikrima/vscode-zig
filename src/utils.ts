@@ -50,11 +50,6 @@ export namespace types {
         const srcVal = srcRecord[k];
         result[k] = isScalarValue(srcVal) ? srcVal : deepCopy(srcVal);
       }
-      // const result    = Object.create(null, Object.getOwnPropertyDescriptors(srcRecord)) as Record<string,unknown>;
-      // for (const prop of Object.getOwnPropertyNames(src)) {
-      //   const srcVal = srcRecord[prop];
-      //   result[prop] = isScalarValue(srcVal) ? srcVal : deepCopy(srcVal);
-      // }
       return result;
     }
     else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
@@ -123,6 +118,71 @@ export namespace log {
     if (detailMsg  ) { chan.appendLine(`  Error: ${detailMsg}`);       }
     if (detailStack) { chan.appendLine(`  StackTrace: ${detailStack}`);}
     if (showMsg    ) { void vscode.window.showErrorMessage(msg); }
+  }
+
+  export enum LogLevel {
+    off     = -1,
+    error   = 0,
+    warn    = 1,
+    info    = 2,
+    trace   = 3,
+  }
+
+  export type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace';
+  export function strToLogLevel(levelStr: LogLevelKey): LogLevel {
+    switch (levelStr) {
+      case 'off':     return LogLevel.off;
+      case 'error':   return LogLevel.error;
+      case 'warn':    return LogLevel.warn;
+      case 'info':    return LogLevel.info;
+      case 'trace':   return LogLevel.trace;
+    }
+  }
+  interface ILogItem {
+    level:    LogLevel;
+    msg:      string;
+    err?:     Error | unknown | null;
+    reveal?:  boolean;
+  }
+  interface ILogWriter {
+    append(message: string): void;
+    clear(): void;
+  }
+
+  export function makeChannelLogger(maxLogLevel: LogLevel, chan: vscode.OutputChannel): Logger {
+    return new Logger(maxLogLevel, {
+      append: msg => chan.append(msg),
+      clear: () => chan.clear(),
+    });
+  }
+  export class Logger {
+    constructor(
+      public readonly maxLogLevel: LogLevel,
+      public readonly writer: ILogWriter,
+    ) { }
+
+    clear(): void { this.writer.clear(); }
+    log(item: ILogItem): void {
+      if (item.level > this.maxLogLevel) { return; }
+      this.writer.append(item.msg + os.EOL);
+      if (item.err  ) {
+        const errMsg   = item.err instanceof Error ? item.err.message : String(item.err);
+        const errStack = item.err instanceof Error ? item.err.stack   : null;
+        this.writer.append(`  Error: ${errMsg}\n`);
+        if (errStack) {  this.writer.append(`  StackTrace: ${errStack}\n`); }
+      }
+      switch(item.reveal ? item.level : LogLevel.off) {
+        case LogLevel.off:     break;
+        case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
+        case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
+        case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
+        case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
+      }
+    }
+    error (msg: string, err:    Error|unknown|null = null, reveal: boolean = true ): void { this.log({level: LogLevel.error, msg: msg, reveal: reveal, err: err}); }
+    warn  (msg: string, reveal: boolean = true                             ): void { this.log({level: LogLevel.warn , msg: msg, reveal: reveal});       }
+    info  (msg: string, reveal: boolean = false                            ): void { this.log({level: LogLevel.info , msg: msg, reveal: reveal});       }
+    trace (msg: string, reveal: boolean = false                            ): void { this.log({level: LogLevel.trace, msg: msg, reveal: reveal});       }
   }
 }
 
