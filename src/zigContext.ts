@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as vscode from "vscode";
-import { ext, path } from './utils';
+import { ext } from './utils';
 import { ZigConst } from './zigConst';
 import { ZlsContext } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
@@ -21,7 +21,7 @@ export async function deinitZigContext(): Promise<void> {
 class ZigContext {
     readonly extContext:  vscode.ExtensionContext;
     readonly zigChannel:  vscode.OutputChannel;
-    zigCfg:               ZigConfig;
+    readonly zigExtCfg:   ZigExtConfig;
     zlsContext:           ZlsContext;
     zigCodeLensProvider:  ZigCodelensProvider;
     zigTaskProvider:      ZigTaskProvider;
@@ -29,7 +29,7 @@ class ZigContext {
     constructor(context: vscode.ExtensionContext) {
         this.extContext          = context;
         this.zigChannel          = vscode.window.createOutputChannel(ZigConst.extensionId);
-        this.zigCfg              = new ZigConfig();
+        this.zigExtCfg           = new ZigExtConfig();
         this.zlsContext          = new ZlsContext();
         this.zigCodeLensProvider = new ZigCodelensProvider();
         this.zigTaskProvider     = new ZigTaskProvider();
@@ -37,9 +37,6 @@ class ZigContext {
             vscode.languages.registerCodeLensProvider(ZigConst.documentSelector, this.zigCodeLensProvider),
             vscode.tasks.registerTaskProvider(ZigConst.taskScriptType, this.zigTaskProvider),
         );
-    }
-    public reloadConfig(): void {
-        this.zigCfg = new ZigConfig();
     }
     async backgroundInit(): Promise<void> {
         return this.zlsContext.startClient();
@@ -64,15 +61,15 @@ class ZigContext {
     // const buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
     // context.subscriptions.push(
     //     vscode.languages.registerCodeActionsProvider(
-    //         ZigConfig.zigDocumentSelector,
+    //         ZigExtConfig.zigDocumentSelector,
     //         new ZigCodeActionProvider(context)
     //     ),
     //     vscode.languages.registerDocumentFormattingEditProvider(
-    //         ZigConfig.zigDocumentSelector,
+    //         ZigExtConfig.zigDocumentSelector,
     //         new ZigFormatProvider(logChannel),
     //     ),
     //     vscode.languages.registerDocumentRangeFormattingEditProvider(
-    //         ZigConfig.zigDocumentSelector,
+    //         ZigExtConfig.zigDocumentSelector,
     //         new ZigRangeFormatProvider(logChannel),
     //     ),
     //     vscode.commands.registerCommand('zig.build.workspace', () => {
@@ -82,38 +79,47 @@ class ZigContext {
     // );
 }
 
-export const enum BuildStep {
-    buildFile,
-    buildExe,
-    buildLib,
-    buildObj,
+type BuildStep = 'buildFile' | 'buildExe' | 'buildLib' | 'buildObj';
+export interface ZlsConfigData {
+    binPath:               string;
+    debugBinPath:          string | null;
+    enableDebug:           boolean;
 }
-
-class ZigConfig extends ext.ExtensionConfigBase {
-    private _binPath?:                   string;
-    private _zls_binPath?:               string;
-    private _zls_debugBinPath?:          string | undefined;
-    private _zls_enableDebug?:           boolean;
-    private _build_rootDir?:             string;
-    private _build_buildFile?:           string;
-    private _build_buildStep?:           BuildStep;
-    private _build_extraArgs?:           string[];
-    private _task_binDir?:               string;
-    private _task_enableProblemMatcher?: boolean;
-    private _misc_buildOnSave?:          boolean;
-    private _misc_revealOnFormatError?:  boolean;
-
-    constructor(resource?: vscode.Uri) { super(ZigConst.extensionId, resource); }
-    public get binPath                   (): string           { if (!this._binPath                   ) { this._binPath                   = super.resolvedPath  ("binPath"                  , "zig.exe"                                     ); } return this._binPath;                   }
-    public get zls_binPath               (): string           { if (!this._zls_binPath               ) { this._zls_binPath               = super.resolvedPath  ("zls.binPath"              , "zls.exe"                                     ); } return this._zls_binPath;               }
-    public get zls_debugBinPath          (): string|undefined { if (!this._zls_debugBinPath          ) { this._zls_debugBinPath          = super.resolvedPath  ("zls.debugBinPath"         , undefined                                     ); } return this._zls_debugBinPath;          }
-    public get zls_enableDebug           (): boolean          { if (!this._zls_enableDebug           ) { this._zls_enableDebug           = super.fallbackGet   ("zls.enableDebug"          , false                                         ); } return this._zls_enableDebug;           }
-    public get build_rootDir             (): string           { if (!this._build_rootDir             ) { this._build_rootDir             = super.resolvedPath  ("build.rootDir"            , ext.defaultWksFolderPath() ?? ""              ); } return this._build_rootDir;             }
-    public get build_buildFile           (): string           { if (!this._build_buildFile           ) { this._build_buildFile           = super.resolvedPath  ("build.buildFile"          , path.join(this.build_rootDir,"build.zig")     ); } return this._build_buildFile;           }
-    public get build_buildStep           (): BuildStep        { if (!this._build_buildStep           ) { this._build_buildStep           = super.fallbackGet   ("build.buildStep"          , BuildStep.buildFile                           ); } return this._build_buildStep;           }
-    public get build_extraArgs           (): string[]         { if (!this._build_extraArgs           ) { this._build_extraArgs           = super.resolvedArray ("build.extraArgs"                                                          ); } return this._build_extraArgs;           }
-    public get task_binDir               (): string           { if (!this._task_binDir               ) { this._task_binDir               = super.resolvedPath  ("task.binDir"              , path.join(this.build_rootDir,"zig-out","bin") ); } return this._task_binDir;               }
-    public get task_enableProblemMatcher (): boolean          { if (!this._task_enableProblemMatcher ) { this._task_enableProblemMatcher = super.fallbackGet   ("task.enableProblemMatcher", true                                          ); } return this._task_enableProblemMatcher; }
-    public get misc_buildOnSave          (): boolean          { if (!this._misc_buildOnSave          ) { this._misc_buildOnSave          = super.fallbackGet   ("misc.buildOnSave"         , false                                         ); } return this._misc_buildOnSave;          }
-    public get misc_revealOnFormatError  (): boolean          { if (!this._misc_revealOnFormatError  ) { this._misc_revealOnFormatError  = super.fallbackGet   ("misc.revealOnFormatError" , true                                          ); } return this._misc_revealOnFormatError;  }
+export interface BuildConfigData {
+    rootDir:             string;
+    buildFile:           string;
+    buildStep:           BuildStep;
+    extraArgs:           string[];
+}
+export interface TaskConfigData {
+    binDir:               string | null;
+    enableProblemMatcher: boolean;
+}
+export interface MiscConfigData {
+    buildOnSave:          boolean;
+    revealOnFormatError:  boolean;
+}
+export interface ZigConfigData {
+    binPath: string;
+    zls:     ZlsConfigData;
+    build:   BuildConfigData;
+    task:    TaskConfigData;
+    misc:    MiscConfigData;
+}
+class ZigExtConfig extends ext.ExtensionConfigBase<ZigConfigData> {
+    constructor(scope?: vscode.ConfigurationScope | null) {
+        super(
+            ZigConst.extensionId,
+            scope,
+            (cfgData: ZigConfigData): void => {
+                cfgData.binPath          = ext.resolvePath(cfgData.binPath);
+                cfgData.zls.binPath      = ext.resolvePath(cfgData.zls.binPath);
+                cfgData.zls.debugBinPath = cfgData.zls.debugBinPath ? ext.resolvePath(cfgData.zls.debugBinPath) : null;
+                cfgData.build.rootDir    = ext.resolvePath(cfgData.build.rootDir);    // ext.defaultWksFolderPath() ?? ""              );
+                cfgData.build.buildFile  = ext.resolvePath(cfgData.build.buildFile);  // path.join(this.build_rootDir,"build.zig")     );
+                cfgData.build.extraArgs  = ext.resolveArrayVars(cfgData.build.extraArgs);
+                cfgData.task.binDir      = cfgData.task.binDir ? ext.resolvePath(cfgData.task.binDir) : null;
+            },
+        );
+    }
 }

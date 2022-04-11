@@ -14,14 +14,52 @@ export namespace types {
   export function isNullOrUndefined   (o: unknown): o is undefined|null { return (isUndefined(o) || o === null);                                      }
   export function isSymbol            (o: unknown): o is symbol         { return typeof o === 'symbol'  || o instanceof Symbol;                       }
   export function isBoolean           (o: unknown): o is boolean        { return (o === true || o === false);                                         }
+  export function isDate              (o: unknown): o is Date           { return o instanceof Date;                                                   }
+  export function isRegExp            (o: unknown): o is RegExp         { return o instanceof RegExp;                                                 }
   export function isNumber            (o: unknown): o is number         { return typeof o === "number"  || o instanceof Number;                       }
   export function isString            (o: unknown): o is string         { return typeof o === "string"  || o instanceof String;                       }
   export function isArray<T>          (o: unknown): o is T[]            { return Array.isArray(o);                                                    }
-  export function isObject            (o: unknown): o is Object         { return (typeof o === 'object') && o !== null && !Array.isArray(o) && !(o instanceof RegExp) && !(o instanceof Date); } // eslint-disable-line @typescript-eslint/ban-types
+  export function isObject            (o: unknown): o is Object         { return (typeof o === 'object') && o !== null && !Array.isArray(o) && !isRegExp(o) && !isDate(o); } // eslint-disable-line @typescript-eslint/ban-types
   export function isFunction          (o: unknown): o is Function       { return (typeof o === 'function');                                             } // eslint-disable-line @typescript-eslint/ban-types
   export function isScalarValue       (o: unknown): boolean             { return isNullOrUndefined(o) || isBoolean (o) || isNumber(o) || isString(o); }
   export function isStringArray       (o: unknown): o is string[]       { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e)); }
   export function isBlankString       (o: string ): boolean             { return o.length === 0 || /\S/g.test(o) === false;                           }
+
+  type Clonable = null | undefined | boolean | number | string | Date | RegExp | unknown[] | Record<string,unknown>;
+  export function deepCopy   (src: null                  ): null                   ;
+  export function deepCopy   (src: undefined             ): undefined              ;
+  export function deepCopy   (src: boolean               ): boolean                ;
+  export function deepCopy   (src: number                ): number                 ;
+  export function deepCopy   (src: string                ): string                 ;
+  export function deepCopy   (src: Date                  ): Date                   ;
+  export function deepCopy   (src: RegExp                ): RegExp                 ;
+  export function deepCopy   (src: Array<Clonable>       ): Clonable[]             ;
+  export function deepCopy   (src: Record<string,unknown>): Record<string,unknown> ;
+  export function deepCopy<T>(src: T                     ): T                 ;
+  export function deepCopy   (src: Clonable): typeof src {
+    if      (isScalarValue (src)) { return src;         }
+    else if (isDate        (src)) { return new Date(src.getTime()); }
+    else if (isRegExp      (src)) { return new RegExp(src);         }
+    else if (isArray       (src)) { return src.map(e => isScalarValue(e) ? e : deepCopy(e)); }
+    else if (isObject      (src)) {
+      const srcRecord = src as Record<string,unknown>;
+      const result    = Object.create(null) as Record<string,unknown>;
+      let k: keyof typeof srcRecord;
+      for (k in srcRecord) {
+        Object.defineProperty(result, k, Object.getOwnPropertyDescriptor(src, k)!); // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        const srcVal = srcRecord[k];
+        result[k] = isScalarValue(srcVal) ? srcVal : deepCopy(srcVal);
+      }
+      // const result    = Object.create(null, Object.getOwnPropertyDescriptors(srcRecord)) as Record<string,unknown>;
+      // for (const prop of Object.getOwnPropertyNames(src)) {
+      //   const srcVal = srcRecord[prop];
+      //   result[prop] = isScalarValue(srcVal) ? srcVal : deepCopy(srcVal);
+      // }
+      return result;
+    }
+    else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
+  }
+
 }
 
 export namespace path {
@@ -182,25 +220,25 @@ export namespace ext {
     return ret;
   }
 
-  export class ExtensionConfigBase {
-    private readonly config: vscode.WorkspaceConfiguration;
-    constructor(section: string, public resource?: vscode.Uri) {
-      this.config = vscode.workspace.getConfiguration(section, resource ? resource : null);
-    }
+  export function resolveArrayVars (input: string[]): string[] { return input.map(configVal => resolveVariables(configVal)); }
+  export function resolvePath      (input: string  ): string   { return path.normalize(resolveVariables(input)); }
+  export class ExtensionConfigBase<T> {
+    protected _cfgData: T;
+    get cfgData(): T { return this._cfgData; }
 
-    public fallbackGet<T>(section: string, defaultValue: T): T {
-      return this.config.get<T>(section, defaultValue);
+    constructor(
+      protected section: string,
+      protected scope?: vscode.ConfigurationScope | null,
+      protected resolve?: (config: T) => void,
+    ) {
+      const rawConfig =  vscode.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+      this._cfgData = types.deepCopy(rawConfig);
+      if (this.resolve) { this.resolve(this._cfgData); }
     }
-    public resolvedGet<T>(section: string, defaultVal: T): string | T {
-      const configVal = this.config.get<string>(section);
-      return configVal ? resolveVariables(configVal) : defaultVal;
-    }
-    public resolvedArray(section: string): string[] {
-      return this.config.get<string[]>(section, []).map(configVal => resolveVariables(configVal));
-    }
-    public resolvedPath<T>(section: string, defaultVal: T): string | T {
-      const configVal = this.config.get<string>(section);
-      return configVal ? path.normalize(resolveVariables(configVal)) : defaultVal;
+    public reload(): void {
+      const rawConfig =  vscode.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+      this._cfgData = types.deepCopy(rawConfig);
+      if (this.resolve) { this.resolve(this._cfgData); }
     }
 
     // public getWithDefault<T>(section: string): T {

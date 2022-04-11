@@ -55,26 +55,23 @@ export class ZlsContext implements vscode.Disposable {
       return Promise.resolve();
     }
     log.info(this.zlsChannel, "Starting Zls...");
-    zigContext.reloadConfig();
-    const zigCfg = zigContext.zigCfg;
-
-    const zlsEnableDebug = zigCfg.zls_enableDebug;
-    const zlsPath = zigCfg.zls_binPath;
+    zigContext.zigExtCfg.reload();
+    const zigCfg = zigContext.zigExtCfg.cfgData;
+    const zlsEnableDebug = zigCfg.zls.enableDebug;
+    const zlsPath = zigCfg.zls.binPath;
     const zlsArgs = <string[]>[];
-    const zlsDbgPathMaybe = zigCfg.zls_debugBinPath;
+    let zlsDbgPath = zigCfg.zls.debugBinPath ?? zlsPath;
     const zlsDbgArgs = ["--debug-log"];
-    const zlsCwd = !types.isBlankString(zigCfg.build_rootDir)
-      ? await fs.dirExists(zigCfg.build_rootDir).then(exists => exists ? zigCfg.build_rootDir : undefined)
+    const zlsCwd = !types.isBlankString(zigCfg.build.rootDir)
+      ? await fs.dirExists(zigCfg.build.rootDir).then(exists => exists ? zigCfg.build.rootDir : undefined)
       : undefined;
 
-    let zlsDbgPathResolved = zlsDbgPathMaybe ?? zlsPath;
     try {
-      if (zlsEnableDebug && !zlsDbgPathMaybe) {
+      if (zlsEnableDebug && !zigCfg.zls.debugBinPath) {
         log.warn(this.zlsChannel,
           "Using Zls debug mode without `zig.zls.debugBinPath`;\n" +
           "  Fallback to `zig.zls.binPath`");
       }
-
       await Promise.all([
         !path.isAbsolute(zlsPath)
           ? Promise.resolve()
@@ -86,16 +83,16 @@ export class ZlsContext implements vscode.Disposable {
             }
             return exists ? Promise.resolve() : Promise.reject();
           }),
-        (!zlsEnableDebug || zlsDbgPathResolved === zlsPath || !path.isAbsolute(zlsDbgPathResolved))
+        (!zlsEnableDebug || zlsDbgPath === zlsPath || !path.isAbsolute(zlsDbgPath))
           ? Promise.resolve()
-          : fs.fileExists(zlsDbgPathResolved).then(exists => {
+          : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
               log.error(this.zlsChannel,
-                `Failed to find zls debug executable ${zlsDbgPathResolved}\n` +
+                `Failed to find zls debug executable ${zlsDbgPath}\n` +
                 `  Please specify its path in your settings with "zig.zls.zlsDebugBinPath"\n` +
                 `  Fallback to "zig.zls.binPath"`);
             }
-            zlsDbgPathResolved = zlsPath;
+            zlsDbgPath = zlsPath;
             return Promise.resolve();
           }),
       ]);
@@ -103,45 +100,46 @@ export class ZlsContext implements vscode.Disposable {
       return Promise.reject();
     }
 
+    // Server Options
+    const serverOptions = zlsEnableDebug
+      ? <vscodelc.Executable>{
+        command: zlsDbgPath,
+        args: zlsDbgArgs,
+        options: { cwd: zlsCwd }
+      }
+      : <vscodelc.Executable>{
+        command: zlsPath,
+        args: zlsArgs,
+        options: { cwd: zlsCwd }
+      };
+
+    // Client Options
+    const clientOptions = <vscodelc.LanguageClientOptions>{
+      documentSelector: ZigConst.documentSelector,
+      outputChannel: this.zlsChannel,
+      diagnosticCollectionName: ZigConst.zlsDiagnosticsName,
+      revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
+      // middleware:            <vscodelc.Middleware>{
+      //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
+      //     diagnostics.forEach(d => {
+      //       d.code = {
+      //         value: d.code
+      //           ? ((Is.isNumber(d.code) || Is.isString(d.code)) ? d.code : d.code.value)
+      //           : "",
+      //         target: uri,
+      //       };
+      //     });
+      //     next(uri, diagnostics);
+      //   },
+      // },
+    };
+
     // Create the language client and start the client
     this.zlsClient = new ZlsLanguageClient(
       'zlsClient',
       'Zig Language Server Client',
-
-      // Server Options
-      <vscodelc.ServerOptions>{
-        run: <vscodelc.Executable>{
-          command: zlsPath,
-          args: zlsArgs,
-          options: { cwd: zlsCwd }
-        },
-        debug: <vscodelc.Executable>{
-          command: zlsDbgPathResolved,
-          args: zlsDbgArgs,
-          options: { cwd: zlsCwd }
-        },
-      },
-
-      // Client Options
-      <vscodelc.LanguageClientOptions>{
-        documentSelector: ZigConst.documentSelector,
-        outputChannel: this.zlsChannel,
-        diagnosticCollectionName: ZigConst.zlsDiagnosticsName,
-        revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
-        // middleware:            <vscodelc.Middleware>{
-        //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
-        //     diagnostics.forEach(d => {
-        //       d.code = {
-        //         value: d.code
-        //           ? ((Is.isNumber(d.code) || Is.isString(d.code)) ? d.code : d.code.value)
-        //           : "",
-        //         target: uri,
-        //       };
-        //     });
-        //     next(uri, diagnostics);
-        //   },
-        // },
-      },
+      serverOptions,
+      clientOptions,
       zlsEnableDebug,
     );
     this.zlsClient.start();

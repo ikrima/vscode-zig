@@ -223,23 +223,26 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     _folder?: vscode.WorkspaceFolder,
     _presentationOptions?: vscode.TaskPresentationOptions,
   ): ZigTask {
-    const zigCfg = zigContext.zigCfg;
+    const zigCfg = zigContext.zigExtCfg.cfgData;
     const folder: vscode.WorkspaceFolder | undefined = _folder
       ?? (vscode.window.activeTextEditor
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
         : vscode.workspace.workspaceFolders?.[0]);
 
 
-    const emitBinPath = taskDef.emitBinPath ?? path.join(zigCfg.task_binDir, folder ? `test-${folder.name}.exe` : "test-zig.exe");
+    const emitBinPath = taskDef.emitBinPath ?? path.join(
+      zigCfg.task.binDir ?? path.join(zigCfg.build.rootDir, "zig-out", "bin"),
+      folder ? `test-${folder.name}.exe` : "test-zig.exe",
+    );
     const testName = path.parse(emitBinPath).name;
 
     taskDef.srcFilePath = path.normalize(taskDef.srcFilePath);
     taskDef.debugArgs = taskDef.debugArgs ?? [];
     taskDef.testArgs = taskDef.testArgs ?? [];
-    taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.build_rootDir;
+    taskDef.mainPkgPath = taskDef.mainPkgPath ?? zigCfg.build.rootDir;
     taskDef.emitBinPath = emitBinPath;
     taskDef.options = {
-      cwd: taskDef.options?.cwd ?? zigCfg.build_rootDir,
+      cwd: taskDef.options?.cwd ?? zigCfg.build.rootDir,
     };
 
     return new ZigTask(
@@ -255,7 +258,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
           <ZigTaskDefinition>resolvedTaskDef,
         ));
       }),
-      zigCfg.task_enableProblemMatcher,
+      zigCfg.task.enableProblemMatcher,
       vscode.TaskGroup.Build,
       `zig build task: ${testName}`,
       Object.assign(

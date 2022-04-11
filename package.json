@@ -132,6 +132,7 @@
         "zig.zls.debugBinPath": {
           "type": "string",
           "scope": "window",
+          "default": null,
           "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`."
         },
         "zig.zls.enableDebug": {
