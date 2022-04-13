@@ -64,7 +64,7 @@ export class ZlsContext implements vscode.Disposable {
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zigCfg.zls.debugBinPath ?? zlsPath;
     const zlsDbgArgs = ["--debug-log"];
-    const zlsCwd = !types.isBlankString(zigCfg.build.rootDir)
+    const zlsCwd = types.isNonBlank(zigCfg.build.rootDir)
       ? await fs.dirExists(zigCfg.build.rootDir).then(exists => exists ? zigCfg.build.rootDir : undefined)
       : undefined;
 

@@ -5,25 +5,39 @@ import * as process_ from 'process';
 import * as path_ from 'path';
 import * as fs_ from 'fs';
 import * as cp from 'child_process';
-import { promisify } from 'util';
+import { promisify, types as types_ } from 'util';
 
 // Common helper functions
 export namespace types {
-  export function isUndefined         (o: unknown): o is undefined      { return (typeof o === 'undefined');                                          }
-  export function isNull              (o: unknown): o is null           { return o === null;                                                          }
-  export function isNullOrUndefined   (o: unknown): o is undefined|null { return (isUndefined(o) || o === null);                                      }
-  export function isSymbol            (o: unknown): o is symbol         { return typeof o === 'symbol'  || o instanceof Symbol;                       }
-  export function isBoolean           (o: unknown): o is boolean        { return (o === true || o === false);                                         }
-  export function isDate              (o: unknown): o is Date           { return o instanceof Date;                                                   }
-  export function isRegExp            (o: unknown): o is RegExp         { return o instanceof RegExp;                                                 }
-  export function isNumber            (o: unknown): o is number         { return typeof o === "number"  || o instanceof Number;                       }
-  export function isString            (o: unknown): o is string         { return typeof o === "string"  || o instanceof String;                       }
-  export function isArray<T>          (o: unknown): o is T[]            { return Array.isArray(o);                                                    }
-  export function isObject            (o: unknown): o is Object         { return (typeof o === 'object') && o !== null && !Array.isArray(o) && !isRegExp(o) && !isDate(o); } // eslint-disable-line @typescript-eslint/ban-types
-  export function isFunction          (o: unknown): o is Function       { return (typeof o === 'function');                                             } // eslint-disable-line @typescript-eslint/ban-types
-  export function isScalarValue       (o: unknown): boolean             { return isNullOrUndefined(o) || isBoolean (o) || isNumber(o) || isString(o); }
-  export function isStringArray       (o: unknown): o is string[]       { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e)); }
-  export function isBlankString       (o: string ): boolean             { return o.length === 0 || /\S/g.test(o) === false;                           }
+  export const {
+    isDate,
+    isRegExp,
+    isNativeError,
+    isBooleanObject,
+    isNumberObject,
+    isStringObject,
+    isSymbolObject,
+    isBoxedPrimitive,
+    isMap,
+    isSet,
+    isPromise,
+    isProxy,
+    isAsyncFunction,
+  } = types_;
+
+  export function isUndefined         (o: unknown): o is undefined      { return o === undefined;                                                      }
+  export function isNull              (o: unknown): o is null           { return o === null;                                                           }
+  export function isNullOrUndefined   (o: unknown): o is null|undefined { return o === undefined || o === null;                                        }
+  export function isSymbol            (o: unknown): o is symbol         { return typeof o === 'symbol';                                                }
+  export function isBoolean           (o: unknown): o is boolean        { return typeof o === 'boolean';                                               }
+  export function isNumber            (o: unknown): o is number         { return typeof o === "number";                                                }
+  export function isString            (o: unknown): o is string         { return typeof o === "string";                                                }
+  export function isArray<T>          (o: unknown): o is T[]            { return Array.isArray(o);                                                     }
+  export function isObject            (o: unknown): o is boolean        { return o !== null && typeof o === 'object' && !(isArray(o) || isRegExp(o) || isDate(o)); }
+  export function isFunction          (o: unknown): boolean             { return typeof o === 'function';                                             }
+  export function isPrimitive         (o: unknown): boolean             { return (typeof o !== 'object' && typeof o !== 'function') || o === null;    }
+  export function isStringArray       (o: unknown): o is string[]       { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e));          }
+  export function isNonBlank          (o: string ): boolean             { return o.length > 0 && /\S/.test(o);                                        }
 
   type Clonable = null | undefined | boolean | number | string | Date | RegExp | unknown[] | Record<string,unknown>;
   export function deepCopy   (src: null                  ): null                   ;
@@ -37,19 +51,19 @@ export namespace types {
   export function deepCopy   (src: Record<string,unknown>): Record<string,unknown> ;
   export function deepCopy<T>(src: T                     ): T                 ;
   export function deepCopy   (src: Clonable): typeof src {
-    if      (isScalarValue (src)) { return src;         }
+    if      (isPrimitive (src)) { return src;         }
     else if (isDate        (src)) { return new Date(src.getTime()); }
     else if (isRegExp      (src)) { return new RegExp(src);         }
-    else if (isArray       (src)) { return src.map(e => isScalarValue(e) ? e : deepCopy(e)); }
+    else if (isArray       (src)) { return src.map(e => isPrimitive(e) ? e : deepCopy(e)); }
     else if (isObject      (src)) {
-      const srcRecord = src as Record<string,unknown>;
-      const result    = Object.create(null) as Record<string,unknown>;
-      let k: keyof typeof srcRecord;
-      for (k in srcRecord) {
-        Object.defineProperty(result, k, Object.getOwnPropertyDescriptor(src, k)!); // eslint-disable-line @typescript-eslint/no-non-null-assertion
-        const srcVal = srcRecord[k];
-        result[k] = isScalarValue(srcVal) ? srcVal : deepCopy(srcVal);
-      }
+      // const srcRecord    = src as Record<string,unknown>;
+      const result       = Object.create(null) as Record<string,unknown>;
+      const srcPropDescs = Object.getOwnPropertyDescriptors(src);
+      Object.getOwnPropertyNames(src).forEach(key => {
+        const k = key as keyof typeof src;
+        Object.defineProperty(result, k, srcPropDescs[k]);
+        result[k] = isPrimitive(src[k]) ? src[k] : deepCopy(src[k]);
+      });
       return result;
     }
     else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
@@ -77,7 +91,7 @@ export namespace path {
   // export const parse      = path_.parse;
   // export const sep        = path_.sep;
   export function normalizeShellArg(arg: string): string {
-    arg = arg.trimStart().trimEnd();
+    arg = arg.trim();
     // Check if the arg is enclosed in backtick,
     // or includes unescaped double-quotes (or single-quotes on windows),
     // or includes unescaped single-quotes on mac and linux.
@@ -109,17 +123,6 @@ export namespace fs {
 }
 
 export namespace log {
-  export function info  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = false): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showInformationMessage(msg); } }
-  export function warn  (chan: vscode.OutputChannel, msg: string, showMsg: boolean = true ): void { chan.appendLine(msg); if (showMsg) { void vscode.window.showWarningMessage(msg);     } }
-  export function error (chan: vscode.OutputChannel, msg: string, err: unknown | null = null, showMsg: boolean = true ): void {
-    chan.appendLine(msg);
-    const detailMsg   = (err instanceof Error) ? err.message : String(err);
-    const detailStack = (err instanceof Error) ? err.stack : null;
-    if (detailMsg  ) { chan.appendLine(`  Error: ${detailMsg}`);       }
-    if (detailStack) { chan.appendLine(`  StackTrace: ${detailStack}`);}
-    if (showMsg    ) { void vscode.window.showErrorMessage(msg); }
-  }
-
   export enum LogLevel {
     off     = -1,
     error   = 0,
@@ -138,55 +141,60 @@ export namespace log {
       case 'trace':   return LogLevel.trace;
     }
   }
-  interface ILogItem {
-    level:    LogLevel;
-    msg:      string;
-    err?:     Error | unknown | null;
-    reveal?:  boolean;
+  export interface LogItem {
+    level:  LogLevel;
+    msg:    string;
+    err:    Error | unknown | null;
+    reveal: boolean;
   }
-  interface ILogWriter {
-    append(message: string): void;
+  export interface LogWriter {
+    append(msg: string): void;
     clear(): void;
   }
-
-  export function makeChannelLogger(maxLogLevel: LogLevel, chan: vscode.OutputChannel): Logger {
-    return new Logger(maxLogLevel, {
-      append: msg => chan.append(msg),
-      clear: () => chan.clear(),
-    });
+  export interface Logger extends LogWriter {
+    maxLogLevel : LogLevel;
+    log   (item: LogItem): void;
+    error (msg: string, err?: Error | unknown | null, reveal?: boolean): void;
+    warn  (msg: string, reveal?: boolean): void;
+    info  (msg: string, reveal?: boolean): void;
+    trace (msg: string, reveal?: boolean): void;
   }
-  export class Logger {
-    constructor(
-      public readonly maxLogLevel: LogLevel,
-      public readonly writer: ILogWriter,
-    ) { }
-
-    clear(): void { this.writer.clear(); }
-    log(item: ILogItem): void {
-      if (item.level > this.maxLogLevel) { return; }
-      this.writer.append(item.msg + os.EOL);
-      if (item.err  ) {
-        const errMsg   = item.err instanceof Error ? item.err.message : String(item.err);
-        const errStack = item.err instanceof Error ? item.err.stack   : null;
-        this.writer.append(`  Error: ${errMsg}\n`);
-        if (errStack) {  this.writer.append(`  StackTrace: ${errStack}\n`); }
-      }
-      switch(item.reveal ? item.level : LogLevel.off) {
-        case LogLevel.off:     break;
-        case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
-        case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
-        case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
-        case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
-      }
+  const logImp = (writer: LogWriter, maxLogLevel : LogLevel, item: LogItem):void  => {
+    if (item.level > maxLogLevel) { return; }
+    writer.append(item.msg + os.EOL);
+    if (item.err) {
+      const errMsg   = types.isNativeError(item.err) ? item.err.message : String(item.err);
+      const errStack = types.isNativeError(item.err) ? item.err.stack   : null;
+      writer.append(`  Error: ${errMsg}\n`);
+      if (errStack) {  writer.append(`  StackTrace: ${errStack}\n`); }
     }
-    error (msg: string, err:    Error|unknown|null = null, reveal: boolean = true ): void { this.log({level: LogLevel.error, msg: msg, reveal: reveal, err: err}); }
-    warn  (msg: string, reveal: boolean = true                             ): void { this.log({level: LogLevel.warn , msg: msg, reveal: reveal});       }
-    info  (msg: string, reveal: boolean = false                            ): void { this.log({level: LogLevel.info , msg: msg, reveal: reveal});       }
-    trace (msg: string, reveal: boolean = false                            ): void { this.log({level: LogLevel.trace, msg: msg, reveal: reveal});       }
+    switch(item.reveal ? item.level : LogLevel.off) {
+      case LogLevel.off:     break;
+      case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
+      case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
+      case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
+      case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
+    }
+  };
+  export function makeChannelLogger(maxLogLevel: LogLevel, chan: vscode.OutputChannel): Logger {
+    return <Logger>{
+      append:      msg => chan.append(msg),
+      clear:       () => chan.clear(),
+      maxLogLevel: maxLogLevel,
+      log:         function (item: LogItem):                                             void { logImp(this, this.maxLogLevel, item); },
+      error:       function (msg:  string, err?: Error|unknown|null, reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , err: err ?? null}); },
+      warn:        function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , err:        null}); },
+      info:        function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , err:        null}); },
+      trace:       function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , err:        null}); },
+    };
   }
 }
 
 export namespace ext {
+  export const eolRegEx   = /\r?\n/;
+  export const crlfString = "\r\n";
+  export const lfString   = "\n";
+  export function eolToString            (eol: vscode.EndOfLine): string                   { return eol === vscode.EndOfLine.CRLF ? crlfString : lfString; }
   export function isExtensionActive      (extId: string): boolean                          { return vscode.extensions.getExtension(extId)?.isActive ?? false; }
   export function findWorkspaceFolder    (name:  string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
   export function defaultWksFolder       ():              vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.[0]; }
@@ -239,41 +247,36 @@ export namespace ext {
 
     // Replace environment and configuration variables.
     const varRegEx = /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
-    let ret: string = input;
-    const cycleCache: Set<string> = new Set();
-    while (!cycleCache.has(ret)) {
-      cycleCache.add(ret);
-      ret = ret.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string) => {
-        let newValue: string | undefined;
-        switch (varType) {
-          case "env":                     { newValue = varCtx[name] ?? proc.env[name];        break; }
-          case "config":                  { newValue = config.get<string>(name);              break; }
-          case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
-          case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
-          default: {
-            switch (name) {
-              case "workspaceFolder":         { newValue = varCtx.workspaceFolder;         break; }
-              case "workspaceFolderBasename": { newValue = varCtx.workspaceFolderBasename; break; }
-              case "file":                    { newValue = varCtx[name];                   break; }
-              case "fileWorkspaceFolder":     { newValue = varCtx[name];                   break; }
-              case "relativeFile":            { newValue = varCtx[name];                   break; }
-              case "relativeFileDirname":     { newValue = varCtx[name];                   break; }
-              case "fileBasename":            { newValue = varCtx[name];                   break; }
-              case "fileBasenameNoExtension": { newValue = varCtx[name];                   break; }
-              case "fileDirname":             { newValue = varCtx[name];                   break; }
-              case "fileExtname":             { newValue = varCtx[name];                   break; }
-              case "cwd":                     { newValue = varCtx[name];                   break; }
-              case "lineNumber":              { newValue = varCtx[name];                   break; }
-              case "selectedText":            { newValue = varCtx[name];                   break; }
-              case "execPath":                { newValue = varCtx[name];                   break; }
-              case "pathSeparator":           { newValue = varCtx[name];                   break; }
-              default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
-            }
+    let ret = input.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string): string => {
+      let newValue: string | undefined;
+      switch (varType) {
+        case "env":                     { newValue = varCtx[name] ?? proc.env[name];        break; }
+        case "config":                  { newValue = config.get<string>(name);              break; }
+        case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
+        case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
+        default: {
+          switch (name) {
+            case "workspaceFolder":         { newValue = varCtx.workspaceFolder;         break; }
+            case "workspaceFolderBasename": { newValue = varCtx.workspaceFolderBasename; break; }
+            case "file":                    { newValue = varCtx[name];                   break; }
+            case "fileWorkspaceFolder":     { newValue = varCtx[name];                   break; }
+            case "relativeFile":            { newValue = varCtx[name];                   break; }
+            case "relativeFileDirname":     { newValue = varCtx[name];                   break; }
+            case "fileBasename":            { newValue = varCtx[name];                   break; }
+            case "fileBasenameNoExtension": { newValue = varCtx[name];                   break; }
+            case "fileDirname":             { newValue = varCtx[name];                   break; }
+            case "fileExtname":             { newValue = varCtx[name];                   break; }
+            case "cwd":                     { newValue = varCtx[name];                   break; }
+            case "lineNumber":              { newValue = varCtx[name];                   break; }
+            case "selectedText":            { newValue = varCtx[name];                   break; }
+            case "execPath":                { newValue = varCtx[name];                   break; }
+            case "pathSeparator":           { newValue = varCtx[name];                   break; }
+            default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
           }
         }
-        return newValue ?? match;
-      });
-    }
+      }
+      return newValue ?? match;
+    });
 
     // Resolve '~' at the start of the path
     ret = ret.replace(/^~/g, (_match: string, _name: string) => os.homedir());

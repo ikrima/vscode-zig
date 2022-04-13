@@ -276,7 +276,6 @@ export class ZigTaskProvider implements vscode.TaskProvider {
 }
 
 class ZigBuildTerminal implements vscode.Pseudoterminal {
-  private static readonly endOfLine: string = "\r\n";
   private writeEmitter = new vscode.EventEmitter<string>();
   private closeEmitter = new vscode.EventEmitter<number>();
   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
@@ -323,8 +322,8 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
       const { stdout, stderr } = await processRun.completion;
 
       // printBuildSummary
-      const hasStdOut = !types.isBlankString(stdout);
-      const hasStdErr = !types.isBlankString(stderr);
+      const hasStdOut = types.isNonBlank(stdout);
+      const hasStdErr = types.isNonBlank(stderr);
       if (
         (!hasStdOut && hasStdErr && stderr.includes("error"))
         || (hasStdOut && stdout.includes("error"))
@@ -363,14 +362,14 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
 
   private emitLine(text: string) {
     this.writeEmitter.fire(text);
-    this.writeEmitter.fire(ZigBuildTerminal.endOfLine);
+    this.writeEmitter.fire(ext.crlfString);
   }
   private splitWriteEmitter(lines: string | Buffer) {
-    const splitLines: string[] = lines.toString().split(/\r?\n/g);
+    const splitLines: string[] = lines.toString().split(ext.eolRegEx);
     for (let i = 0; i < splitLines.length; i++) {
       let line = splitLines[i];
       // We may not get full lines, only output an eol when a full line is detected
-      if (i !== splitLines.length - 1) { line += ZigBuildTerminal.endOfLine; }
+      if (i !== splitLines.length - 1) { line += ext.crlfString; }
       this.writeEmitter.fire(line);
     }
   }
