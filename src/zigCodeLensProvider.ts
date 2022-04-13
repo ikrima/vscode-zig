@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from "vscode";
-import { ZigConst } from "./zigConst";
+import { ExtConst, CmdConst } from "./zigConst";
 
 
 export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
@@ -12,7 +12,7 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
   constructor() {
     this.registrations.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-          if (e.affectsConfiguration(ZigConst.extensionId)) {
+          if (e.affectsConfiguration(ExtConst.extensionId)) {
             this._onDidChangeCodeLenses.fire();
           }
         }),
@@ -104,10 +104,11 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
           this.codeLenses.push(
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
-              command: "zig.test.run",
+              command: CmdConst.zig.test,
               arguments: [
-                document.uri,
-                `"${text.substring(quoteStart + 1, quoteEnd - 1)}"`,
+                document.uri.fsPath,
+                text.substring(quoteStart + 1, quoteEnd - 1),
+                false,
               ],
               tooltip: "Run this test via zig test",
             })
@@ -116,10 +117,11 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
           this.codeLenses.push(
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
-              command: "zig.test.debug",
+              command: CmdConst.zig.test,
               arguments: [
-                document.uri,
-                `"${text.substring(quoteStart + 1, quoteEnd - 1)}"`,
+                document.uri.fsPath,
+                text.substring(quoteStart + 1, quoteEnd - 1),
+                true,
               ],
               tooltip: "Run this test via zig test",
             })
@@ -135,8 +137,8 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disp
       this.codeLenses.push(
         new vscode.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
-          command: "zig.test.run",
-          arguments: [document.uri, ""],
+          command: CmdConst.zig.test,
+          arguments: [document.uri.fsPath, "", false],
         })
       );
     }

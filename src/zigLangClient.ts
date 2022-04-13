@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { log, fs, types, path } from './utils';
-import { ZigConst } from "./zigConst";
+import { ExtConst, CmdConst } from "./zigConst";
 import { zigContext } from "./zigContext";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
@@ -12,7 +12,7 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
   //   if (error instanceof vscodelc.ResponseError
   //     && type.method === 'workspace/executeCommand'
   //   ) {
-  //     vscode.window.showErrorMessage(error.message);
+  //     zlsContext.logger.error("ZlsLanguageClient error", error);
   //   }
   //   return super.handleFailedRequest(type, error, defaultValue);
   // }
@@ -28,13 +28,13 @@ export class ZlsContext implements vscode.Disposable {
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
     this.logger     = log.makeChannelLogger(log.LogLevel.warn, this.zlsChannel);
     this.registrations.push(
-      vscode.commands.registerCommand("zig.zls.start", async () => {
+      vscode.commands.registerCommand(CmdConst.zls.start, async () => {
         await this.startClient();
       }),
-      vscode.commands.registerCommand("zig.zls.stop", async () => {
+      vscode.commands.registerCommand(CmdConst.zls.stop, async () => {
         await this.stopClient();
       }),
-      vscode.commands.registerCommand("zig.zls.restart", async () => {
+      vscode.commands.registerCommand(CmdConst.zls.restart, async () => {
         await this.stopClient();
         await this.startClient();
       }),
@@ -57,44 +57,44 @@ export class ZlsContext implements vscode.Disposable {
       return Promise.resolve();
     }
     this.logger.info("Starting Zls...");
-    zigContext.extConfig.reload();
-    const zigCfg = zigContext.extConfig.cfgData;
-    const zlsEnableDebug = zigCfg.zls.enableDebug;
-    const zlsPath = zigCfg.zls.binPath;
-    const zlsArgs = <string[]>[];
-    let zlsDbgPath = zigCfg.zls.debugBinPath ?? zlsPath;
-    const zlsDbgArgs = ["--debug-log"];
-    const zlsCwd = types.isNonBlank(zigCfg.build.rootDir)
-      ? await fs.dirExists(zigCfg.build.rootDir).then(exists => exists ? zigCfg.build.rootDir : undefined)
+    const zigCfg = zigContext.zigCfg;
+    zigCfg.reload();
+    const zig = zigCfg.zig;
+    const zls          = zigCfg.zig.zls;
+    const zlsArgs      = <string[]>[];
+    let   zlsDbgPath   = zls.debugBinary ?? zls.binary;
+    const zlsDbgArgs   = ["--debug-log"];
+    const zlsCwd       = types.isNonBlank(zig.buildRootDir)
+      ? await fs.dirExists(zig.buildRootDir).then(exists => exists ? zig.buildRootDir : undefined)
       : undefined;
 
     try {
-      if (zlsEnableDebug && !zigCfg.zls.debugBinPath) {
+      if (zls.enableDebug && !zls.debugBinary) {
         this.logger.warn(
-          "Using Zls debug mode without `zig.zls.debugBinPath`;\n" +
-          "  Fallback to `zig.zls.binPath`");
+          "Using Zls debug mode without `zig.zls.debugBinary`;\n" +
+          "  Fallback to `zig.zls.binary`");
       }
       await Promise.all([
-        !path.isAbsolute(zlsPath)
+        !path.isAbsolute(zls.binary)
           ? Promise.resolve()
-          : fs.fileExists(zlsPath).then(exists => {
+          : fs.fileExists(zls.binary).then(exists => {
             if (!exists) {
               this.logger.error(
-                `Failed to find zls executable ${zlsPath}\n` +
-                `  Please specify its path in your settings with "zig.zls.binPath"`);
+                `Failed to find zls executable ${zls.binary}\n` +
+                `  Please specify its path in your settings with "zig.zls.binary"`);
             }
             return exists ? Promise.resolve() : Promise.reject();
           }),
-        (!zlsEnableDebug || zlsDbgPath === zlsPath || !path.isAbsolute(zlsDbgPath))
+        (!zls.enableDebug || zlsDbgPath === zls.binary || !path.isAbsolute(zlsDbgPath))
           ? Promise.resolve()
           : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
               this.logger.error(
                 `Failed to find zls debug executable ${zlsDbgPath}\n` +
                 `  Please specify its path in your settings with "zig.zls.zlsDebugBinPath"\n` +
-                `  Fallback to "zig.zls.binPath"`);
+                `  Fallback to "zig.zls.binary"`);
             }
-            zlsDbgPath = zlsPath;
+            zlsDbgPath = zls.binary;
             return Promise.resolve();
           }),
       ]);
@@ -103,23 +103,23 @@ export class ZlsContext implements vscode.Disposable {
     }
 
     // Server Options
-    const serverOptions = zlsEnableDebug
+    const serverOptions = zls.enableDebug
       ? <vscodelc.Executable>{
         command: zlsDbgPath,
         args: zlsDbgArgs,
         options: { cwd: zlsCwd }
       }
       : <vscodelc.Executable>{
-        command: zlsPath,
+        command: zls.binary,
         args: zlsArgs,
         options: { cwd: zlsCwd }
       };
 
     // Client Options
     const clientOptions = <vscodelc.LanguageClientOptions>{
-      documentSelector: ZigConst.documentSelector,
+      documentSelector: ExtConst.documentSelector,
       outputChannel: this.zlsChannel,
-      diagnosticCollectionName: ZigConst.zlsDiagnosticsName,
+      diagnosticCollectionName: ExtConst.zlsDiagnosticsName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
       // middleware:            <vscodelc.Middleware>{
       //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
@@ -142,7 +142,7 @@ export class ZlsContext implements vscode.Disposable {
       'Zig Language Server Client',
       serverOptions,
       clientOptions,
-      zlsEnableDebug,
+      zls.enableDebug,
     );
     this.zlsClient.start();
     return this.zlsClient.onReady();
@@ -158,7 +158,7 @@ export class ZlsContext implements vscode.Disposable {
 
     this.logger.info("Stopping Zls...");
     return zlsClient.stop().catch(err => {
-      this.logger.error(`zls.stop failed during dispose.`, err);
+      this.logger.error(`${CmdConst.zls.stop} failed during dispose.`, err);
       return Promise.reject();
     });
   }
@@ -175,7 +175,7 @@ export class ZlsContext implements vscode.Disposable {
 // // We also mark the list as incomplete to force retrieving new rankings: https://github.com/microsoft/language-server-protocol/issues/898
 // provideCompletionItem: async (document, position, context, token, next) => {
 //   let list = await next(document, position, context, token);
-//   if (!zigCfg.getWithFallback('serverCompletionRanking', false)) {
+//   if (!zigCfg.zig.getWithFallback('serverCompletionRanking', false)) {
 //     return list;
 //   }
 //   const completionItems = utils.isArray(list) ? list : list!.items;
@@ -208,7 +208,7 @@ export class ZlsContext implements vscode.Disposable {
 //#endregion
 
 //#region todo: custom language features
-// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.getWithFallback('maxRestartCount', 0));
+// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.zig.getWithFallback('maxRestartCount', 0));
 // this.zlsClient.registerFeature(new EnableEditsNearCursorFeature);
 // typeHierarchy.activate(this);
 // inlayHints.activate(this);

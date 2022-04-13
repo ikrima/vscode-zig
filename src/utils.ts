@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as process_ from 'process';
 import * as path_ from 'path';
 import * as fs_ from 'fs';
-import * as cp from 'child_process';
+import * as cp_ from 'child_process';
 import { promisify, types as types_ } from 'util';
 
 // Common helper functions
@@ -78,18 +78,12 @@ export namespace path {
     dirname,
     basename,
     extname,
-    parse,
     join,
     isAbsolute,
     sep,
   } = path_;
 
-  // export const pathNormalize  = path_.normalize;
-  // export const dirname    = path_.dirname;
-  // export const basename   = path_.basename;
-  // export const extname    = path_.extname;
-  // export const parse      = path_.parse;
-  // export const sep        = path_.sep;
+  export function filename(p: string): string { return path_.parse(p).name; }
   export function normalizeShellArg(arg: string): string {
     arg = arg.trim();
     // Check if the arg is enclosed in backtick,
@@ -114,8 +108,15 @@ export namespace path {
 }
 
 export namespace fs {
-  export const stat = promisify(fs_.stat);
-  export const mkdir = promisify(fs_.mkdir);
+  export const stat      = promisify(fs_.stat);
+  export const mkdir     = promisify(fs_.mkdir);
+  export const readdir   = promisify(fs_.readdir);
+  export const readFile  = promisify(fs_.readFile);
+  export const writeFile = promisify(fs_.writeFile);
+  export const exists    = promisify(fs_.exists);
+  export const copyFile  = promisify(fs_.copyFile);
+  export const unlink    = promisify(fs_.unlink);
+
   export async function tryStat   (filePath: fs_.PathLike): Promise<fs_.Stats|null> { return  await stat(filePath ).catch (_ => null);         }
   export async function fileExists(filePath: string      ): Promise<boolean>        { return (await tryStat(filePath))?.isFile()     ?? false; }
   export async function dirExists (dirPath:  string      ): Promise<boolean>        { return (await tryStat(dirPath))?.isDirectory() ?? false; }
@@ -237,7 +238,7 @@ export namespace ext {
     varCtx.relativeFileDirname     = varCtx.relativeFileDirname     ?? (varCtx.relativeFile ? path.dirname(varCtx.relativeFile) : undefined);
     varCtx.fileBasename            = varCtx.fileBasename            ?? (varCtx.file ? path.basename(varCtx.file) : undefined);
     varCtx.fileExtname             = varCtx.fileExtname             ?? (varCtx.fileBasename ? path.extname(varCtx.fileBasename) : undefined);
-    varCtx.fileBasenameNoExtension = varCtx.fileBasenameNoExtension ?? (varCtx.file ? path.parse(varCtx.file).ext : undefined);
+    varCtx.fileBasenameNoExtension = varCtx.fileBasenameNoExtension ?? (varCtx.file ? path.extname(varCtx.file) : undefined);
     varCtx.fileDirname             = varCtx.fileDirname             ?? (varCtx.file ? path.dirname(varCtx.file) : undefined);
     varCtx.cwd                     = varCtx.cwd                     ?? varCtx.fileDirname;
     varCtx.lineNumber              = varCtx.lineNumber              ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
@@ -346,14 +347,15 @@ export namespace ext {
 
 export namespace proc {
   export const { execPath, env, platform } = process_;
-  export const isWindows    = platform.includes("win");
+  export const isWindows    = process_.platform === "win32";
   export const envDelimiter = isWindows ? ";" : ":";
+  export const execFile = promisify(cp_.execFile);
 
   // A promise for running process and also a wrapper to access ChildProcess-like methods
   export interface ProcessRunOptions {
     shellArgs?:          string[];               // Any arguments
     cwd?:                string;                 // Current working directory
-    showMessageOnError?: boolean;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
+    logger?:             log.Logger;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
     onStart?:            () => void;             // Called after the process successfully starts
     onStdout?:           (data: string) => void; // Called when data is sent to stdout
     onStderr?:           (data: string) => void; // Called when data is sent to stderr
@@ -362,14 +364,14 @@ export namespace proc {
   }
 
   export type ProcessRun = {
-    procCmd: string;
-    childProcess: cp.ChildProcess | undefined;
+    procCmd:      string;
+    childProcess: cp_.ChildProcess | undefined;
     isRunning:    () => boolean;
-    kill: () => void;
-    completion: Promise<{ stdout: string; stderr: string }>;
+    kill:         () => void;
+    completion:   Promise<{ stdout: string; stderr: string }>;
   };
 
-  export interface ProcRunException extends cp.ExecException {
+  export interface ProcRunException extends cp_.ExecException {
     stdout?: string|undefined;
     stderr?: string|undefined;
   }
@@ -378,43 +380,43 @@ export namespace proc {
     let firstResponse = true;
     let wasKilledbyUs = false;
     let isRunning     = true;
-    let childProcess: cp.ChildProcess | undefined;
+    let childProcess: cp_.ChildProcess | undefined;
 
     const procCmd = [cmd]
       .concat(options.shellArgs ?? [])
       .map(arg => path.normalizeShellArg(arg))
       .join(' ');
     return <ProcessRun>{
-      procCmd: procCmd,
-        childProcess: childProcess,
-        isRunning: () => isRunning,
-      kill: () => {
-        if (!childProcess || !childProcess.pid) { return; }
+      procCmd:      procCmd,
+      childProcess: childProcess,
+      isRunning:    () => isRunning,
+      kill:         () => {
+        if (!(childProcess?.pid)) { return; }
           wasKilledbyUs = true;
-          if (isWindows) { cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
+          if (isWindows) { cp_.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
           else           { childProcess.kill('SIGINT'); }
       },
       completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-        childProcess = cp.exec(
+        childProcess = cp_.exec(
           procCmd,
-          <cp.ExecOptions>{
+          <cp_.ExecOptions>{
             cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
           },
-          (error: cp.ExecException | null, stdout: string, stderr: string): void => {
+          (error: cp_.ExecException | null, stdout: string, stderr: string): void => {
             isRunning = false;
             if (options.onExit) { options.onExit(); }
             childProcess = undefined;
             if (wasKilledbyUs || !error) {
               resolve({ stdout, stderr });
             } else {
-              if (options.showMessageOnError) {
+              if (options.logger) {
                 const cmdName = cmd.split(' ', 1)[0];
                 const cmdWasNotFound = isWindows
                   ? error.message.includes(`'${cmdName}' is not recognized`)
                   : error?.code === 127;
-                void vscode.window.showErrorMessage(
+                options.logger.error(
                   cmdWasNotFound
-                    ? `${cmdName} is not available in your path; ${options.notFoundText ?? ""}`
+                    ? (options.notFoundText ?? `${cmdName} is not available in your path;`)
                     : error.message
                 );
               }

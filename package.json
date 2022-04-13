@@ -24,59 +24,7 @@
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "zig",
-        "required": [
-          "runInDebugger",
-          "srcFilePath"
-        ],
-        "properties": {
-          "runInDebugger": {
-            "type": "boolean",
-            "description": "Launch in debugger"
-          },
-          "srcFilePath": {
-            "type": "string",
-            "description": "The file path to the zig source code to filter the test. Can be omitted."
-          },
-          "testArgs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "description": "Additional args to pass \"zig test\""
-          },
-          "debugArgs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "markdownDescription": "Additional flags to to pass \"zig test\" when running in debugger"
-          },
-          "testFilter": {
-            "type": "string",
-            "description": "Test name to filter against"
-          },
-          "mainPkgPath": {
-            "type": "string",
-            "description": "The file path to output the test to. Can be omitted."
-          },
-          "emitBinPath": {
-            "type": "string",
-            "description": "The file path to output the test to. Can be omitted."
-          },
-          "options": {
-            "type": "object",
-            "description": "Additional command options",
-            "properties": {
-              "cwd": {
-                "type": "string",
-                "description": "The current working directory of the executed program or script. If omitted Code's current workspace root is used."
-              }
-            }
-          }
-        }
+        "type": "zig"
       }
     ],
     "languages": [
@@ -117,31 +65,35 @@
       "type": "object",
       "title": "zig",
       "properties": {
-        "zig.binPath": {
+        "zig.binary": {
+          "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH.",
           "type": "string",
           "scope": "window",
-          "default": "zig.exe",
-          "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH."
+          "default": "zig.exe"
         },
-        "zig.zls.binPath": {
+        "zig.zls.binary": {
+          "description": "Path to `zls` executable. Example: `C:/zls/zig-out/bin/zls.exe`.",
           "type": "string",
           "scope": "window",
-          "default": "zls.exe",
-          "description": "Path to `zls` executable. Example: `C:/zls/zig-out/bin/zls.exe`."
+          "default": "zls.exe"
         },
-        "zig.zls.debugBinPath": {
-          "type": "string",
+        "zig.zls.debugBinary": {
+          "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`.",
+          "type": [
+            "string",
+            "null"
+          ],
           "scope": "window",
-          "default": null,
-          "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`."
+          "default": null
         },
         "zig.zls.enableDebug": {
+          "description": "Enable debug logging in release builds of zls.",
           "type": "boolean",
           "scope": "window",
-          "default": false,
-          "description": "Enable debug logging in release builds of zls."
+          "default": false
         },
         "zlsClient.trace.server": {
+          "description": "Traces the communication between VS Code and the language server.",
           "type": "string",
           "scope": "window",
           "enum": [
@@ -149,65 +101,25 @@
             "messages",
             "verbose"
           ],
-          "default": "off",
-          "description": "Traces the communication between VS Code and the language server."
+          "default": "off"
         },
-        "zig.build.rootDir": {
+        "zig.buildRootDir": {
+          "description": "The zig build root directory.",
           "type": "string",
           "scope": "resource",
-          "default": "${workspaceFolder}",
-          "description": "The zig build root directory."
+          "default": "${workspaceFolder}"
         },
-        "zig.build.buildFile": {
+        "zig.buildFile": {
+          "description": "The path to build.zig. This is only required if zig.buildOptions = build.",
           "type": "string",
           "scope": "resource",
-          "default": "${workspaceFolder}/build.zig",
-          "description": "The path to build.zig. This is only required if zig.buildOptions = build."
+          "default": "${workspaceFolder}/build.zig"
         },
-        "zig.build.buildStep": {
-          "type": "string",
-          "scope": "resource",
-          "enum": [
-            "buildFile",
-            "buildExe",
-            "buildLib",
-            "buildObk"
-          ],
-          "default": "buildFile",
-          "description": "Which build command Zig should use to build the code."
-        },
-        "zig.build.extraArgs": {
-          "type": "array",
-          "scope": "resource",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Extra arguments to passed to Zig."
-        },
-        "zig.task.binDir": {
-          "type": "string",
-          "scope": "resource",
-          "default": null,
-          "description": "Test bin output path."
-        },
-        "zig.task.enableProblemMatcher": {
+        "zig.enableTaskProblemMatcher": {
+          "description": "Highlight lines where tests failed",
           "type": "boolean",
           "scope": "resource",
-          "default": true,
-          "description": "Highlight lines where tests failed"
-        },
-        "zig.misc.buildOnSave": {
-          "type": "boolean",
-          "scope": "resource",
-          "default": false,
-          "description": "Compiles code on file save using the settings specified in 'Build Option'."
-        },
-        "zig.misc.revealOnFormatError": {
-          "type": "boolean",
-          "scope": "resource",
-          "default": true,
-          "description": "Should output channel be raised on formatting error."
+          "default": true
         }
       }
     },
@@ -238,10 +150,29 @@
         "category": "Zls"
       },
       {
-        "command": "zig.test.rerun",
+        "command": "zig.chooseBuildStep",
+        "title": "Pick Build Step",
+        "category": "Zig"
+      },
+      {
+        "command": "zig.lastChosenStepOrAsk",
+        "title": "Last Chosen Build Step",
+        "category": "Zig"
+      },
+      {
+        "command": "zig.build",
+        "title": "Run zig build",
+        "category": "Zig"
+      },
+      {
+        "command": "zig.rebuild",
         "title": "Re-run last zig test",
-        "description": "Re-run the last test",
         "enablement": "zig.hasLastRanTask",
+        "category": "Zig"
+      },
+      {
+        "command": "zig.test",
+        "title": "Run zig test",
         "category": "Zig"
       }
     ]
