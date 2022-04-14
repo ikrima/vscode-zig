@@ -165,7 +165,7 @@
         "category": "Zig"
       },
       {
-        "command": "zig.rebuild",
+        "command": "zig.buildLastTarget",
         "title": "Re-run last zig test",
         "enablement": "zig.hasLastRanTask",
         "category": "Zig"
