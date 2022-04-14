@@ -15,8 +15,8 @@ type ZigBldStep = {
 const stepsRegEx = /\s+(?<step>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
 
 class ZigBuild {
-  private cachedSteps: ZigBldStep[] | undefined;
-  private cachedPick: ZigBldStep | undefined;
+  private cachedSteps: ZigBldStep[] | null = null;
+  private cachedPick: ZigBldStep | null = null;
 
   public async getBuildSteps(forceReload: boolean): Promise<ZigBldStep[]> {
     if (forceReload || !this.cachedSteps) {
@@ -111,13 +111,12 @@ interface ZigBuildTaskDefinition extends vscode.TaskDefinition {
   args?: string[];
   cwd?: string;
 }
-type ZigBuildTaskResolved = Required<ZigBuildTaskDefinition>;
 class ZigBuildTask extends vscode.Task { }
 
-export class ZigBuildTaskProvider implements vscode.TaskProvider, vscode.Disposable {
+export class ZigBuildTaskProvider implements vscode.TaskProvider {
   private zigBuild: ZigBuild = new ZigBuild();
-  private bldTasksPromise: Promise<ZigBuildTask[]> | undefined;
-  private lastBuildTask: ZigBuildTask | undefined;
+  private bldTasks: ZigBuildTask[] | null = null;
+  private lastBuildTask: ZigBuildTask | null = null;
   private fileWatcher: vscode.FileSystemWatcher;
   private registrations: vscode.Disposable[] = [];
   constructor(buildFile: string) {
@@ -128,7 +127,6 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider, vscode.Disposa
       }),
       vscode.commands.registerCommand(CmdConst.zig.buildLastTarget, async () => {
         if (this.lastBuildTask) {
-          // await vscode.commands.executeCommand('workbench.action.terminal.clear');
           await this.runBuildTask(this.lastBuildTask, false);
         }
       }),
@@ -151,65 +149,60 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider, vscode.Disposa
     this.fileWatcher.dispose();
   }
   private onBuildFileChange(): void {
-    this.bldTasksPromise = undefined;
-    this.lastBuildTask = undefined;
+    this.bldTasks = null;
+    this.lastBuildTask = null;
   }
 
   public async provideTasks(_token: vscode.CancellationToken): Promise<ZigBuildTask[]> {
-    if (!this.bldTasksPromise) {
-      this.bldTasksPromise = this.zigBuild
-        .getBuildSteps(true)
-        .catch(e => { zigContext.logger.warn("Could not provide zig build tasks", e); return []; })
-        .then(steps => steps.map(s => this.makeZigTask({ type: ExtConst.buildTaskType, stepName: s.stepName })));
+    if (!this.bldTasks) {
+      const steps = await this.zigBuild.getBuildSteps(true);
+      this.bldTasks = steps.map(s => this.makeZigTask({ type: ExtConst.buildTaskType, stepName: s.stepName }));
     }
-    return this.bldTasksPromise;
+    return this.bldTasks;
   }
   // Resolves a task that has no [`execution`](#Task.execution) set.
   public resolveTask(task: ZigBuildTask, _token: vscode.CancellationToken): ZigBuildTask | undefined {
-    const execution: vscode.ProcessExecution | vscode.ShellExecution | vscode.CustomExecution | undefined = task.execution;
-    if (!execution && task.definition.type === ExtConst.buildTaskType) {
-      task = this.makeZigTask(task.definition as ZigBuildTaskDefinition);
-      return task;
+    const execution = task.execution;
+    if (!execution) {
+      const taskDef: ZigBuildTaskDefinition = task.definition as ZigBuildTaskDefinition;
+      task = this.makeZigTask(taskDef);
     }
-    return undefined;
-
+    return task;
   }
 
   private makeZigTask(taskDef: ZigBuildTaskDefinition): ZigBuildTask {
     const zig = zigContext.zigCfg.zig;
-    const resolvedDef: ZigBuildTaskResolved = {
-      type: ExtConst.buildTaskType,
-      stepName: taskDef.stepName,
-      args: taskDef.args ?? [],
-      cwd: taskDef.cwd ?? zig.buildRootDir,
-      buildFile: taskDef.buildFile ?? zig.buildFile,
-    };
+    taskDef.args      = taskDef.args ?? [];
+    taskDef.cwd       = taskDef.cwd ?? zig.buildRootDir;
+    taskDef.buildFile = taskDef.buildFile ?? zig.buildFile;
 
     const task = new ZigBuildTask(
-      resolvedDef,
+      taskDef,
       vscode.TaskScope.Workspace,
-      `zig build ${resolvedDef.stepName}`,
+      `zig build ${taskDef.stepName}`,
       ExtConst.taskProviderSourceStr,
       new vscode.ShellExecution(
         zig.binary,
         [
           "build",
-          resolvedDef.stepName,
+          taskDef.stepName,
           ...[`--build-file`, zig.buildFile],
-          ...(resolvedDef.args)
+          ...(taskDef.args)
         ],
         <vscode.ShellExecutionOptions>{
-          cwd: resolvedDef.cwd,
+          cwd: taskDef.cwd,
         }
       ),
       ExtConst.problemMatcher
     );
-    const stepNameLower = resolvedDef.stepName.toLowerCase();
+    const stepNameLower = taskDef.stepName.toLowerCase();
     if      (stepNameLower.includes("build")) { task.group = vscode.TaskGroup.Build; }
     else if (stepNameLower.includes("test" )) { task.group = vscode.TaskGroup.Test;  }
     task.presentationOptions = {
-      reveal: vscode.TaskRevealKind.Silent,
+      reveal: vscode.TaskRevealKind.Always,
       echo: true,
+      focus: false,
+      panel: vscode.TaskPanelKind.Shared,
       showReuseMessage: false,
       clear: true,
     };

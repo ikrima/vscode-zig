@@ -15,16 +15,45 @@
     "Programming Languages"
   ],
   "engines": {
-    "vscode": "^1.64.0"
+    "vscode": "^1.66.0"
   },
   "main": "./out/extension",
   "activationEvents": [
-    "onLanguage:zig"
+    "onLanguage:zig",
+    "onCommand:zig.zls.start",
+    "onCommand:zig.zls.stop",
+    "onCommand:zig.zls.restart",
+    "onCommand:zig.pickBuildStep",
+    "onCommand:zig.build",
+    "onCommand:zig.buildLastTarget",
+    "onCommand:zig.test"
   ],
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "zigbuild"
+        "type": "zigbuild",
+        "required": [ "stepName" ],
+        "properties": {
+          "stepName": {
+            "description": "build step",
+            "type": "string"
+          },
+          "buildFile": {
+            "description": "path to zig build file. Can be omitted.",
+            "type": "string"
+          },
+          "args": {
+            "description": "extra args to zig build",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cwd": {
+            "description": "current working directory",
+            "type": "string"
+          }
+        }
       },
       {
         "type": "zigtest"
