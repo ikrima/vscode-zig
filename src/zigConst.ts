@@ -5,8 +5,8 @@ export namespace ExtConst {
   export const extensionId           = 'zig';
   export const documentSelector      = [{ language: 'zig', scheme: 'file' }];
   export const taskProviderSourceStr = 'zig';
-  export const taskType              = 'zig';
   export const testTaskType          = 'zigTest';
+  export const buildTaskType         = 'zigbuild';
   export const problemMatcher        = '$zig';
   export const zlsDiagnosticsName    = 'zls';
   export const cppToolsExtId         = "ms-vscode.cpptools";
@@ -19,8 +19,7 @@ export namespace CmdConst {
     restart: "zig.zls.restart",
   };
   export const zig = {
-    chooseBuildStep:     "zig.chooseBuildStep",
-    lastChosenStepOrAsk: "zig.lastChosenStepOrAsk",
+    pickBuildStep:       "zig.pickBuildStep",
     build:               "zig.build",
     buildLastTarget:     "zig.buildLastTarget",
     test:                "zig.test",

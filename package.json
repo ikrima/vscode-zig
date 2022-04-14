@@ -24,7 +24,10 @@
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "zig"
+        "type": "zigbuild"
+      },
+      {
+        "type": "zigtest"
       }
     ],
     "languages": [
@@ -135,45 +138,40 @@
     },
     "commands": [
       {
-        "command": "zig.zls.start",
-        "title": "Start Zig Language Server",
-        "category": "Zls"
+        "command":    "zig.zls.start",
+        "title":      "start",
+        "category":   "zls"
       },
       {
-        "command": "zig.zls.stop",
-        "title": "Stop Zig Language Server",
-        "category": "Zls"
+        "command":    "zig.zls.stop",
+        "title":      "stop",
+        "category":   "zls"
       },
       {
-        "command": "zig.zls.restart",
-        "title": "Restart Zig Language Server",
-        "category": "Zls"
+        "command":    "zig.zls.restart",
+        "title":      "restart",
+        "category":   "zls"
       },
       {
-        "command": "zig.chooseBuildStep",
-        "title": "Pick Build Step",
-        "category": "Zig"
+        "command":    "zig.pickBuildStep",
+        "title":      "pick build step",
+        "category":   "zig"
       },
       {
-        "command": "zig.lastChosenStepOrAsk",
-        "title": "Last Chosen Build Step",
-        "category": "Zig"
+        "command":    "zig.build",
+        "title":      "build",
+        "category":   "zig"
       },
       {
-        "command": "zig.build",
-        "title": "Run zig build",
-        "category": "Zig"
-      },
-      {
-        "command": "zig.buildLastTarget",
-        "title": "Re-run last zig test",
+        "command":    "zig.buildLastTarget",
+        "title":      "build last target",
         "enablement": "zig.hasLastRanTask",
-        "category": "Zig"
+        "category":   "zig"
       },
       {
-        "command": "zig.test",
-        "title": "Run zig test",
-        "category": "Zig"
+        "command":    "zig.test",
+        "title":      "build test",
+        "category":   "zig"
       }
     ]
   },

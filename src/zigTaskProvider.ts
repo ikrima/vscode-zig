@@ -2,7 +2,7 @@
 import * as vscode from "vscode";
 import { CmdConst, ExtConst } from "./zigConst";
 import { zigContext } from "./zigContext";
-import { proc, types, fs, ext, path } from './utils';
+import { cp, types, fs, ext, path } from './utils';
 // import * as jsyaml from 'js-yaml';
 
 type ZigRun = {
@@ -40,7 +40,7 @@ export class ZigTask extends vscode.Task {
     presentationOptions: vscode.TaskPresentationOptions,
   ) {
     super(
-      <vscode.TaskDefinition>{ ...taskArgs, ...{ type: ExtConst.taskType } },
+      <vscode.TaskDefinition>{ ...taskArgs, ...{ type: ExtConst.testTaskType } },
       scope,
       name,
       ExtConst.taskProviderSourceStr,
@@ -56,39 +56,10 @@ export class ZigTask extends vscode.Task {
 
 
 
-export class ZigTaskProvider implements vscode.TaskProvider {
-  private cachedBuildSteps?: ZigBldStep[] = [];
-  private lastChosenStep?: ZigBldStep;
-  private lastRanZigTask?: ZigTask = undefined;
+export class ZigTestTaskProvider implements vscode.TaskProvider {
   private registrations: vscode.Disposable[] = [];
   constructor() {
     this.registrations.push(
-      vscode.commands.registerCommand(CmdConst.zig.chooseBuildStep, async () => {
-        const bldStep = await this.chooseBuildStep();
-        return bldStep.stepName;
-      }),
-      vscode.commands.registerCommand(CmdConst.zig.lastChosenStepOrAsk, async () => {
-        const bldStep = this.lastChosenStep ?? await this.chooseBuildStep();
-        return bldStep.stepName;
-      }),
-      vscode.commands.registerCommand(CmdConst.zig.buildLastTarget, async () => {
-        if (this.lastRanZigTask) {
-          await this.runTask(this.lastRanZigTask, false);
-        }
-      }),
-      vscode.commands.registerCommand(CmdConst.zig.build, async () => {
-        const bldStep = await this.chooseBuildStep(true);
-        const zigTask = this.resolveTaskReal({
-          kind: 'zigBldStep',
-          stepName: bldStep.stepName,
-          stepDesc: bldStep.stepDesc,
-          buildFile: bldStep.buildFile,
-        },
-          false,
-        );
-        await this.runTask(zigTask, true);
-      }),
-
       vscode.commands.registerCommand(CmdConst.zig.test, async (testSrcFile: string, testFilter: string, debugMode: boolean) => {
         const zigTask = this.resolveTaskReal({
           kind: 'zigTest',
@@ -107,21 +78,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     this.registrations = [];
   }
   public async provideTasks(_token: vscode.CancellationToken): Promise<ZigTask[]> {
-    const bldSteps = await this.getBuildSteps();
-    const bldTasks: ZigTask[] = [];
-    for (const bldStep of bldSteps) {
-      bldTasks.push(
-        this.resolveTaskReal({
-          kind: 'zigBldStep',
-          stepName: bldStep.stepName,
-          stepDesc: bldStep.stepDesc,
-          buildFile: bldStep.buildFile,
-        },
-          false,
-        )
-      );
-    }
-    return Promise.resolve(bldTasks);
+    return Promise.resolve([]);
   }
 
   public async resolveTask(task: ZigTask, _token: vscode.CancellationToken): Promise<ZigTask | undefined> {
@@ -132,80 +89,9 @@ export class ZigTaskProvider implements vscode.TaskProvider {
     return Promise.resolve(undefined);
   }
 
-  private async getBuildSteps(forceReload: boolean = false): Promise<ZigBldStep[]> {
-    const zig = zigContext.zigCfg.zig;
-    if (!forceReload && this.cachedBuildSteps) { return Promise.resolve(this.cachedBuildSteps); }
-    if (!await fs.fileExists(zig.buildFile)) {
-      zigContext.logger.error("Aborting build target fetch. No build.zig file found in workspace root.");
-      return Promise.reject<ZigBldStep[]>();
-    }
-
-    const processRun = proc.runProcess(
-      zig.binary,
-      <proc.ProcessRunOptions>{
-        shellArgs: ["build", "--help"],
-        cwd: path.dirname(zig.buildFile),
-        logger: zigContext.logger,
-        onStart: () => zigContext.logger.trace("Starting get build steps..."),
-        onStdout: (str) => zigContext.logger.trace(str),
-        onStderr: (str) => zigContext.logger.trace(str),
-        onExit: () => zigContext.logger.trace("Finished get build steps..."),
-      }
-    );
-    // Emit Resolved command
-    const { stdout, stderr } = await processRun.completion;
-    if (types.isNonBlank(stderr)) {
-      zigContext.logger.error(
-        "zig build errors\n"
-        + `cmd: ${processRun.procCmd}\n`
-        + stderr
-      );
-      return Promise.reject<ZigBldStep[]>();
-    }
-    const stepsIdx = stdout.indexOf("Steps:");
-    const genOpIdx = stdout.indexOf("General Options:", stepsIdx);
-    const stepsStr = stdout.substring(stepsIdx, genOpIdx);
-    const stepRegEx = /\s+(?<step>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
-    this.cachedBuildSteps = Array.from(stepsStr.matchAll(stepRegEx), (m: RegExpMatchArray, _): ZigBldStep => {
-      return {
-        kind: 'zigBldStep',
-        stepName: m[1],
-        stepDesc: m[3],
-        buildFile: zig.buildFile,
-        // const isDefault = types.isUndefined(m[2]); // eslint-disable-line @typescript-eslint/no-unused-vars
-      };
-    });
-
-    return this.cachedBuildSteps;
-  }
-
-
-  private async chooseBuildStep(forceReload: boolean = false): Promise<ZigBldStep> {
-    const steps = await this.getBuildSteps(forceReload);
-
-    // type PickedStep = { step: ZigBldStep } & vscode.QuickPickItem;
-    type PickedStep = { idx: number } & vscode.QuickPickItem;
-    const picked = await vscode.window.showQuickPick(
-      steps.map((s, idx) => <PickedStep>{
-        idx: idx,
-        label: s.stepName,
-        description: s.stepDesc,
-      }),
-      <vscode.QuickPickOptions>{
-        canPickMany: false,
-        placeHolder: "Select the zig target to run",
-      },
-    );
-    if (!picked) { return Promise.reject<ZigBldStep>(); }
-
-    this.lastChosenStep = steps[picked.idx];
-    return this.lastChosenStep;
-
-  }
-
   private async runTask(zigTask: ZigTask, updateLastRun: boolean): Promise<void> {
     if (updateLastRun) {
-      this.lastRanZigTask = zigTask;
+      // this.lastRanZigTask = zigTask;
       void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
     }
     try {
@@ -267,7 +153,7 @@ export class ZigTaskProvider implements vscode.TaskProvider {
         ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
         : vscode.workspace.workspaceFolders?.[0]);
 
-    const shellCmd = zigContext.zigCfg.zig.binary; // proc.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
+    const shellCmd = zigContext.zigCfg.zig.binary; // ext.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
     let shellArgs: string[];
     let shellCwd: string | undefined;
     let taskName: string;
@@ -396,7 +282,7 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   private closeEmitter = new vscode.EventEmitter<number>();
   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
   onDidClose: vscode.Event<number> = this.closeEmitter.event;
-  private buildProc?: proc.ProcessRun | undefined;
+  private buildProc?: cp.ProcessRun | undefined;
 
   constructor(
     private readonly shellCmd: string,
@@ -408,9 +294,9 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
   async open(_initialDimensions: vscode.TerminalDimensions | undefined): Promise<void> {
     try {
       // Do build.
-      const processRun = proc.runProcess(
+      const processRun = cp.runProcess(
         this.shellCmd,
-        <proc.ProcessRunOptions>{
+        <cp.ProcessRunOptions>{
           shellArgs: this.shellArgs,
           cwd: this.cwd,
           logger: zigContext.logger,
@@ -446,8 +332,8 @@ class ZigBuildTerminal implements vscode.Pseudoterminal {
     catch (err) {
       this.buildProc = undefined;
       this.emitLine("Build run was terminated");
-      const stdout = (err as proc.ProcRunException)?.stdout;
-      const stderr = (err as proc.ProcRunException)?.stderr;
+      const stdout = (err as cp.ProcRunException)?.stdout;
+      const stderr = (err as cp.ProcRunException)?.stderr;
       if (err) { this.splitWriteEmitter(String(err)); }
       if (stdout) { this.splitWriteEmitter(stdout); }
       if (stderr) { this.splitWriteEmitter(stderr); }

@@ -5,7 +5,8 @@ import { log, ext } from './utils';
 import { ExtConst } from './zigConst';
 import { ZlsContext } from './zigLangClient';
 import { ZigCodelensProvider } from './zigCodeLensProvider';
-import { ZigTaskProvider } from './zigTaskProvider';
+import { ZigTestTaskProvider } from './zigTaskProvider';
+import { ZigBuildTaskProvider } from './zigBuildTaskProvider';
 
 // The extension deactivate method is asynchronous, so we handle the disposables ourselves instead of using extensonContext.subscriptions
 export let zigContext: ZigContext;
@@ -25,19 +26,22 @@ class ZigContext {
     private  extChannel:           vscode.OutputChannel;
     private  zlsContext:           ZlsContext;
     private  zigCodeLensProvider:  ZigCodelensProvider;
-    private  zigTaskProvider:      ZigTaskProvider;
+    private  zigBuildTaskProvider: ZigBuildTaskProvider;
+    private  zigTestTaskProvider:  ZigTestTaskProvider;
     private  registrations:        vscode.Disposable[] = [];
     constructor(context: vscode.ExtensionContext) {
-        this.extContext          = context;
-        this.extChannel          = vscode.window.createOutputChannel(ExtConst.extensionId);
-        this.logger              = log.makeChannelLogger(log.LogLevel.warn, this.extChannel);
-        this.zigCfg           = new ZigExtConfig();
-        this.zlsContext          = new ZlsContext();
-        this.zigCodeLensProvider = new ZigCodelensProvider();
-        this.zigTaskProvider     = new ZigTaskProvider();
+        this.extContext           = context;
+        this.extChannel           = vscode.window.createOutputChannel(ExtConst.extensionId);
+        this.logger               = log.makeChannelLogger(log.LogLevel.warn, this.extChannel);
+        this.zigCfg               = new ZigExtConfig();
+        this.zlsContext           = new ZlsContext();
+        this.zigCodeLensProvider  = new ZigCodelensProvider();
+        this.zigBuildTaskProvider = new ZigBuildTaskProvider(this.zigCfg.zig.buildFile);
+        this.zigTestTaskProvider  = new ZigTestTaskProvider();
         this.registrations.push(
             vscode.languages.registerCodeLensProvider(ExtConst.documentSelector, this.zigCodeLensProvider),
-            vscode.tasks.registerTaskProvider(ExtConst.taskType, this.zigTaskProvider),
+            vscode.tasks.registerTaskProvider(ExtConst.buildTaskType, this.zigBuildTaskProvider),
+            vscode.tasks.registerTaskProvider(ExtConst.testTaskType,  this.zigTestTaskProvider),
         );
     }
     async backgroundInit(): Promise<void> {
@@ -46,7 +50,8 @@ class ZigContext {
     async backgroundDeinit(): Promise<void> {
         this.registrations.forEach(d => void d.dispose());
         this.registrations = [];
-        this.zigTaskProvider.dispose();
+        this.zigTestTaskProvider.dispose();
+        this.zigBuildTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
         await this.zlsContext.asyncDispose().catch();
         this.extChannel.dispose();
