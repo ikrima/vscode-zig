@@ -68,7 +68,12 @@ export namespace types {
     }
     else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
   }
-
+  export function assertExhaustive(
+    _val: never,
+    msg: string = 'Reached unexpected case in exhaustive switch'
+  ): never {
+    throw new TypeError(msg);
+  }
 }
 
 export namespace path {
@@ -90,13 +95,13 @@ export namespace path {
     // or includes unescaped double-quotes (or single-quotes on windows),
     // or includes unescaped single-quotes on mac and linux.
     if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
-      (proc.isWindows && /.*[^\\]'.*/g.test(arg)) ||
-      (!proc.isWindows && /.*[^\\]'.*/g.test(arg))) {
+      (ext.isWindows && /.*[^\\]'.*/g.test(arg)) ||
+      (!ext.isWindows && /.*[^\\]'.*/g.test(arg))) {
       return arg;
     }
     // The special character double-quote is already escaped in the arg.
     const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
-    if (!unescapedSpaces && !proc.isWindows) {
+    if (!unescapedSpaces && !ext.isWindows) {
       return arg;
     } else if (arg.includes(" ")) {
       arg = arg.replace(/\\\s/g, " ");
@@ -156,9 +161,9 @@ export namespace log {
     maxLogLevel : LogLevel;
     log   (item: LogItem): void;
     error (msg: string, err?: Error | unknown | null, reveal?: boolean): void;
-    warn  (msg: string, reveal?: boolean): void;
-    info  (msg: string, reveal?: boolean): void;
-    trace (msg: string, reveal?: boolean): void;
+    warn  (msg: string, err?: Error | unknown | null, reveal?: boolean): void;
+    info  (msg: string, err?: Error | unknown | null, reveal?: boolean): void;
+    trace (msg: string, err?: Error | unknown | null, reveal?: boolean): void;
   }
   const logImp = (writer: LogWriter, maxLogLevel : LogLevel, item: LogItem):void  => {
     if (item.level > maxLogLevel) { return; }
@@ -183,27 +188,29 @@ export namespace log {
       clear:       () => chan.clear(),
       maxLogLevel: maxLogLevel,
       log:         function (item: LogItem):                                             void { logImp(this, this.maxLogLevel, item); },
-      error:       function (msg:  string, err?: Error|unknown|null, reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , err: err ?? null}); },
-      warn:        function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , err:        null}); },
-      info:        function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , err:        null}); },
-      trace:       function (msg:  string,                           reveal?: boolean ): void { this.log(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , err:        null}); },
+      error:       function (msg:  string, err?: Error|unknown|null, reveal?: boolean): void { this.log(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , err: err ?? null}); },
+      warn:        function (msg:  string, err?: Error|unknown|null, reveal?: boolean): void { this.log(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , err: err ?? null}); },
+      info:        function (msg:  string, err?: Error|unknown|null, reveal?: boolean): void { this.log(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , err: err ?? null}); },
+      trace:       function (msg:  string, err?: Error|unknown|null, reveal?: boolean): void { this.log(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , err: err ?? null}); },
     };
   }
 }
 
 export namespace ext {
-  export const eolRegEx   = /\r?\n/;
-  export const crlfString = "\r\n";
-  export const lfString   = "\n";
+  export const isWindows    = process_.platform === "win32";
+  export const envDelimiter = isWindows ? ";" : ":";
+  export const eolRegEx     = /\r?\n/;
+  export const crlfString   = "\r\n";
+  export const lfString     = "\n";
   export function eolToString            (eol: vscode.EndOfLine): string                   { return eol === vscode.EndOfLine.CRLF ? crlfString : lfString; }
   export function isExtensionActive      (extId: string): boolean                          { return vscode.extensions.getExtension(extId)?.isActive ?? false; }
   export function findWorkspaceFolder    (name:  string): vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
   export function defaultWksFolder       ():              vscode.WorkspaceFolder|undefined { return vscode.workspace.workspaceFolders?.[0]; }
   export function defaultWksFolderPath   ():              string|undefined                 { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
-  // export type Environment = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
-  // export type EnvironmentWithNull = Record<string, string | undefined | null>;
 
-  export interface VariableContext {
+  // export type EnvVarsWithNull = Record<string, string | undefined | null>;
+  export type EnvVars         = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
+  export interface VariableContext extends EnvVars {
     workspaceFolder?:         string | undefined;
     workspaceFolderBasename?: string | undefined;
     file?:                    string | undefined;
@@ -217,9 +224,7 @@ export namespace ext {
     cwd?:                     string | undefined;
     lineNumber?:              string | undefined;
     selectedText?:            string | undefined;
-    execPath?:                string | undefined;
     pathSeparator?:           string | undefined;
-    [key: string]:            string | undefined;
   }
   export function resolveVariables(input: string, baseContext?: VariableContext): string {
     if (!input) { return ""; }
@@ -227,9 +232,7 @@ export namespace ext {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const activeEditor     = vscode.window.activeTextEditor;
 
-    const varCtx: VariableContext = baseContext
-      ? Object.assign({}, baseContext)
-      : {};
+    const varCtx: VariableContext = baseContext ? Object.assign({}, baseContext) : {};
     varCtx.workspaceFolder         = varCtx.workspaceFolder         ?? workspaceFolders?.[0].uri.fsPath;
     varCtx.workspaceFolderBasename = varCtx.workspaceFolderBasename ?? workspaceFolders?.[0].name;
     varCtx.file                    = varCtx.file                    ?? activeEditor?.document.uri.fsPath;
@@ -243,15 +246,14 @@ export namespace ext {
     varCtx.cwd                     = varCtx.cwd                     ?? varCtx.fileDirname;
     varCtx.lineNumber              = varCtx.lineNumber              ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
     varCtx.selectedText            = varCtx.selectedText            ?? activeEditor?.document.getText(activeEditor.selection);
-    varCtx.execPath                = varCtx.execPath                ?? proc.execPath;
     varCtx.pathSeparator           = varCtx.pathSeparator           ?? path.sep;
 
     // Replace environment and configuration variables.
-    const varRegEx = /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|execPath|pathSeparator)(\.|:))?(.*?)\}/g;
+    const varRegEx = /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|pathSeparator)(\.|:))?(.*?)\}/g;
     let ret = input.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string): string => {
       let newValue: string | undefined;
       switch (varType) {
-        case "env":                     { newValue = varCtx[name] ?? proc.env[name];        break; }
+        case "env":                     { newValue = varCtx[name] ?? process_.env[name];    break; }
         case "config":                  { newValue = config.get<string>(name);              break; }
         case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
         case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
@@ -270,7 +272,6 @@ export namespace ext {
             case "cwd":                     { newValue = varCtx[name];                   break; }
             case "lineNumber":              { newValue = varCtx[name];                   break; }
             case "selectedText":            { newValue = varCtx[name];                   break; }
-            case "execPath":                { newValue = varCtx[name];                   break; }
             case "pathSeparator":           { newValue = varCtx[name];                   break; }
             default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
           }
@@ -345,10 +346,7 @@ export namespace ext {
   }
 }
 
-export namespace proc {
-  export const { execPath, env, platform } = process_;
-  export const isWindows    = process_.platform === "win32";
-  export const envDelimiter = isWindows ? ";" : ":";
+export namespace cp {
   export const execFile = promisify(cp_.execFile);
 
   // A promise for running process and also a wrapper to access ChildProcess-like methods
@@ -393,8 +391,8 @@ export namespace proc {
       kill:         () => {
         if (!(childProcess?.pid)) { return; }
           wasKilledbyUs = true;
-          if (isWindows) { cp_.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
-          else           { childProcess.kill('SIGINT'); }
+          if (ext.isWindows) { cp_.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
+          else               { childProcess.kill('SIGINT'); }
       },
       completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
         childProcess = cp_.exec(
@@ -411,7 +409,7 @@ export namespace proc {
             } else {
               if (options.logger) {
                 const cmdName = cmd.split(' ', 1)[0];
-                const cmdWasNotFound = isWindows
+                const cmdWasNotFound = ext.isWindows
                   ? error.message.includes(`'${cmdName}' is not recognized`)
                   : error?.code === 127;
                 options.logger.error(
