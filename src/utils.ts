@@ -85,7 +85,9 @@ export namespace path {
     extname,
     join,
     isAbsolute,
+    resolve,
     sep,
+    delimiter,
   } = path_;
 
   export function filename(p: string): string { return path_.parse(p).name; }
@@ -198,7 +200,6 @@ export namespace log {
 
 export namespace ext {
   export const isWindows    = process_.platform === "win32";
-  export const envDelimiter = isWindows ? ";" : ":";
   export const eolRegEx     = /\r?\n/;
   export const crlfString   = "\r\n";
   export const lfString     = "\n";
