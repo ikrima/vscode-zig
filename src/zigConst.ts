@@ -20,7 +20,7 @@ export namespace CmdConst {
   };
   export const zig = {
     pickBuildStep:       "zig.pickBuildStep",
-    build:               "zig.build",
+    buildExplicit:       "zig.buildExplicit",
     buildLastTarget:     "zig.buildLastTarget",
     test:                "zig.test",
   };

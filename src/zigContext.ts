@@ -56,34 +56,6 @@ class ZigContext {
         await this.zlsContext.asyncDispose().catch();
         this.extChannel.dispose();
     }
-
-
-    // let zigFormatStatusBar: vscode.StatusBarItem;
-    // zigFormatStatusBar = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
-    // zigFormatStatusBar.name = "zig build";
-    // zigFormatStatusBar.text = "$(wrench) zig build workspace";
-    // zigFormatStatusBar.tooltip = "zig build workspace";
-    // zigFormatStatusBar.command = "zig.build";
-    // zigFormatStatusBar.show();
-    // const buildDiagnostics = vscode.languages.createDiagnosticCollection('zigBld');
-    // context.subscriptions.push(
-    //     vscode.languages.registerCodeActionsProvider(
-    //         ZigExtConfig.zigDocumentSelector,
-    //         new ZigCodeActionProvider(context)
-    //     ),
-    //     vscode.languages.registerDocumentFormattingEditProvider(
-    //         ZigExtConfig.zigDocumentSelector,
-    //         new ZigFormatProvider(logChannel),
-    //     ),
-    //     vscode.languages.registerDocumentRangeFormattingEditProvider(
-    //         ZigExtConfig.zigDocumentSelector,
-    //         new ZigRangeFormatProvider(logChannel),
-    //     ),
-    //     vscode.commands.registerCommand('zig.build', () => {
-    //         if (!vscode.window.activeTextEditor) { return; }
-    //         zigBuild(vscode.window.activeTextEditor.document, buildDiagnostics, logChannel);
-    //     }),
-    // );
 }
 
 export interface ZlsConfigData {
@@ -107,8 +79,8 @@ class ZigExtConfig extends ext.ExtensionConfigBase<ZigConfigData> {
                 zig.binary           = ext.resolvePath(zig.binary);
                 zig.zls.binary       = ext.resolvePath(zig.zls.binary);
                 zig.zls.debugBinary  = zig.zls.debugBinary ? ext.resolvePath(zig.zls.debugBinary) : null;
-                zig.buildRootDir     = ext.resolvePath(zig.buildRootDir);    // ext.defaultWksFolderPath() ?? ""              );
-                zig.buildFile        = ext.resolvePath(zig.buildFile);  // path.join(this.build_rootDir,"build.zig")     );
+                zig.buildRootDir     = ext.resolvePath(zig.buildRootDir);    // ext.defaultWksFolderPath() ?? ""          );
+                zig.buildFile        = ext.resolvePath(zig.buildFile);       // path.join(this.build_rootDir,"build.zig") );
             },
         );
     }

@@ -24,7 +24,7 @@
     "onCommand:zig.zls.stop",
     "onCommand:zig.zls.restart",
     "onCommand:zig.pickBuildStep",
-    "onCommand:zig.build",
+    "onCommand:zig.buildExplicit",
     "onCommand:zig.buildLastTarget",
     "onCommand:zig.test"
   ],
@@ -187,19 +187,19 @@
         "category":   "zig"
       },
       {
-        "command":    "zig.build",
+        "command":    "zig.buildExplicit",
         "title":      "build",
         "category":   "zig"
       },
       {
         "command":    "zig.buildLastTarget",
         "title":      "build last target",
-        "enablement": "zig.hasLastRanTask",
         "category":   "zig"
       },
       {
         "command":    "zig.test",
         "title":      "build test",
+        "enablement": "zig.hasLastRanTask",
         "category":   "zig"
       }
     ]

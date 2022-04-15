@@ -92,7 +92,7 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
   private async runTask(zigTask: ZigTask, updateLastRun: boolean): Promise<void> {
     if (updateLastRun) {
       // this.lastRanZigTask = zigTask;
-      void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
+      // void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
     }
     try {
       const taskArgs = (zigTask.definition as ZigTaskDef) as TaskArgs;

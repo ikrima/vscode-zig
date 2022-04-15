@@ -125,16 +125,24 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
         const bldStep = await this.zigBuild.pickBuildStep(forcePick ?? false);
         return bldStep?.stepName;
       }),
-      vscode.commands.registerCommand(CmdConst.zig.buildLastTarget, async () => {
-        if (this.lastBuildTask) {
-          await this.runBuildTask(this.lastBuildTask, false);
-        }
-      }),
-      vscode.commands.registerCommand(CmdConst.zig.build, async () => {
+      vscode.commands.registerCommand(CmdConst.zig.buildExplicit, async () => {
         const step = await this.zigBuild.pickBuildStep(true);
         if (!step) { return; }
         const bldTask = this.makeZigTask({ type: ExtConst.buildTaskType, stepName: step.stepName });
-        await this.runBuildTask(bldTask, true);
+        this.lastBuildTask = bldTask;
+        await vscode.tasks.executeTask(bldTask);
+      }),
+      vscode.commands.registerCommand(CmdConst.zig.buildLastTarget, async () => {
+        if (this.lastBuildTask) {
+          await vscode.tasks.executeTask(this.lastBuildTask);
+        }
+        else {
+          const step = await this.zigBuild.pickBuildStep(true);
+          if (!step) { return; }
+          const bldTask = this.makeZigTask({ type: ExtConst.buildTaskType, stepName: step.stepName });
+          this.lastBuildTask = bldTask;
+          await vscode.tasks.executeTask(bldTask);
+        }
       }),
     );
 
@@ -142,6 +150,13 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
     this.fileWatcher.onDidChange(() => this.onBuildFileChange());
     this.fileWatcher.onDidCreate(() => this.onBuildFileChange());
     this.fileWatcher.onDidDelete(() => this.onBuildFileChange());
+
+    // const zigFormatStatusBar: vscode.StatusBarItem = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
+    // zigFormatStatusBar.name = "zig build";
+    // zigFormatStatusBar.text = "$(wrench) zig build workspace";
+    // zigFormatStatusBar.tooltip = "zig build workspace";
+    // zigFormatStatusBar.command = "zig.buildExplicit";
+    // zigFormatStatusBar.show();
   }
   dispose(): void {
     this.registrations.forEach(d => void d.dispose());
@@ -172,8 +187,8 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
 
   private makeZigTask(taskDef: ZigBuildTaskDefinition): ZigBuildTask {
     const zig = zigContext.zigCfg.zig;
-    taskDef.args      = taskDef.args ?? [];
-    taskDef.cwd       = taskDef.cwd ?? zig.buildRootDir;
+    taskDef.args = taskDef.args ?? [];
+    taskDef.cwd = taskDef.cwd ?? zig.buildRootDir;
     taskDef.buildFile = taskDef.buildFile ?? zig.buildFile;
 
     const task = new ZigBuildTask(
@@ -196,8 +211,8 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
       ExtConst.problemMatcher
     );
     const stepNameLower = taskDef.stepName.toLowerCase();
-    if      (stepNameLower.includes("build")) { task.group = vscode.TaskGroup.Build; }
-    else if (stepNameLower.includes("test" )) { task.group = vscode.TaskGroup.Test;  }
+    if (stepNameLower.includes("build")) { task.group = vscode.TaskGroup.Build; }
+    else if (stepNameLower.includes("test")) { task.group = vscode.TaskGroup.Test; }
     task.presentationOptions = {
       reveal: vscode.TaskRevealKind.Always,
       echo: true,
@@ -207,12 +222,5 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
       clear: true,
     };
     return task;
-  }
-  private async runBuildTask(zigTask: ZigBuildTask, updateLastRun: boolean): Promise<void> {
-    if (updateLastRun) {
-      this.lastBuildTask = zigTask;
-      void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
-    }
-    await vscode.tasks.executeTask(zigTask);
   }
 }
