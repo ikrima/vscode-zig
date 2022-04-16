@@ -117,9 +117,9 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
   private zigBuild: ZigBuild = new ZigBuild();
   private bldTasks: ZigBuildTask[] | null = null;
   private lastBuildTask: ZigBuildTask | null = null;
-  private fileWatcher: vscode.FileSystemWatcher;
+  private fileWatcher?: vscode.FileSystemWatcher;
   private registrations: vscode.Disposable[] = [];
-  constructor(buildFile: string) {
+  constructor() {
     this.registrations.push(
       vscode.commands.registerCommand(CmdConst.zig.pickBuildStep, async (forcePick?: boolean) => {
         const bldStep = await this.zigBuild.pickBuildStep(forcePick ?? false);
@@ -146,11 +146,6 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
       }),
     );
 
-    this.fileWatcher = vscode.workspace.createFileSystemWatcher(buildFile);
-    this.fileWatcher.onDidChange(() => this.onBuildFileChange());
-    this.fileWatcher.onDidCreate(() => this.onBuildFileChange());
-    this.fileWatcher.onDidDelete(() => this.onBuildFileChange());
-
     // const zigFormatStatusBar: vscode.StatusBarItem = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
     // zigFormatStatusBar.name = "zig build";
     // zigFormatStatusBar.text = "$(wrench) zig build workspace";
@@ -161,7 +156,13 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
   dispose(): void {
     this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
-    this.fileWatcher.dispose();
+    this.fileWatcher?.dispose();
+  }
+  initialize(): void {
+    this.fileWatcher = vscode.workspace.createFileSystemWatcher(zigContext.zigCfg.zig.buildFile);
+    this.fileWatcher.onDidChange(() => this.onBuildFileChange());
+    this.fileWatcher.onDidCreate(() => this.onBuildFileChange());
+    this.fileWatcher.onDidDelete(() => this.onBuildFileChange());
   }
   private onBuildFileChange(): void {
     this.bldTasks = null;

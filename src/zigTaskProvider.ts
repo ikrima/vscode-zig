@@ -10,51 +10,15 @@ type ZigRun = {
   args: string[];
   cwd?: string;
 };
-type ZigTest = {
-  kind: 'zigTest';
+
+interface ZigTestTaskDefinition extends vscode.TaskDefinition {
   testSrcFile: string;
   testFilter?: string;
   mainPkgPath?: string;
   testBinary?: string;
-  debugLaunch?: ZigRun;
-};
-type ZigBldStep = {
-  kind: 'zigBldStep';
-  stepName: string;
-  stepDesc: string;
-  buildFile: string;
-};
-
-type TaskArgs = ZigTest | ZigBldStep;
-
-type ZigTaskDef = vscode.TaskDefinition & TaskArgs;
-export class ZigTask extends vscode.Task {
-  constructor(
-    taskArgs: TaskArgs,
-    scope: vscode.WorkspaceFolder | vscode.TaskScope.Global | vscode.TaskScope.Workspace,
-    name: string,
-    taskExec: vscode.ProcessExecution | vscode.ShellExecution | vscode.CustomExecution,
-    enableTaskProblemMatcher: boolean,
-    group: vscode.TaskGroup,
-    detail: string,
-    presentationOptions: vscode.TaskPresentationOptions,
-  ) {
-    super(
-      <vscode.TaskDefinition>{ ...taskArgs, ...{ type: ExtConst.testTaskType } },
-      scope,
-      name,
-      ExtConst.taskProviderSourceStr,
-      taskExec,
-      enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
-    );
-    this.group = group;
-    this.detail = detail;
-    this.presentationOptions = presentationOptions;
-
-  }
+  debugMode?: boolean;
 }
-
-
+export class ZigTestTask extends vscode.Task { }
 
 export class ZigTestTaskProvider implements vscode.TaskProvider {
   private registrations: vscode.Disposable[] = [];
@@ -62,12 +26,11 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
     this.registrations.push(
       vscode.commands.registerCommand(CmdConst.zig.test, async (testSrcFile: string, testFilter: string, debugMode: boolean) => {
         const zigTask = this.resolveTaskReal({
-          kind: 'zigTest',
+          type: ExtConst.testTaskType,
           testSrcFile: testSrcFile,
           testFilter: testFilter,
-        },
-          debugMode,
-        );
+          debugMode: debugMode,
+        });
         await this.runTask(zigTask, true);
       }),
     );
@@ -77,48 +40,46 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
     this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
   }
-  public async provideTasks(_token: vscode.CancellationToken): Promise<ZigTask[]> {
+  public async provideTasks(_token: vscode.CancellationToken): Promise<ZigTestTask[]> {
     return Promise.resolve([]);
   }
 
-  public async resolveTask(task: ZigTask, _token: vscode.CancellationToken): Promise<ZigTask | undefined> {
+  public async resolveTask(task: ZigTestTask, _token: vscode.CancellationToken): Promise<ZigTestTask | undefined> {
     if (!task.execution) {
-      const taskArgs = task.definition as ZigTaskDef as ZigTest;
-      return Promise.resolve(this.resolveTaskReal(taskArgs, false, task.scope, task.presentationOptions));
+      const taskDef = task.definition as ZigTestTaskDefinition;
+      task = this.resolveTaskReal(taskDef);
+      return Promise.resolve(task);
     }
     return Promise.resolve(undefined);
   }
 
-  private async runTask(zigTask: ZigTask, updateLastRun: boolean): Promise<void> {
+  private async runTask(zigTask: ZigTestTask, updateLastRun: boolean): Promise<void> {
     if (updateLastRun) {
       // this.lastRanZigTask = zigTask;
       // void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
     }
     try {
-      const taskArgs = (zigTask.definition as ZigTaskDef) as TaskArgs;
-      let debugLaunch: ZigRun;
-      switch (taskArgs.kind) {
-        case 'zigBldStep':
-          break;
-        case 'zigTest': {
-          if (!taskArgs.testBinary) {
-            zigContext.logger.error(`Task doesn't have binary set.`, taskArgs);
-            return;
-          }
-          const testBinDir = path.dirname(taskArgs.testBinary);
-          if (!(await fs.dirExists(testBinDir))) {
-            try { await fs.mkdir(testBinDir); } catch (err) {
-              zigContext.logger.error(`Could not create testEmitBinDir: (${taskArgs.testBinary}) does not exists.`, err);
-              return;
-            }
-          }
-          if (taskArgs.debugLaunch) {
-            debugLaunch = taskArgs.debugLaunch;
-          }
-          break;
-        }
-        default: throw new TypeError("Task Args");
+      const taskDef = zigTask.definition as ZigTestTaskDefinition;
+
+      if (!taskDef.testBinary) {
+        zigContext.logger.error(`Task doesn't have binary set.`, taskDef);
+        return;
       }
+      const testBinDir = path.dirname(taskDef.testBinary);
+      if (!(await fs.dirExists(testBinDir))) {
+        try { await fs.mkdir(testBinDir); } catch (err) {
+          zigContext.logger.error(`Could not create testEmitBinDir: (${taskDef.testBinary}) does not exists.`, err);
+          return;
+        }
+      }
+
+      const debugRun: ZigRun | undefined = taskDef.debugMode
+          ? {
+            program: taskDef.testBinary,
+            args: [zigContext.zigCfg.zig.binary],
+            cwd: path.dirname(taskDef.testBinary),
+          }
+          : undefined;
       const execution = await vscode.tasks.executeTask(zigTask);
       await new Promise<void>((resolve, reject) => {
         let disposable: vscode.Disposable | undefined = vscode.tasks.onDidEndTask(async (e) => {
@@ -126,7 +87,7 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
           disposable?.dispose();
           disposable = undefined;
           try {
-            if (debugLaunch) { await this.launchDebugger(debugLaunch); }
+            if (debugRun) { await this.launchDebugger(debugRun); }
             resolve();
           }
           catch (err) {
@@ -142,72 +103,43 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
     }
   }
   private resolveTaskReal(
-    taskArgs: TaskArgs,
-    debugMode: boolean,
-    taskScope?: vscode.WorkspaceFolder | vscode.TaskScope.Global | vscode.TaskScope.Workspace,
-    presentationOptions?: vscode.TaskPresentationOptions,
-  ): ZigTask {
+    taskDef: ZigTestTaskDefinition,
+  ): ZigTestTask {
     const zig = zigContext.zigCfg.zig;
-    const wksFolder: vscode.WorkspaceFolder | undefined = (taskScope as vscode.WorkspaceFolder) ??
-      (vscode.window.activeTextEditor
-        ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
-        : vscode.workspace.workspaceFolders?.[0]);
+    const wksFolder: vscode.WorkspaceFolder | undefined = vscode.window.activeTextEditor
+      ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
+      : vscode.workspace.workspaceFolders?.[0];
+
+
+    taskDef.testBinary = taskDef.testBinary ?? path.join(
+      zig.buildRootDir,
+      "zig-out",
+      "bin",
+      wksFolder ? `test-${wksFolder.name}.exe` : "test-zig.exe",
+    );
+    taskDef.testSrcFile = path.normalize(taskDef.testSrcFile);
+    const testName = path.filename(taskDef.testBinary);
 
     const shellCmd = zigContext.zigCfg.zig.binary; // ext.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
-    let shellArgs: string[];
-    let shellCwd: string | undefined;
-    let taskName: string;
     const varCtx = new ext.VariableResolver();
-    switch (taskArgs.kind) {
-      case 'zigBldStep': {
-        shellArgs = [
-          "build",
-          taskArgs.stepName,
-          ...[`--build-file`, taskArgs.buildFile],
-        ];
-        shellCwd = path.dirname(taskArgs.buildFile);
-        taskName = `zig build ${taskArgs.stepName}`;
-        break;
-      }
-      case 'zigTest': {
-        taskArgs.testBinary = taskArgs.testBinary ?? path.join(
-          zig.buildRootDir,
-          "zig-out",
-          "bin",
-          wksFolder ? `test-${wksFolder.name}.exe` : "test-zig.exe",
-        );
-        if (debugMode) {
-          taskArgs.debugLaunch = {
-            program: taskArgs.testBinary,
-            args: [zigContext.zigCfg.zig.binary],
-            cwd: path.dirname(taskArgs.testBinary),
-          };
-        }
-        taskArgs.testSrcFile = path.normalize(taskArgs.testSrcFile);
-        const testName = path.filename(taskArgs.testBinary);
-        taskName = `zig test ${testName}`;
-        shellArgs = [
-          "test",
-          taskArgs.testSrcFile,
-          ...(taskArgs.mainPkgPath ? ["--main-pkg-path", taskArgs.mainPkgPath] : []),
-          `-femit-bin=${taskArgs.testBinary ?? ""}`,
-          ...(taskArgs.testFilter ? ["--test-filter", taskArgs.testFilter] : []),
-          ...(taskArgs.debugLaunch ? [`--test-no-exec`] : []),
-          "--name",
-          testName,
-          "--enable-cache",
-        ].map(arg => varCtx.resolveVars(arg));
+    const shellArgs = [
+      "test",
+      taskDef.testSrcFile,
+      ...(taskDef.mainPkgPath ? ["--main-pkg-path", taskDef.mainPkgPath] : []),
+      `-femit-bin=${taskDef.testBinary ?? ""}`,
+      ...(taskDef.testFilter ? ["--test-filter", taskDef.testFilter] : []),
+      ...(taskDef.debugMode ? [`--test-no-exec`] : []),
+      "--name",
+      testName,
+      "--enable-cache",
+    ].map(arg => varCtx.resolveVars(arg));
+    const shellCwd = zig.buildRootDir;
 
-        shellCwd = zig.buildRootDir;
-        break;
-      }
-      default: throw new TypeError("Task Args");
-    }
-
-    return new ZigTask(
-      taskArgs,
-      taskScope ?? vscode.TaskScope.Workspace,
-      taskName,
+    const task = new ZigTestTask(
+      taskDef,
+      vscode.TaskScope.Workspace,
+      testName,
+      ExtConst.taskProviderSourceStr,
       new vscode.CustomExecution(async (_: vscode.TaskDefinition): Promise<vscode.Pseudoterminal> => {
         return Promise.resolve(new ZigBuildTerminal(
           shellCmd,
@@ -215,19 +147,16 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
           shellCwd,
         ));
       }),
-      zig.enableTaskProblemMatcher,
-      vscode.TaskGroup.Build,
-      taskName,
-      <vscode.TaskPresentationOptions>{
-        ...presentationOptions,
-        ...{
-          reveal: vscode.TaskRevealKind.Silent,
-          echo: true,
-          showReuseMessage: false,
-          clear: true,
-        }
-      },
+      zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
     );
+    task.group = vscode.TaskGroup.Build;
+    task.presentationOptions = {
+      reveal: vscode.TaskRevealKind.Silent,
+      echo: true,
+      showReuseMessage: false,
+      clear: true,
+    };
+    return task;
   }
 
   private async launchDebugger(zigRun: ZigRun): Promise<void> {
@@ -243,14 +172,12 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
     if (cppToolsExtActive) {
       await vscode.debug.startDebugging(
         undefined,
-        {
+        <vscode.DebugConfiguration>{
           type: 'cppvsdbg',
           name: `Zig Test Debug`,
           request: 'launch',
-          program: zigRun.program,
-          args: zigRun.args,
-          cwd: zigRun.cwd,
           console: 'integratedTerminal',
+          ...zigRun,
         },
       );
     } else {

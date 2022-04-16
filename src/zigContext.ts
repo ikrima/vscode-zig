@@ -36,7 +36,7 @@ class ZigContext {
         this.zigCfg               = new ZigExtConfig();
         this.zlsContext           = new ZlsContext();
         this.zigCodeLensProvider  = new ZigCodelensProvider();
-        this.zigBuildTaskProvider = new ZigBuildTaskProvider(this.zigCfg.zig.buildFile);
+        this.zigBuildTaskProvider = new ZigBuildTaskProvider();
         this.zigTestTaskProvider  = new ZigTestTaskProvider();
         this.registrations.push(
             vscode.languages.registerCodeLensProvider(ExtConst.documentSelector, this.zigCodeLensProvider),
@@ -45,6 +45,7 @@ class ZigContext {
         );
     }
     async backgroundInit(): Promise<void> {
+        this.zigBuildTaskProvider.initialize();
         return this.zlsContext.startClient();
     }
     async backgroundDeinit(): Promise<void> {
