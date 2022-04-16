@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { ExtConst, CmdConst } from "./zigConst";
 
 
-export class ZigCodelensProvider implements vscode.CodeLensProvider, vscode.Disposable {
+export class ZigCodelensProvider implements vscode.CodeLensProvider {
   private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public  readonly onDidChangeCodeLenses:  vscode.Event<void>        = this._onDidChangeCodeLenses.event;
   private codeLenses: vscode.CodeLens[] = [];

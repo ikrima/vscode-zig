@@ -54,7 +54,7 @@ class ZigContext {
         this.zigTestTaskProvider.dispose();
         this.zigBuildTaskProvider.dispose();
         this.zigCodeLensProvider.dispose();
-        await this.zlsContext.asyncDispose().catch();
+        await this.zlsContext.dispose();
         this.extChannel.dispose();
     }
 }

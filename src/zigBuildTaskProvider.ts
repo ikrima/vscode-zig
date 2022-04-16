@@ -195,7 +195,7 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
     const task = new ZigBuildTask(
       taskDef,
       vscode.TaskScope.Workspace,
-      `zig build ${taskDef.stepName}`,
+      taskDef.stepName,
       ExtConst.taskProviderSourceStr,
       new vscode.ShellExecution(
         zig.binary,
@@ -205,15 +205,14 @@ export class ZigBuildTaskProvider implements vscode.TaskProvider {
           ...[`--build-file`, zig.buildFile],
           ...(taskDef.args)
         ],
-        <vscode.ShellExecutionOptions>{
-          cwd: taskDef.cwd,
-        }
+        <vscode.ShellExecutionOptions>{ cwd: taskDef.cwd },
       ),
       ExtConst.problemMatcher
     );
     const stepNameLower = taskDef.stepName.toLowerCase();
     if (stepNameLower.includes("build")) { task.group = vscode.TaskGroup.Build; }
     else if (stepNameLower.includes("test")) { task.group = vscode.TaskGroup.Test; }
+    task.detail = `zig build ${taskDef.stepName}`;
     task.presentationOptions = {
       reveal: vscode.TaskRevealKind.Always,
       echo: true,

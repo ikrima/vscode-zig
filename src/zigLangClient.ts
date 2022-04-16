@@ -18,7 +18,7 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
   // }
 }
 
-export class ZlsContext implements vscode.Disposable {
+export class ZlsContext {
   private  zlsChannel:    vscode.OutputChannel;
   readonly logger:        log.Logger;
   private  zlsClient?:    ZlsLanguageClient | undefined;
@@ -41,9 +41,7 @@ export class ZlsContext implements vscode.Disposable {
     );
   }
 
-  dispose() { void this.asyncDispose(); }
-
-  async asyncDispose() {
+  async dispose(): Promise<void> {
     this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
     if (this.zlsClient) { await this.stopClient().catch(); }
