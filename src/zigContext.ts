@@ -76,11 +76,12 @@ class ZigExtConfig extends ext.ExtensionConfigBase<ZigConfigData> {
             ExtConst.extensionId,
             scope,
             (zig: ZigConfigData): void => {
-                zig.binary           = ext.resolvePath(zig.binary);
-                zig.zls.binary       = ext.resolvePath(zig.zls.binary);
-                zig.zls.debugBinary  = zig.zls.debugBinary ? ext.resolvePath(zig.zls.debugBinary) : null;
-                zig.buildRootDir     = ext.resolvePath(zig.buildRootDir);    // ext.defaultWksFolderPath() ?? ""          );
-                zig.buildFile        = ext.resolvePath(zig.buildFile);       // path.join(this.build_rootDir,"build.zig") );
+                const varCtx = new ext.VariableResolver();
+                zig.binary           = varCtx.resolveVars(zig.binary,       { normalizePath: true             });
+                zig.buildRootDir     = varCtx.resolveVars(zig.buildRootDir, { normalizePath: true             });    // ext.defaultWksFolderPath() ?? ""          );
+                zig.buildFile        = varCtx.resolveVars(zig.buildFile,    { relBasePath:   zig.buildRootDir });       // path.join(this.build_rootDir,"build.zig") );
+                zig.zls.binary       = varCtx.resolveVars(zig.zls.binary,   { normalizePath: true             });
+                zig.zls.debugBinary  = zig.zls.debugBinary ? varCtx.resolveVars(zig.zls.debugBinary, { normalizePath: true }) : null;
             },
         );
     }

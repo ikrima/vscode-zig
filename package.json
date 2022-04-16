@@ -145,7 +145,7 @@
           "description": "The path to build.zig. This is only required if zig.buildOptions = build.",
           "type": "string",
           "scope": "resource",
-          "default": "${workspaceFolder}/build.zig"
+          "default": "build.zig"
         },
         "zig.enableTaskProblemMatcher": {
           "description": "Highlight lines where tests failed",

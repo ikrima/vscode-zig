@@ -157,6 +157,7 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
     let shellArgs: string[];
     let shellCwd: string | undefined;
     let taskName: string;
+    const varCtx = new ext.VariableResolver();
     switch (taskArgs.kind) {
       case 'zigBldStep': {
         shellArgs = [
@@ -195,7 +196,7 @@ export class ZigTestTaskProvider implements vscode.TaskProvider {
           "--name",
           testName,
           "--enable-cache",
-        ].map(arg => ext.resolveVariables(arg));
+        ].map(arg => varCtx.resolveVars(arg));
 
         shellCwd = zig.buildRootDir;
         break;

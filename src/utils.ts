@@ -210,84 +210,107 @@ export namespace ext {
   export function defaultWksFolderPath   ():              string|undefined                 { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
 
   // export type EnvVarsWithNull = Record<string, string | undefined | null>;
-  export type EnvVars         = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
-  export interface VariableContext extends EnvVars {
-    workspaceFolder?:         string | undefined;
-    workspaceFolderBasename?: string | undefined;
-    file?:                    string | undefined;
-    fileWorkspaceFolder?:     string | undefined;
-    relativeFile?:            string | undefined;
-    relativeFileDirname?:     string | undefined;
-    fileBasename?:            string | undefined;
-    fileExtname?:             string | undefined;
-    fileBasenameNoExtension?: string | undefined;
-    fileDirname?:             string | undefined;
-    cwd?:                     string | undefined;
-    lineNumber?:              string | undefined;
-    selectedText?:            string | undefined;
-    pathSeparator?:           string | undefined;
-  }
-  export function resolveVariables(input: string, baseContext?: VariableContext): string {
-    if (!input) { return ""; }
-    const config           = vscode.workspace.getConfiguration();
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const activeEditor     = vscode.window.activeTextEditor;
+  export type EnvVars = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
+  type WksVars = {
+    pathSeparator:           string | undefined;
+    workspaceFolder:         string | undefined;
+    workspaceFolderBasename: string | undefined;
+    cwd:                     string | undefined;
+    file:                    string | undefined;
+    fileWorkspaceFolder:     string | undefined;
+    relativeFile:            string | undefined;
+    relativeFileDirname:     string | undefined;
+    fileBasename:            string | undefined;
+    fileExtname:             string | undefined;
+    fileBasenameNoExtension: string | undefined;
+    fileDirname:             string | undefined;
+    lineNumber:              string | undefined;
+    selectedText:            string | undefined;
+  };
+  export class VariableResolver {
+    private readonly config:   vscode.WorkspaceConfiguration;
+    private readonly envVars:  EnvVars;
+    private readonly wksVars:  WksVars;
+    constructor(ctxVars: Partial<WksVars> = {}, envVars: EnvVars = {}) {
+      this.config         = vscode.workspace.getConfiguration();
+      this.envVars        = Object.assign({}, process_.env, envVars);
+      const dfltWksFolder = vscode.workspace.workspaceFolders?.[0];
+      const dfltEditor    = vscode.window.activeTextEditor;
+      const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;
+      const workspaceFolder         = ctxVars.workspaceFolder         ?? dfltWksFolder?.uri.fsPath;
+      const workspaceFolderBasename = ctxVars.workspaceFolderBasename ?? dfltWksFolder?.name;
+      const cwd                     = ctxVars.cwd                     ?? workspaceFolder;
+      const file                    = ctxVars.file                    ?? dfltEditor?.document.uri.fsPath;
+      const fileWorkspaceFolder     = ctxVars.fileWorkspaceFolder     ?? (file ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file))?.uri.fsPath : undefined);
+      const relativeFile            = ctxVars.relativeFile            ?? (file ? vscode.workspace.asRelativePath(vscode.Uri.file(file)) : undefined);
+      const relativeFileDirname     = ctxVars.relativeFileDirname     ?? (relativeFile ? path.dirname(relativeFile) : undefined);
+      const fileBasename            = ctxVars.fileBasename            ?? (file ? path.basename(file) : undefined);
+      const fileExtname             = ctxVars.fileExtname             ?? (fileBasename ? path.extname(fileBasename) : undefined);
+      const fileBasenameNoExtension = ctxVars.fileBasenameNoExtension ?? (file ? path.extname(file) : undefined);
+      const fileDirname             = ctxVars.fileDirname             ?? (file ? path.dirname(file) : undefined);
+      const lineNumber              = ctxVars.lineNumber              ?? (dfltEditor ? (dfltEditor?.selection.start.line + 1).toString() : undefined);
+      const selectedText            = ctxVars.selectedText            ?? dfltEditor?.document.getText(dfltEditor.selection);
+      this.wksVars = {
+        pathSeparator:           pathSeparator,
+        workspaceFolder:         workspaceFolder,
+        workspaceFolderBasename: workspaceFolderBasename,
+        cwd:                     cwd,
+        file:                    file,
+        fileWorkspaceFolder:     fileWorkspaceFolder,
+        relativeFile:            relativeFile,
+        relativeFileDirname:     relativeFileDirname,
+        fileBasename:            fileBasename,
+        fileExtname:             fileExtname,
+        fileBasenameNoExtension: fileBasenameNoExtension,
+        fileDirname:             fileDirname,
+        lineNumber:              lineNumber,
+        selectedText:            selectedText,
+      };
+    }
 
-    const varCtx: VariableContext = baseContext ? Object.assign({}, baseContext) : {};
-    varCtx.workspaceFolder         = varCtx.workspaceFolder         ?? workspaceFolders?.[0].uri.fsPath;
-    varCtx.workspaceFolderBasename = varCtx.workspaceFolderBasename ?? workspaceFolders?.[0].name;
-    varCtx.file                    = varCtx.file                    ?? activeEditor?.document.uri.fsPath;
-    varCtx.fileWorkspaceFolder     = varCtx.fileWorkspaceFolder     ?? (varCtx.file ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(varCtx.file))?.uri.fsPath : undefined);
-    varCtx.relativeFile            = varCtx.relativeFile            ?? (varCtx.file ? vscode.workspace.asRelativePath(vscode.Uri.file(varCtx.file)) : undefined);
-    varCtx.relativeFileDirname     = varCtx.relativeFileDirname     ?? (varCtx.relativeFile ? path.dirname(varCtx.relativeFile) : undefined);
-    varCtx.fileBasename            = varCtx.fileBasename            ?? (varCtx.file ? path.basename(varCtx.file) : undefined);
-    varCtx.fileExtname             = varCtx.fileExtname             ?? (varCtx.fileBasename ? path.extname(varCtx.fileBasename) : undefined);
-    varCtx.fileBasenameNoExtension = varCtx.fileBasenameNoExtension ?? (varCtx.file ? path.extname(varCtx.file) : undefined);
-    varCtx.fileDirname             = varCtx.fileDirname             ?? (varCtx.file ? path.dirname(varCtx.file) : undefined);
-    varCtx.cwd                     = varCtx.cwd                     ?? varCtx.fileDirname;
-    varCtx.lineNumber              = varCtx.lineNumber              ?? (activeEditor ? (activeEditor?.selection.start.line + 1).toString() : undefined);
-    varCtx.selectedText            = varCtx.selectedText            ?? activeEditor?.document.getText(activeEditor.selection);
-    varCtx.pathSeparator           = varCtx.pathSeparator           ?? path.sep;
-
-    // Replace environment and configuration variables.
-    const varRegEx = /\$\{((env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|pathSeparator)(\.|:))?(.*?)\}/g;
-    let ret = input.replace(varRegEx, (match: string, _1: string, varType: string, _3: string, name: string): string => {
-      let newValue: string | undefined;
-      switch (varType) {
-        case "env":                     { newValue = varCtx[name] ?? process_.env[name];    break; }
-        case "config":                  { newValue = config.get<string>(name);              break; }
-        case "workspaceFolder":         { newValue = findWorkspaceFolder(name)?.uri.fsPath; break; }
-        case "workspaceFolderBasename": { newValue = findWorkspaceFolder(name)?.name;       break; }
-        default: {
-          switch (name) {
-            case "workspaceFolder":         { newValue = varCtx.workspaceFolder;         break; }
-            case "workspaceFolderBasename": { newValue = varCtx.workspaceFolderBasename; break; }
-            case "file":                    { newValue = varCtx[name];                   break; }
-            case "fileWorkspaceFolder":     { newValue = varCtx[name];                   break; }
-            case "relativeFile":            { newValue = varCtx[name];                   break; }
-            case "relativeFileDirname":     { newValue = varCtx[name];                   break; }
-            case "fileBasename":            { newValue = varCtx[name];                   break; }
-            case "fileBasenameNoExtension": { newValue = varCtx[name];                   break; }
-            case "fileDirname":             { newValue = varCtx[name];                   break; }
-            case "fileExtname":             { newValue = varCtx[name];                   break; }
-            case "cwd":                     { newValue = varCtx[name];                   break; }
-            case "lineNumber":              { newValue = varCtx[name];                   break; }
-            case "selectedText":            { newValue = varCtx[name];                   break; }
-            case "pathSeparator":           { newValue = varCtx[name];                   break; }
-            default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match},_1: ${_1},varType: ${varType},_3: ${_3},name: ${name}]`); break; }
+    resolveVars(
+      input: string,
+      opt: {  relBasePath?: string; normalizePath?: boolean } = {}
+    ): string {
+      // Replace environment and configuration variables
+      const varRegEx = /\$\{(?:(?<scope>.+):)?(?<name>.+)\}/g;
+      // const varRegEx = /\$\{(?:(?<name>env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|pathSeparator)[.:])?(?<scope>.*?)\}/g;
+      let ret = input.replace(varRegEx, (match: string, scope: string | undefined, name: string): string => {
+        let newValue: string | undefined;
+        switch (scope) {
+          case "env":                     { newValue = this.envVars[name];                        break; }
+          case "config":                  { newValue = this.config.get<string>(name);         break; }
+          default: {
+            switch (name) {
+              case "workspaceFolder":         { newValue = this.wksVars.workspaceFolder;         break; }
+              case "workspaceFolderBasename": { newValue = this.wksVars.workspaceFolderBasename; break; }
+              case "cwd":                     { newValue = this.wksVars.cwd;                     break; }
+              case "pathSeparator":           { newValue = this.wksVars.pathSeparator;           break; }
+              case "file":                    { newValue = this.wksVars.file;                    break; }
+              case "fileWorkspaceFolder":     { newValue = this.wksVars.fileWorkspaceFolder;     break; }
+              case "relativeFile":            { newValue = this.wksVars.relativeFile;            break; }
+              case "relativeFileDirname":     { newValue = this.wksVars.relativeFileDirname;     break; }
+              case "fileBasename":            { newValue = this.wksVars.fileBasename;            break; }
+              case "fileBasenameNoExtension": { newValue = this.wksVars.fileBasenameNoExtension; break; }
+              case "fileDirname":             { newValue = this.wksVars.fileDirname;             break; }
+              case "fileExtname":             { newValue = this.wksVars.fileExtname;             break; }
+              case "lineNumber":              { newValue = this.wksVars.lineNumber;              break; }
+              case "selectedText":            { newValue = this.wksVars.selectedText;            break; }
+              default:                        { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match}, scope: ${scope ?? "undefined"}, name: ${name}]`); break; }
+            }
           }
         }
-      }
-      return newValue ?? match;
-    });
+        return newValue ?? match;
+      });
 
-    // Resolve '~' at the start of the path
-    ret = ret.replace(/^~/g, (_match: string, _name: string) => os.homedir());
-    return ret;
+      // Resolve '~' at the start of the path
+      ret = ret.replace(/^~/g, (_match: string, _name: string) => os.homedir());
+      if (opt.relBasePath)   {  ret = path.resolve(opt.relBasePath, ret);  }
+      if (opt.normalizePath) {  ret = path.normalize(ret);  }
+      return ret;
+    }
   }
 
-  export function resolveArrayVars (input: string[]): string[] { return input.map(configVal => resolveVariables(configVal)); }
-  export function resolvePath      (input: string  ): string   { return path.normalize(resolveVariables(input)); }
   export class ExtensionConfigBase<T> {
     protected _cfgData: T;
     get cfgData(): T { return this._cfgData; }
