@@ -3,25 +3,26 @@ import * as vscode from "vscode";
 import { ExtConst, CmdConst } from "./zigConst";
 
 
-export class ZigCodelensProvider implements vscode.CodeLensProvider {
+class ZigCodelensProvider implements vscode.CodeLensProvider {
   private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  public  readonly onDidChangeCodeLenses:  vscode.Event<void>        = this._onDidChangeCodeLenses.event;
+  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
   private codeLenses: vscode.CodeLens[] = [];
   private registrations: vscode.Disposable[] = [];
 
-  constructor() {
-    this.registrations.push(
-        vscode.workspace.onDidChangeConfiguration(e => {
-          if (e.affectsConfiguration(ExtConst.extensionId)) {
-            this._onDidChangeCodeLenses.fire();
-          }
-        }),
-      );
-  }
   dispose(): void {
     this.registrations.forEach(d => void d.dispose());
     this.registrations = [];
     this._onDidChangeCodeLenses.dispose();
+  }
+  register() {
+    this.registrations.push(
+      vscode.languages.registerCodeLensProvider(ExtConst.documentSelector, this),
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration(ExtConst.extensionId)) {
+          this._onDidChangeCodeLenses.fire();
+        }
+      }),
+    );
   }
 
   public provideCodeLenses(
@@ -145,4 +146,11 @@ export class ZigCodelensProvider implements vscode.CodeLensProvider {
 
     return this.codeLenses;
   }
+}
+
+
+export function createCodeLensProvider(): vscode.Disposable {
+  const zigCodeLensProvider = new ZigCodelensProvider();
+  zigCodeLensProvider.register();
+  return zigCodeLensProvider;
 }

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { log, fs, types, path } from './utils';
 import { ExtConst, CmdConst } from "./zigConst";
-import { zigContext } from "./zigContext";
+import { ZigExt } from "./zigContext";
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
   // // Default implementation logs failures to output panel that's meant for extension debugging
@@ -55,7 +55,7 @@ export class ZlsContext {
       return Promise.resolve();
     }
     this.logger.info("Starting Zls...");
-    const zigCfg = zigContext.zigCfg;
+    const zigCfg = ZigExt.zigCfg;
     zigCfg.reload();
     const zig = zigCfg.zig;
     const zls          = zigCfg.zig.zls;
