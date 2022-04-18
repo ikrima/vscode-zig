@@ -19,9 +19,8 @@ export namespace CmdConst {
     restart: "zig.zls.restart",
   };
   export const zig = {
-    pickBuildStep:       "zig.pickBuildStep",
-    buildExplicit:       "zig.buildExplicit",
-    buildLastTarget:     "zig.buildLastTarget",
-    test:                "zig.test",
+    runBuildStep:    "zig.runBuildStep",
+    buildLastTarget: "zig.buildLastTarget",
+    test:            "zig.test",
   };
 }

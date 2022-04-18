@@ -23,8 +23,7 @@
     "onCommand:zig.zls.start",
     "onCommand:zig.zls.stop",
     "onCommand:zig.zls.restart",
-    "onCommand:zig.pickBuildStep",
-    "onCommand:zig.buildExplicit",
+    "onCommand:zig.runBuildStep",
     "onCommand:zig.buildLastTarget",
     "onCommand:zig.test"
   ],
@@ -53,7 +52,8 @@
             "description": "current working directory",
             "type": "string"
           }
-        }
+        },
+        "when": "shellExecutionSupported"
       },
       {
         "type": "zigtest"
@@ -182,12 +182,7 @@
         "category":   "zls"
       },
       {
-        "command":    "zig.pickBuildStep",
-        "title":      "pick build step",
-        "category":   "zig"
-      },
-      {
-        "command":    "zig.buildExplicit",
+        "command":    "zig.runBuildStep",
         "title":      "build",
         "category":   "zig"
       },
