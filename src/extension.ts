@@ -5,7 +5,8 @@ import { ZigExt,  ZigExtConfig } from './zigContext';
 import { ZlsContext } from './zigLangClient';
 import { Logger, LogLevel, channelLogger } from './utils';
 import * as zig_code_lens from './zigCodeLensProvider';
-import { zig_build, zig_test } from './zigTaskProvider';
+import { createBuildTaskProvider } from './task/buildTaskProvider';
+import { createTestTaskProvider } from './task/testTaskProvider';
 
 type ZigExtState = {
     extContext: vscode.ExtensionContext;
@@ -33,8 +34,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     zigExtState.zlsContext = new ZlsContext();
     zigExtState.registrations.push(
         zig_code_lens.createCodeLensProvider(),
-        zig_build.createTaskProvider(),
-        zig_test.createTaskProvider(),
+        createBuildTaskProvider(),
+        createTestTaskProvider(),
     );
     await zigExtState.zlsContext.startClient();
 }

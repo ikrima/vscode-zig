@@ -23,16 +23,24 @@
     "onCommand:zig.zls.start",
     "onCommand:zig.zls.stop",
     "onCommand:zig.zls.restart",
-    "onCommand:zig.runBuildStep",
-    "onCommand:zig.buildLastTarget",
+    "onCommand:zig.build.runStep",
+    "onCommand:zig.build.lastTarget",
+    "onCommand:zig.build.getLastTarget",
     "onCommand:zig.test"
   ],
   "contributes": {
     "taskDefinitions": [
       {
         "type": "zigbuild",
-        "required": [ "stepName" ],
+        "required": [
+          "stepName",
+          "label"
+        ],
         "properties": {
+          "label": {
+            "type": "string",
+            "description": "The name of the task"
+          },
           "stepName": {
             "description": "build step",
             "type": "string"
@@ -167,35 +175,40 @@
     },
     "commands": [
       {
-        "command":    "zig.zls.start",
-        "title":      "start",
-        "category":   "zls"
+        "command": "zig.zls.start",
+        "title": "start",
+        "category": "zls"
       },
       {
-        "command":    "zig.zls.stop",
-        "title":      "stop",
-        "category":   "zls"
+        "command": "zig.zls.stop",
+        "title": "stop",
+        "category": "zls"
       },
       {
-        "command":    "zig.zls.restart",
-        "title":      "restart",
-        "category":   "zls"
+        "command": "zig.zls.restart",
+        "title": "restart",
+        "category": "zls"
       },
       {
-        "command":    "zig.runBuildStep",
-        "title":      "build",
-        "category":   "zig"
+        "command": "zig.build.runStep",
+        "title": "run build step",
+        "category": "zig"
       },
       {
-        "command":    "zig.buildLastTarget",
-        "title":      "build last target",
-        "category":   "zig"
+        "command": "zig.build.lastTarget",
+        "title": "build last target",
+        "category": "zig"
       },
       {
-        "command":    "zig.test",
-        "title":      "build test",
+        "command": "zig.build.getLastTarget",
+        "title": "get last picked target or prompt user",
+        "category": "zig"
+      },
+      {
+        "command": "zig.test",
+        "title": "build test",
         "enablement": "zig.hasLastRanTask",
-        "category":   "zig"
+        "category": "zig"
       }
     ]
   },
