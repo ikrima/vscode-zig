@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import type * as vscode from "vscode";
-import { log, ext } from './utils';
+import { Logger, ext } from './utils';
 import { ExtConst } from './zigConst';
 
 // The extension deactivate method is asynchronous, so we handle the disposables ourselves instead of using extensonContext.subscriptions
 export class ZigExt{
-    static logger: log.Logger;
+    static logger: Logger;
     static zigCfg: ZigExtConfig;
 }
 

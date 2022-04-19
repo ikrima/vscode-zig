@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
-import { log, fs, types, path } from './utils';
+import { fs, types, path, Logger, LogLevel, channelLogger } from './utils';
 import { ExtConst, CmdConst } from "./zigConst";
 import { ZigExt } from "./zigContext";
 
@@ -20,13 +20,13 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 
 export class ZlsContext {
   private  zlsChannel:    vscode.OutputChannel;
-  readonly logger:        log.Logger;
+  readonly logger:        Logger;
   private  zlsClient?:    ZlsLanguageClient | undefined;
   private  registrations: vscode.Disposable[] = [];
 
   constructor() {
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
-    this.logger     = log.makeChannelLogger(log.LogLevel.warn, this.zlsChannel);
+    this.logger     = channelLogger(LogLevel.warn, this.zlsChannel);
     this.registrations.push(
       vscode.commands.registerCommand(CmdConst.zls.start, async () => {
         await this.startClient();
@@ -155,8 +155,8 @@ export class ZlsContext {
     }
 
     this.logger.info("Stopping Zls...");
-    return zlsClient.stop().catch(err => {
-      this.logger.error(`${CmdConst.zls.stop} failed during dispose.`, err);
+    return zlsClient.stop().catch(e => {
+      this.logger.error(`${CmdConst.zls.stop} failed during dispose.`, e);
       return Promise.reject();
     });
   }

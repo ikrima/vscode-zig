@@ -1,16 +1,16 @@
 'use strict';
 import * as vscode from 'vscode';
 import { ExtConst } from "./zigConst";
-import { ZigExt,  ZigExtConfig } from './zigContext'; 
+import { ZigExt,  ZigExtConfig } from './zigContext';
 import { ZlsContext } from './zigLangClient';
-import { log } from './utils';
+import { Logger, LogLevel, channelLogger } from './utils';
 import * as zig_code_lens from './zigCodeLensProvider';
 import { zig_build, zig_test } from './zigTaskProvider';
 
 type ZigExtState = {
     extContext: vscode.ExtensionContext;
     extChannel: vscode.OutputChannel;
-    logger: log.Logger;
+    logger: Logger;
     zigCfg: ZigExtConfig;
     registrations: vscode.Disposable[];
     zlsContext?: ZlsContext;
@@ -22,7 +22,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     zigExtState = {
         extContext: context,
         extChannel: extChannel,
-        logger: log.makeChannelLogger(log.LogLevel.warn, extChannel),
+        logger: channelLogger(LogLevel.warn, extChannel),
         zigCfg: new ZigExtConfig(),
         registrations: [],
     };
