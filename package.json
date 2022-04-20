@@ -225,7 +225,6 @@
     "undeploy": "code --uninstall-extension ikrima.%npm_package_name%"
   },
   "devDependencies": {
-    "@types/lodash-es": "^4.17.6",
     "@types/mocha": "^9.1.0",
     "@types/node": "^17.0.24",
     "@types/vscode": "^1.66.0",
@@ -240,7 +239,6 @@
     "vsce": "^2.7.0"
   },
   "dependencies": {
-    "lodash-es": "^4.17.21",
     "vscode-languageclient": "^7.0.0"
   }
 }
