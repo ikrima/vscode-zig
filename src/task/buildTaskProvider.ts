@@ -45,16 +45,24 @@ async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     const stepsIdx = stdout.indexOf("Steps:");
     const genOpIdx = stdout.indexOf("General Options:", stepsIdx);
     const stepsStr = stdout.substring(stepsIdx, genOpIdx);
-    return Array.from(
-      stepsStr.matchAll(stepsRegEx),
-      (m: RegExpMatchArray, _): ZigBldStep => {
-        return {
+    const runGroup:  ZigBldStep[] = [];
+    const testGroup: ZigBldStep[] = [];
+    const bldGroup:  ZigBldStep[] = [];
+    const miscGroup: ZigBldStep[] = [];
+    [...stepsStr.matchAll(stepsRegEx)].forEach(
+      (m: RegExpMatchArray) => {
+        const step: ZigBldStep = {
           stepName: m[1],
           stepDesc: m[3],
           isDefault: !types.isNullOrUndefined(m[2])
         };
-      },
+        if      (step.stepName.includes("run"  )) { runGroup .push(step);  }
+        else if (step.stepName.includes("test" )) { testGroup.push(step);  }
+        else if (step.stepName.includes("build")) { bldGroup .push(step);  }
+        else                                      { miscGroup.push(step);  }
+      }
     );
+    return [...runGroup, ...testGroup, ...bldGroup, ...miscGroup];
   }
   catch (e) {
     ZigExt.logger.error('zig build errors', e);
@@ -112,12 +120,12 @@ class ZigBuildTaskProvider implements vscode.TaskProvider {
       vscode.commands.registerCommand(CmdConst.zig.build.runStep, async (stepName: string) => {
         await this.runBuildStep(stepName);
       }),
-      vscode.commands.registerCommand(CmdConst.zig.build.lastTarget, async (args?: {forcePick: boolean}) => {
+      vscode.commands.registerCommand(CmdConst.zig.build.lastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         if (!pickedStep) { return; }
         await this.runBuildStep(pickedStep);
       }),
-      vscode.commands.registerCommand(CmdConst.zig.build.getLastTarget, async (args?: {forcePick: boolean}) => {
+      vscode.commands.registerCommand(CmdConst.zig.build.getLastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         return pickedStep ? pickedStep : Promise.reject("cancelled");
       }),
