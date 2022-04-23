@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { ExtConst } from "./zigConst";
 import { ZigExt,  ZigExtConfig } from './zigContext';
 import { ZlsContext } from './zigLangClient';
-import { Logger, LogLevel, channelLogger } from './utils';
+import { Logger, LogLevel } from './utils';
 import * as zig_code_lens from './zigCodeLensProvider';
 import { createBuildTaskProvider } from './task/buildTaskProvider';
 import { createTestTaskProvider } from './task/testTaskProvider';
@@ -23,7 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     zigExtState = {
         extContext: context,
         extChannel: extChannel,
-        logger: channelLogger(LogLevel.warn, extChannel),
+        logger: Logger.channelLogger(extChannel, LogLevel.warn),
         zigCfg: new ZigExtConfig(),
         registrations: [],
     };

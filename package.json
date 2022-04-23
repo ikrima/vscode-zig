@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "publisher": "ikrima",
   "private": true,
   "icon": "assets/zig-icon.png",

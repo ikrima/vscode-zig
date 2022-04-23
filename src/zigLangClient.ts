@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
-import { fs, types, path, Logger, LogLevel, channelLogger } from './utils';
+import { fs, types, path, Logger, LogLevel } from './utils';
 import { ExtConst, CmdConst } from "./zigConst";
 import { ZigExt } from "./zigContext";
 
@@ -26,7 +26,7 @@ export class ZlsContext {
 
   constructor() {
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
-    this.logger     = channelLogger(LogLevel.warn, this.zlsChannel);
+    this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
     this.registrations.push(
       vscode.commands.registerCommand(CmdConst.zls.start, async () => {
         await this.startClient();

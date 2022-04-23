@@ -175,12 +175,10 @@ export namespace LogItem {
   }
 }
 
-export interface LogWriter {
-  append(msg: string): void;
-  clear(): void;
-}
-export interface Logger extends LogWriter {
+export interface Logger {
   maxLogLevel : LogLevel;
+  write   (val: string): void;
+  clear   (): void;
   logItem (item: LogItem): void;
   error   (msg: string, data?: Error | unknown | null, reveal?: boolean): void;
   warn    (msg: string, data?: Error | unknown | null, reveal?: boolean): void;
@@ -188,27 +186,29 @@ export interface Logger extends LogWriter {
   trace   (msg: string, data?: Error | unknown | null, reveal?: boolean): void;
 }
 
-export function channelLogger(maxLogLevel: LogLevel, chan: vscode.OutputChannel): Logger {
-  return <Logger>{
-    append:      msg => chan.append(msg),
-    clear:       () => chan.clear(),
-    maxLogLevel: maxLogLevel,
-    error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-    warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-    info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
-    trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
-    logItem:     function (item: LogItem):                                            void {
-      if (item.level > this.maxLogLevel) { return; }
-      this.append(LogItem.toString(item));
-      switch(item.reveal ? item.level : LogLevel.off) {
-        case LogLevel.off:     break;
-        case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
-        case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
-        case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
-        case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
+export namespace Logger {
+  export function channelLogger(chan: vscode.OutputChannel, maxLogLevel: LogLevel): Logger {
+    return <Logger>{
+      maxLogLevel: maxLogLevel,
+      write:       val => chan.append(val),
+      clear:       () => chan.clear(),
+      error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
+      warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
+      info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
+      trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
+      logItem:     function (item: LogItem): void {
+        if (item.level > this.maxLogLevel) { return; }
+        this.write(LogItem.toString(item));
+        switch(item.reveal ? item.level : LogLevel.off) {
+          case LogLevel.off:     break;
+          case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
+          case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
+          case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
+          case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
+        }
       }
-    }
-  };
+    };
+  }
 }
 
 // #endregion
@@ -429,7 +429,7 @@ export namespace cp {
   export interface ProcessRunOptions {
     shellArgs?:          string[];               // Any arguments
     cwd?:                string;                 // Current working directory
-    logger?:             Logger;                // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
+    logger?:             Logger;                 // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
     onStart?:            () => void;             // Called after the process successfully starts
     onStdout?:           (data: string) => void; // Called when data is sent to stdout
     onStderr?:           (data: string) => void; // Called when data is sent to stderr
