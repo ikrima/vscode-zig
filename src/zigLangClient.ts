@@ -19,14 +19,14 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsContext {
-  private  zlsChannel:    vscode.OutputChannel;
-  readonly logger:        Logger;
-  private  zlsClient?:    ZlsLanguageClient | undefined;
-  private  registrations: vscode.Disposable[] = [];
+  private zlsChannel: vscode.OutputChannel;
+  readonly logger: Logger;
+  private zlsClient?: ZlsLanguageClient | undefined;
+  private registrations: vscode.Disposable[] = [];
 
   constructor() {
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
-    this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
+    this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
     this.registrations.push(
       vscode.commands.registerCommand(CmdConst.zls.start, async () => {
         await this.startClient();
@@ -58,11 +58,11 @@ export class ZlsContext {
     const zigCfg = ZigExt.zigCfg;
     zigCfg.reload();
     const zig = zigCfg.zig;
-    const zls          = zigCfg.zig.zls;
-    const zlsArgs      = <string[]>[];
-    let   zlsDbgPath   = zls.debugBinary ?? zls.binary;
-    const zlsDbgArgs   = ["--debug-log"];
-    const zlsCwd       = types.isNonBlank(zig.buildRootDir)
+    const zls = zigCfg.zig.zls;
+    const zlsArgs = <string[]>[];
+    let zlsDbgPath = zls.debugBinary ?? zls.binary;
+    const zlsDbgArgs = ["--debug-log"];
+    const zlsCwd = types.isNonBlank(zig.buildRootDir)
       ? await fs.dirExists(zig.buildRootDir).then(exists => exists ? zig.buildRootDir : undefined)
       : undefined;
 
@@ -101,25 +101,25 @@ export class ZlsContext {
     }
 
     // Server Options
-    const serverOptions = zls.enableDebug
-      ? <vscodelc.Executable>{
+    const serverOptions: vscodelc.Executable = zls.enableDebug
+      ? {
         command: zlsDbgPath,
         args: zlsDbgArgs,
-        options: { cwd: zlsCwd }
+        options:  { cwd: zlsCwd  } as vscodelc.ExecutableOptions
       }
-      : <vscodelc.Executable>{
+      : {
         command: zls.binary,
         args: zlsArgs,
-        options: { cwd: zlsCwd }
+        options:  { cwd: zlsCwd  } as vscodelc.ExecutableOptions
       };
 
     // Client Options
-    const clientOptions = <vscodelc.LanguageClientOptions>{
+    const clientOptions: vscodelc.LanguageClientOptions = {
       documentSelector: ExtConst.documentSelector,
       outputChannel: this.zlsChannel,
       diagnosticCollectionName: ExtConst.zlsDiagnosticsName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
-      // middleware:            <vscodelc.Middleware>{
+      // middleware: {
       //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
       //     diagnostics.forEach(d => {
       //       d.code = {

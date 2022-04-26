@@ -73,6 +73,9 @@
         "extensions": [
           ".zig"
         ],
+        "aliases": [
+          "Zig"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],

@@ -91,7 +91,6 @@ class ZigCodelensProvider implements vscode.CodeLensProvider {
             }
             i += 1;
           }
-
           i++;
 
           const quoteEnd = i;

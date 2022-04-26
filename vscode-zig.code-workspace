@@ -1,23 +1,24 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {
-		"files.exclude": {
-			"node_modules": true,
-		},
-		"search.exclude": {
-			"node_modules": true,
-			"package-lock.json": true,
-			"out": true,
-			"deprecated_src": true,
-		},
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "node_modules": true,
+    },
+    "search.exclude": {
+      "node_modules": true,
+      "package-lock.json": true,
+      "out": true,
+      "deprecated_src": true,
+    },
 
-		// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-		"typescript.tsc.autoDetect": "off",
-		"typescript.reportStyleChecksAsWarnings": true,
-		"typescript.validate.enable": true
-	}
+    // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+    "typescript.tsc.autoDetect":              "off",
+    "typescript.reportStyleChecksAsWarnings": true,
+    "typescript.validate.enable":             true,
+    "typescript.tsdk":                        "./node_modules/typescript/lib" // we want to use the TS server from our node_modules folder to control its version
+  }
 }

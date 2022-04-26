@@ -138,6 +138,7 @@ export enum LogLevel {
   info    = 2,
   trace   = 3,
 }
+// export type LogLevelKey = keyof typeof LogLevel;
 export type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace';
 export namespace LogLevel {
 	export function fromString(value: LogLevelKey): LogLevel {
@@ -188,14 +189,14 @@ export interface Logger {
 
 export namespace Logger {
   export function channelLogger(chan: vscode.OutputChannel, maxLogLevel: LogLevel): Logger {
-    return <Logger>{
+    return {
       maxLogLevel: maxLogLevel,
       write:       val => chan.append(val),
       clear:       () => chan.clear(),
-      error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.error , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-      warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-      info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.info  , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
-      trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(<LogItem>{level: LogLevel.trace , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
+      error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.error , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
+      warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
+      info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.info  , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
+      trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.trace , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
       logItem:     function (item: LogItem): void {
         if (item.level > this.maxLogLevel) { return; }
         this.write(LogItem.toString(item));
@@ -460,7 +461,7 @@ export namespace cp {
       .concat(options.shellArgs ?? [])
       .map(arg => path.normalizeShellArg(arg))
       .join(' ');
-    return <ProcessRun>{
+    return {
       procCmd:      procCmd,
       childProcess: childProcess,
       isRunning:    () => isRunning,
@@ -473,9 +474,7 @@ export namespace cp {
       completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
         childProcess = cp_.exec(
           procCmd,
-          <cp_.ExecOptions>{
-            cwd: options.cwd, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
-          },
+          { cwd: options.cwd }, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
           (error: cp_.ExecException | null, stdout: string, stderr: string): void => {
             isRunning = false;
             if (options.onExit) { options.onExit(); }
@@ -495,7 +494,7 @@ export namespace cp {
                 );
               }
               reject(Object.assign(
-                <ProcRunException>(error ?? { name: "RunException", message: "Unknown" }),
+                (error ?? { name: "RunException", message: "Unknown" }) as ProcRunException,
                 { stdout: stdout, stderr: stderr }
               ));
             }

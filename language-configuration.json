@@ -1,38 +1,37 @@
 {
   "comments": {
-    "lineComment": "//"
+    "lineComment": "//",
   },
   "brackets": [
     ["{", "}"],
     ["[", "]"],
-    ["(", ")"]
+    ["(", ")"],
   ],
   "autoClosingPairs": [
-    { "open": "{", "close": "}" },
-    { "open": "[", "close": "]" },
-    { "open": "(", "close": ")" },
-    { "open": "'", "close": "'", "notIn": ["string", "comment"] },
-    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "{" , "close": "}"                                  },
+    { "open": "[" , "close": "]"                                  },
+    { "open": "(" , "close": ")"                                  },
+    { "open": "'" , "close": "'" , "notIn": ["string", "comment"] },
+    { "open": "\"", "close": "\"", "notIn": ["string"]            },
   ],
   "autoCloseBefore": ";:.,=}])>` \n\t",
   "surroundingPairs": [
-    ["{", "}"],
-    ["[", "]"],
-    ["(", ")"],
+    ["{" , "}" ],
+    ["[" , "]" ],
+    ["(" , ")" ],
     ["\"", "\""],
-    ["'", "'"]
+    ["'" , "'" ],
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*//\\s*@region\\b",
-      "end": "^\\s*//\\s*@endregion\\b"
+      "start": "^\\s*//\\s*@region\\b"   ,
+      "end"  : "^\\s*//\\s*@endregion\\b",
     }
   },
-
   "onEnterRules": [
     {
       "beforeText": "^\\s*(?:def|for|while|if|else|switch).*?:\\s*$",
-      "action": { "indent": "indent" }
+      "action":     { "indent": "indent" },
     }
-  ]
+  ],
 }

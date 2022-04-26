@@ -5,8 +5,7 @@ import { ZigExt } from "../zigContext";
 import { fs, ext, path } from '../utils';
 // import * as jsyaml from 'js-yaml';
 
-import { Task as ZigTestTask } from 'vscode';
-
+import ZigTestTask = vscode.Task;
 
 interface ZigTestTaskDefinition extends vscode.TaskDefinition {
   testSrcFile:  string;
@@ -132,7 +131,7 @@ class ZigTestTaskProvider implements vscode.TaskProvider {
           "test",
           ...resolvedTaskArgs.cmdArgs,
         ],
-        <vscode.ShellExecutionOptions>{ cwd: resolvedTaskArgs.cwd },
+        { cwd: resolvedTaskArgs.cwd },
       ),
       zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
     );
@@ -158,7 +157,7 @@ class ZigTestTaskProvider implements vscode.TaskProvider {
     if (ext.isExtensionActive(ExtConst.cppToolsExtId)) {
       await vscode.debug.startDebugging(
         undefined,
-        <vscode.DebugConfiguration>{
+        {
           type: 'cppvsdbg',
           name: `Zig Test Debug`,
           request: 'launch',

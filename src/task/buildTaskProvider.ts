@@ -3,18 +3,41 @@ import * as vscode from "vscode";
 import { CmdConst, ExtConst } from "../zigConst";
 import { ZigExt } from "../zigContext";
 import { cp, types, fs } from '../utils';
-import type { ExecFileOptionsWithStringEncoding } from 'child_process';
-// import * as jsyaml from 'js-yaml';
 
-import { Task as ZigBuildTask } from 'vscode';
+import ZigBuildTask = vscode.Task;
 
-
+enum StepGroup {
+  run = 0,
+  test,
+  build,
+  tool,
+  none,
+}
+namespace StepGroup {
+  export function toIcon(group: StepGroup): string {
+    switch (group) {
+      case StepGroup.run:   return "$(play)";
+      case StepGroup.test:  return "$(beaker)";
+      case StepGroup.build: return "$(package)";
+      case StepGroup.tool:  return "$(tools)";
+      case StepGroup.none:  return "";
+    }
+  }
+  export function fromDesc(desc: string): StepGroup {
+    return desc.startsWith("Run:")   ? StepGroup.run
+         : desc.startsWith("Test")   ? StepGroup.test
+         : desc.startsWith("Build:") ? StepGroup.build
+         : desc.startsWith("Tool:")  ? StepGroup.tool
+         :                             StepGroup.none;
+  }
+}
 type ZigBldStep = {
-  stepName: string;
-  stepDesc: string;
-  isDefault: boolean;
+  name:    string;
+  desc:    string;
+  group:   StepGroup;
+  default: boolean;
 };
-const stepsRegEx = /\s+(?<step>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
+const stepsRegEx = /\s+(?<name>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
 
 async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
   const zig = ZigExt.zigCfg.zig;
@@ -31,7 +54,7 @@ async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
         "--help",
         ...[`--build-file`, zig.buildFile],
       ],
-      <ExecFileOptionsWithStringEncoding>{
+      {
         encoding: 'utf8',
         cwd: zig.buildRootDir,
         shell: vscode.env.shell,
@@ -45,24 +68,15 @@ async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     const stepsIdx = stdout.indexOf("Steps:");
     const genOpIdx = stdout.indexOf("General Options:", stepsIdx);
     const stepsStr = stdout.substring(stepsIdx, genOpIdx);
-    const runGroup:  ZigBldStep[] = [];
-    const testGroup: ZigBldStep[] = [];
-    const bldGroup:  ZigBldStep[] = [];
-    const miscGroup: ZigBldStep[] = [];
-    [...stepsStr.matchAll(stepsRegEx)].forEach(
-      (m: RegExpMatchArray) => {
-        const step: ZigBldStep = {
-          stepName: m[1],
-          stepDesc: m[3],
-          isDefault: !types.isNullOrUndefined(m[2])
-        };
-        if      (step.stepName.includes("run"  )) { runGroup .push(step);  }
-        else if (step.stepName.includes("test" )) { testGroup.push(step);  }
-        else if (step.stepName.includes("build")) { bldGroup .push(step);  }
-        else                                      { miscGroup.push(step);  }
-      }
+    return Array.from(
+      stepsStr.matchAll(stepsRegEx),
+      ([_, name, dflt, desc]: RegExpMatchArray): ZigBldStep => ({
+        name:    name,
+        desc:    desc,
+        group:   StepGroup.fromDesc(desc),
+        default: !!dflt,
+      })
     );
-    return [...runGroup, ...testGroup, ...bldGroup, ...miscGroup];
   }
   catch (e) {
     ZigExt.logger.error('zig build errors', e);
@@ -73,21 +87,23 @@ async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
 async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise<string | undefined> {
   type StepPickItem = { step: ZigBldStep } & vscode.QuickPickItem;
   const stepItems = bldSteps.then(steps => {
-    return steps.map(s => <StepPickItem>{
-      step: s,
-      label: s.stepName,
-      description: s.stepDesc,
-    });
+    return steps
+      .sort((a, b) => a.group - b.group)
+      .map<StepPickItem>(s => ({
+        step: s,
+        label: `${StepGroup.toIcon(s.group)} ${s.name}`,
+        description: s.desc,
+      }));
   });
   const picked = await vscode.window.showQuickPick(
     stepItems,
-    <vscode.QuickPickOptions>{
+    {
       placeHolder: "Select the zig target to run",
       canPickMany: false,
       matchOnDescription: true,
     },
   );
-  return picked?.step.stepName;
+  return picked?.step.name;
 }
 
 interface ZigBuildTaskDefinition extends vscode.TaskDefinition {
@@ -177,7 +193,7 @@ class ZigBuildTaskProvider implements vscode.TaskProvider {
     try {
       if (force || !this._cachedBldTasks) {
         this._cachedBldTasks = (await this.cachedBuildSteps())
-          .map(s => this.makeZigTask({ type: ExtConst.buildTaskType, label: s.stepName, stepName: s.stepName }));
+          .map(s => this.makeZigTask({ type: ExtConst.buildTaskType, label: s.name, stepName: s.name }));
       }
       return this._cachedBldTasks;
     }
@@ -221,7 +237,7 @@ class ZigBuildTaskProvider implements vscode.TaskProvider {
           "build",
           ...resolvedTaskArgs.cmdArgs,
         ],
-        <vscode.ShellExecutionOptions>{ cwd: resolvedTaskArgs.cwd },
+        { cwd: resolvedTaskArgs.cwd },
       ),
       zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
     );
@@ -265,7 +281,7 @@ export function createBuildTaskProvider(): vscode.Disposable {
 //              "--help",
 //              ...[`--build-file`, zig.buildFile],
 //            ],
-//            <ExecFileOptionsWithStringEncoding>{
+//            {
 //              encoding: 'utf8',
 //              cwd: zig.buildRootDir,
 //              shell: vscode.env.shell,
@@ -314,7 +330,7 @@ export function createBuildTaskProvider(): vscode.Disposable {
 //        const stepItems = this
 //          .getBuildSteps(false)
 //          .then(steps => {
-//            return steps.map(s => <StepPickItem>{
+//            return steps.map(s => {
 //              step: s,
 //              label: s.stepName,
 //              description: s.stepDesc,
@@ -322,7 +338,7 @@ export function createBuildTaskProvider(): vscode.Disposable {
 //          });
 //        const picked = await vscode.window.showQuickPick(
 //          stepItems,
-//          <vscode.QuickPickOptions>{
+//          {
 //            canPickMany: false,
 //            placeHolder: "Select the zig target to run",
 //          },
@@ -353,7 +369,7 @@ export function createBuildTaskProvider(): vscode.Disposable {
 //       // Do build.
 //       const processRun = cp.runProcess(
 //         this.shellCmd,
-//         <cp.ProcessRunOptions>{
+//         {
 //           shellArgs: this.shellArgs,
 //           cwd: this.cwd,
 //           logger: ZigExt.logger,
