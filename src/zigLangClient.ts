@@ -3,7 +3,8 @@ import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { fs, types, path, Logger, LogLevel } from './utils';
 import { ExtConst, CmdConst } from "./zigConst";
-import { ZigExt } from "./zigContext";
+import { zig_ext } from "./zigContext";
+import { Disposable } from './utils/dispose';
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
   // // Default implementation logs failures to output panel that's meant for extension debugging
@@ -18,16 +19,17 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
   // }
 }
 
-export class ZlsContext {
+class ZlsContext extends Disposable {
   private zlsChannel: vscode.OutputChannel;
   readonly logger: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
-  private registrations: vscode.Disposable[] = [];
 
   constructor() {
+    super();
     this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
     this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
-    this.registrations.push(
+    this.addDisposables(
+      this.zlsChannel,
       vscode.commands.registerCommand(CmdConst.zls.start, async () => {
         await this.startClient();
       }),
@@ -41,11 +43,9 @@ export class ZlsContext {
     );
   }
 
-  async dispose(): Promise<void> {
-    this.registrations.forEach(d => void d.dispose());
-    this.registrations = [];
+  override async dispose(): Promise<void> {
     if (this.zlsClient) { await this.stopClient().catch(); }
-    this.zlsChannel.dispose();
+    super.dispose();
   }
 
 
@@ -55,7 +55,7 @@ export class ZlsContext {
       return Promise.resolve();
     }
     this.logger.info("Starting Zls...");
-    const zigCfg = ZigExt.zigCfg;
+    const zigCfg = zig_ext.zigCfg;
     zigCfg.reload();
     const zig = zigCfg.zig;
     const zls = zigCfg.zig.zls;
@@ -163,6 +163,11 @@ export class ZlsContext {
 
 }
 
+export async function registerLangClient(): Promise<vscode.Disposable> {
+  const zlsContext = new ZlsContext();
+  await zlsContext.startClient();
+  return zlsContext;
+}
 
 //#region todo: advanced options
 // // We hack up the completion items a bit to prevent VSCode from re-ranking and throwing away all our delicious signals like type information

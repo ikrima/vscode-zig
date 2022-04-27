@@ -33,8 +33,8 @@
       {
         "type": "zigbuild",
         "required": [
-          "stepName",
-          "label"
+          "label",
+          "stepName"
         ],
         "properties": {
           "label": {
@@ -64,7 +64,52 @@
         "when": "shellExecutionSupported"
       },
       {
-        "type": "zigtest"
+        "type": "zigtest",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "The name of the task"
+          },
+          "buildArgs": {
+            "description": "Test build args",
+            "type": "object",
+            "required": [
+              "testSrcFile"
+            ],
+            "properties": {
+              "testSrcFile": {
+                "description": "path to zig test source file",
+                "type": "string"
+              },
+              "mainPkgPath": {
+                "description": "test filter",
+                "type": "string"
+              }
+            }
+          },
+          "runArgs": {
+            "description": "Debug Test launch args",
+            "type": "object",
+            "properties": {
+              "debugLaunch": {
+                "description": "Program working directory.",
+                "type": "boolean"
+              },
+              "testFilter": {
+                "description": "test filter",
+                "type": "string"
+              },
+              "cwd": {
+                "description": "current working directory",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "when": "shellExecutionSupported"
       }
     ],
     "languages": [

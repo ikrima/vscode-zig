@@ -127,7 +127,7 @@ export namespace fs {
   export async function tryStat   (filePath: fs_.PathLike): Promise<fs_.Stats|null> { return  await stat(filePath ).catch (_ => null);         }
   export async function fileExists(filePath: string      ): Promise<boolean>        { return (await tryStat(filePath))?.isFile()     ?? false; }
   export async function dirExists (dirPath:  string      ): Promise<boolean>        { return (await tryStat(dirPath))?.isDirectory() ?? false; }
-  export async function createDir (dirPath:  string      )                          { return vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath)); }
+  export async function createDir (dirPath:  string, opts: fs_.MakeDirectoryOptions = { recursive: true }): Promise<string|undefined> { return mkdir(dirPath, opts); }
 }
 //========================================================================================================================
 // #region Logging

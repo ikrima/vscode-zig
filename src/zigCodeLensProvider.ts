@@ -1,25 +1,23 @@
 'use strict';
 import * as vscode from "vscode";
 import { ExtConst, CmdConst } from "./zigConst";
+import type { ZigTestStep } from "./task/zigStep";
+import { Disposable } from './utils/dispose';
 
 
-class ZigCodelensProvider implements vscode.CodeLensProvider {
-  private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
+class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider {
+  public onDidChangeCodeLenses?: vscode.Event<void>;
   private codeLenses: vscode.CodeLens[] = [];
-  private registrations: vscode.Disposable[] = [];
 
-  dispose(): void {
-    this.registrations.forEach(d => void d.dispose());
-    this.registrations = [];
-    this._onDidChangeCodeLenses.dispose();
-  }
   register() {
-    this.registrations.push(
+    const onDidChangeCodeLensesEmitter = new vscode.EventEmitter<void>();
+    this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
+    this.addDisposables(
+      onDidChangeCodeLensesEmitter,
       vscode.languages.registerCodeLensProvider(ExtConst.documentSelector, this),
       vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration(ExtConst.extensionId)) {
-          this._onDidChangeCodeLenses.fire();
+          onDidChangeCodeLensesEmitter.fire();
         }
       }),
     );
@@ -97,31 +95,33 @@ class ZigCodelensProvider implements vscode.CodeLensProvider {
 
           if (token.isCancellationRequested) { return []; }
 
-          const line = document.lineAt(
-            document.positionAt(possibleTestKeyword).line
-          );
-
+          const line = document.lineAt(document.positionAt(possibleTestKeyword).line);
           this.codeLenses.push(
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
               command: CmdConst.zig.test,
               arguments: [
-                document.uri.fsPath,
-                text.substring(quoteStart + 1, quoteEnd - 1),
-                false,
+                {
+                  buildArgs: { testSrcFile: document.uri.fsPath },
+                  runArgs: {
+                    debugLaunch: false,
+                    testFilter: text.substring(quoteStart + 1, quoteEnd - 1),
+                  },
+                } as ZigTestStep
               ],
               tooltip: "Run this test via zig test",
-            })
-          );
-
-          this.codeLenses.push(
+            }),
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
               command: CmdConst.zig.test,
               arguments: [
-                document.uri.fsPath,
-                text.substring(quoteStart + 1, quoteEnd - 1),
-                true,
+                {
+                  buildArgs: { testSrcFile: document.uri.fsPath },
+                  runArgs: {
+                    debugLaunch: true,
+                    testFilter: text.substring(quoteStart + 1, quoteEnd - 1),
+                  },
+                } as ZigTestStep
               ],
               tooltip: "Run this test via zig test",
             })
@@ -138,7 +138,12 @@ class ZigCodelensProvider implements vscode.CodeLensProvider {
         new vscode.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
           command: CmdConst.zig.test,
-          arguments: [document.uri.fsPath, "", false],
+          arguments: [
+            {
+              buildArgs: { testSrcFile: document.uri.fsPath },
+              runArgs: { debugLaunch: false },
+            } as ZigTestStep
+          ],
         })
       );
     }
@@ -148,7 +153,7 @@ class ZigCodelensProvider implements vscode.CodeLensProvider {
 }
 
 
-export function createCodeLensProvider(): vscode.Disposable {
+export function registerCodeLensProvider(): vscode.Disposable {
   const zigCodeLensProvider = new ZigCodelensProvider();
   zigCodeLensProvider.register();
   return zigCodeLensProvider;

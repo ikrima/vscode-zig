@@ -1,141 +1,140 @@
 'use strict';
 import * as vscode from "vscode";
+import { ext, fs, path } from '../utils';
+import { Disposable, DisposableCollection } from '../utils/dispose';
 import { CmdConst, ExtConst } from "../zigConst";
-import { ZigExt } from "../zigContext";
-import { fs, ext, path } from '../utils';
-// import * as jsyaml from 'js-yaml';
-
+import { zig_ext } from "../zigContext";
+import type { ZigTestStep } from "./zigStep";
 import ZigTestTask = vscode.Task;
 
 interface ZigTestTaskDefinition extends vscode.TaskDefinition {
-  testSrcFile:  string;
-  testName?:    string;
-  testFilter?:  string;
-  mainPkgPath?: string;
-  testBinary?:  string;
-  debugMode?:   boolean;
+  label: string;
+  buildArgs: {
+    testSrcFile: string;
+    mainPkgPath?: string | undefined;
+  };
+  runArgs?: {
+    debugLaunch?: boolean | undefined;
+    testFilter?: string | undefined;
+    cwd?: string | undefined;
+  };
 }
-
-class ZigTestTaskProvider implements vscode.TaskProvider {
-  private registrations: vscode.Disposable[] = [];
+class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
+  constructor() { super(); }
   register() {
-    this.registrations.push(
-      vscode.commands.registerCommand(CmdConst.zig.test, async (testSrcFile: string, testFilter: string, debugMode: boolean) => {
-        const zigTask = this.resolveTaskReal({
+    this.addDisposables(
+      vscode.commands.registerCommand(CmdConst.zig.test, async (testStep: ZigTestStep) => {
+        testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
+        testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
+        const taskDef: ZigTestTaskDefinition = {
           type: ExtConst.testTaskType,
-          testSrcFile: testSrcFile,
-          testFilter: testFilter,
-          debugMode: debugMode,
-        });
-        await this.runTask(zigTask, true);
+          label: testStep.label,
+          buildArgs: {
+            testSrcFile: testStep.buildArgs.testSrcFile,
+            mainPkgPath: testStep.buildArgs.mainPkgPath,
+          },
+          runArgs: {
+            debugLaunch: testStep.runArgs.debugLaunch,
+            testFilter: testStep.runArgs.testFilter,
+            cwd: testStep.runArgs.cwd,
+          },
+        };
+        const zigTask = this.makeZigTestTask(taskDef);
+        await this.runTestTask(zigTask);
       }),
       vscode.tasks.registerTaskProvider(ExtConst.testTaskType, this),
     );
-
   }
 
-  dispose(): void {
-    this.registrations.forEach(d => void d.dispose());
-    this.registrations = [];
-  }
   public provideTasks(): ZigTestTask[] {
     return [];
   }
 
   public resolveTask(task: ZigTestTask): ZigTestTask | undefined {
-    if (!task.execution) {
-      const taskDef = task.definition as ZigTestTaskDefinition;
-      task = this.resolveTaskReal(taskDef);
-      return task;
+    if (task.definition['testSrcFile']) {
+      return !task.execution
+        ? this.makeZigTestTask(task.definition as ZigTestTaskDefinition)
+        : task;
     }
     return undefined;
   }
 
-  private async runTask(zigTask: ZigTestTask, updateLastRun: boolean): Promise<void> {
-    if (updateLastRun) {
-      // this.lastRanZigTask = zigTask;
-      // void vscode.commands.executeCommand("setContext", "zig.hasLastRanTask", true);
+  private async runTestTask(zigTask: ZigTestTask): Promise<void> {
+    const taskDef = zigTask.definition as ZigTestTaskDefinition;
+    try { if (!(await fs.dirExists(zig_ext.zigCfg.outDir))) { await fs.createDir(zig_ext.zigCfg.outDir); } } catch (e) {
+      zig_ext.logger.error(`Could not create testEmitBinDir: (${zig_ext.zigCfg.outDir}) does not exists.`, e);
+      return;
     }
-    try {
-      const taskDef = zigTask.definition as ZigTestTaskDefinition;
+    // Run Build Task
+    const execution = await vscode.tasks.executeTask(zigTask);
 
-      if (!taskDef.testBinary) {
-        ZigExt.logger.error(`Task doesn't have binary set.`, taskDef);
-        return;
-      }
-      const testBinDir = path.dirname(taskDef.testBinary);
-      if (!(await fs.dirExists(testBinDir))) {
-        try { await fs.mkdir(testBinDir); } catch (e) {
-          ZigExt.logger.error(`Could not create testEmitBinDir: (${taskDef.testBinary}) does not exists.`, e);
-          return;
-        }
-      }
-      const execution = await vscode.tasks.executeTask(zigTask);
-      if (taskDef.debugMode) {
-        const program = taskDef.testBinary;
-        const args = [ZigExt.zigCfg.zig.binary];
-        const cwd = path.dirname(taskDef.testBinary);
-        await new Promise<void>((resolve, reject) => {
-          let disposable: vscode.Disposable | undefined = undefined;
-          disposable = vscode.tasks.onDidEndTask(async (e) => {
-            if (e.execution !== execution) { return; }
-            disposable?.dispose();
-            disposable = undefined;
+
+    if (taskDef.runArgs?.debugLaunch) {
+      await new Promise<void>((resolve, reject) => {
+        const taskEvent = new DisposableCollection();
+        taskEvent.add(
+          vscode.tasks.onDidEndTask(async (e) => {
+            if (e.execution !== execution || taskEvent.isDisposed) { return; }
+            taskEvent.dispose();
             try {
-              await this.launchDebugger(program, args, cwd);
+              // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
+              if (ext.isExtensionActive(ExtConst.cppToolsExtId)) {
+                await vscode.debug.startDebugging(
+                  vscode.workspace.workspaceFolders?.[0],
+                  {
+                    type: 'cppvsdbg',
+                    name: `Zig Test Debug`,
+                    request: 'launch',
+                    console: 'integratedTerminal',
+                    program: path.join(zig_ext.zigCfg.outDir, `${taskDef.label}.exe`),
+                    args: [zig_ext.zigCfg.zig.binary],
+                    cwd: taskDef.runArgs?.cwd,
+                  } as vscode.DebugConfiguration,
+                );
+              }
+              else if (ext.isExtensionActive(ExtConst.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
+              else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
               resolve();
             }
             catch (e) {
-              ZigExt.logger.error(`Could not launch debugger`, e);
+              zig_ext.logger.error(`Could not launch debugger`, e);
               reject();
             }
-          });
-        });
-      }
-    }
-    catch (e) {
-      ZigExt.logger.error(`Could not execute task: ${zigTask.name}.`, e);
-      return;
+          })
+        );
+      });
     }
   }
-  private resolveTaskReal(
-    taskDef: ZigTestTaskDefinition,
-  ): ZigTestTask {
-    const zig = ZigExt.zigCfg.zig;
-    const testSrcFile = path.normalize(taskDef.testSrcFile);
-    const testName    = taskDef.testName   ?? `test-${path.filename(testSrcFile)}`;
-    const testBinary  = taskDef.testBinary ?? path.join(zig.buildRootDir, "zig-out", "bin", `${testName}.exe`);
-
+  private makeZigTestTask(taskDef: ZigTestTaskDefinition): ZigTestTask {
+    const zig = zig_ext.zigCfg.zig;
     const varCtx = new ext.VariableResolver();
-    const resolvedTaskArgs = {
+    const rslvdBldCmdArgs = {
       cmdArgs: [
-        path.normalize(testSrcFile),
-        ...(taskDef.mainPkgPath ? ["--main-pkg-path", taskDef.mainPkgPath] : []),
-        `-femit-bin=${testBinary}`,
-        ...(taskDef.testFilter ? ["--test-filter", taskDef.testFilter] : []),
-        ...(taskDef.debugMode ? [`--test-no-exec`] : []),
-        "--name", testName,
+        taskDef.buildArgs.testSrcFile,
+        ...(taskDef.buildArgs.mainPkgPath ? ["--main-pkg-path", taskDef.buildArgs.mainPkgPath] : []),
+        `-femit-bin=` + path.join(zig_ext.zigCfg.outDir, `${taskDef.label}.exe`),
+        ...(taskDef.runArgs?.testFilter ? ["--test-filter", taskDef.runArgs.testFilter] : []),
+        ...(taskDef.runArgs?.debugLaunch ? [`--test-no-exec`] : []),
+        "--name", taskDef.label,
         "--enable-cache",
+        "--cache-dir", zig_ext.zigCfg.cacheDir,
       ].map(arg => varCtx.resolveVars(arg)),
       cwd: zig.buildRootDir,
     };
-
     const task = new ZigTestTask(
       taskDef,
       vscode.TaskScope.Workspace,
-      testName,
+      taskDef.label,
       ExtConst.taskProviderSourceStr,
       new vscode.ShellExecution(
         zig.binary, // ext.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
-        [
-          "test",
-          ...resolvedTaskArgs.cmdArgs,
-        ],
-        { cwd: resolvedTaskArgs.cwd },
+        ["test", ...rslvdBldCmdArgs.cmdArgs],
+        { cwd: rslvdBldCmdArgs.cwd },
       ),
       zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
     );
-    task.group = vscode.TaskGroup.Build;
+    task.group = vscode.TaskGroup.Test;
+    task.detail = `zig test ${taskDef.label}`;
     task.presentationOptions = {
       reveal: vscode.TaskRevealKind.Always,
       echo: true,
@@ -146,35 +145,9 @@ class ZigTestTaskProvider implements vscode.TaskProvider {
     };
     return task;
   }
-
-  private async launchDebugger(
-    program: string,
-    args: string[],
-    cwd: string,
-  ): Promise<void> {
-    if (!(await fs.fileExists(program))) { throw new Error(`Failed to find compiled test binary: (${program})`); }
-
-    if (ext.isExtensionActive(ExtConst.cppToolsExtId)) {
-      await vscode.debug.startDebugging(
-        undefined,
-        {
-          type: 'cppvsdbg',
-          name: `Zig Test Debug`,
-          request: 'launch',
-          console: 'integratedTerminal',
-          program: program,
-          args: args,
-          cwd: cwd,
-        },
-      );
-    }
-    else if (ext.isExtensionActive(ExtConst.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
-    else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
-  }
-
 }
 
-export function createTestTaskProvider(): vscode.Disposable {
+export function registerTestTaskProvider(): vscode.Disposable {
   const zigTestTaskProvider = new ZigTestTaskProvider();
   zigTestTaskProvider.register();
   return zigTestTaskProvider;
