@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import { ext, Logger, LogLevel, path } from './utils';
 import { DisposableCollection } from './utils/dispose';
-import { ExtConst } from './zigConst';
+import { Const } from './zigConst';
 import { registerLangClient } from './zigLangClient';
 import { registerBuildTaskProvider } from './task/buildTaskProvider';
 import { registerTestTaskProvider } from './task/testTaskProvider';
@@ -16,7 +16,7 @@ export namespace zig_ext {
   const subscriptions = new DisposableCollection();
   export async function activate(context: vscode.ExtensionContext): Promise<void> {
     extContext = context;
-    const extChannel = vscode.window.createOutputChannel(ExtConst.extensionId);
+    const extChannel = vscode.window.createOutputChannel(Const.extensionId);
     logger = Logger.channelLogger(extChannel, LogLevel.warn);
     zigCfg = new ZigExtConfig();
     subscriptions.add(...(
@@ -49,7 +49,7 @@ export interface ZigConfigData {
 export class ZigExtConfig extends ext.ExtensionConfigBase<ZigConfigData> {
   constructor(scope?: vscode.ConfigurationScope | null) {
     super(
-      ExtConst.extensionId,
+      Const.extensionId,
       scope,
       (zig: ZigConfigData): void => {
         const varCtx = new ext.VariableResolver();

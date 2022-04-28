@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from "vscode";
-import { ExtConst, CmdConst } from "./zigConst";
+import { Const, Cmd } from "./zigConst";
 import type { ZigTestStep } from "./task/zigStep";
 import { Disposable } from './utils/dispose';
 
@@ -14,9 +14,9 @@ class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider 
     this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
     this.addDisposables(
       onDidChangeCodeLensesEmitter,
-      vscode.languages.registerCodeLensProvider(ExtConst.documentSelector, this),
+      vscode.languages.registerCodeLensProvider(Const.documentSelector, this),
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration(ExtConst.extensionId)) {
+        if (e.affectsConfiguration(Const.extensionId)) {
           onDidChangeCodeLensesEmitter.fire();
         }
       }),
@@ -99,7 +99,7 @@ class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider 
           this.codeLenses.push(
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
-              command: CmdConst.zig.test,
+              command: Cmd.zig.test,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -113,7 +113,7 @@ class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider 
             }),
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
-              command: CmdConst.zig.test,
+              command: Cmd.zig.test,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -137,7 +137,7 @@ class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider 
       this.codeLenses.push(
         new vscode.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
-          command: CmdConst.zig.test,
+          command: Cmd.zig.test,
           arguments: [
             {
               buildArgs: { testSrcFile: document.uri.fsPath },

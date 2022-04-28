@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from "vscode";
 import { cp, fs, types } from '../utils';
-import { zig_ext } from "../zigContext";
+import { zig_ext } from "../zigExt";
 
 
 export enum StepGroup {

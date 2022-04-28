@@ -2,8 +2,8 @@
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { fs, types, path, Logger, LogLevel } from './utils';
-import { ExtConst, CmdConst } from "./zigConst";
-import { zig_ext } from "./zigContext";
+import { Const, Cmd } from "./zigConst";
+import { zig_ext } from "./zigExt";
 import { Disposable } from './utils/dispose';
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
@@ -30,13 +30,13 @@ class ZlsContext extends Disposable {
     this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
     this.addDisposables(
       this.zlsChannel,
-      vscode.commands.registerCommand(CmdConst.zls.start, async () => {
+      vscode.commands.registerCommand(Cmd.zls.start, async () => {
         await this.startClient();
       }),
-      vscode.commands.registerCommand(CmdConst.zls.stop, async () => {
+      vscode.commands.registerCommand(Cmd.zls.stop, async () => {
         await this.stopClient();
       }),
-      vscode.commands.registerCommand(CmdConst.zls.restart, async () => {
+      vscode.commands.registerCommand(Cmd.zls.restart, async () => {
         await this.stopClient();
         await this.startClient();
       }),
@@ -115,9 +115,9 @@ class ZlsContext extends Disposable {
 
     // Client Options
     const clientOptions: vscodelc.LanguageClientOptions = {
-      documentSelector: ExtConst.documentSelector,
+      documentSelector: Const.documentSelector,
       outputChannel: this.zlsChannel,
-      diagnosticCollectionName: ExtConst.zlsDiagnosticsName,
+      diagnosticCollectionName: Const.zlsDiagnosticsName,
       revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
       // middleware: {
       //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
@@ -156,7 +156,7 @@ class ZlsContext extends Disposable {
 
     this.logger.info("Stopping Zls...");
     return zlsClient.stop().catch(e => {
-      this.logger.error(`${CmdConst.zls.stop} failed during dispose.`, e);
+      this.logger.error(`${Cmd.zls.stop} failed during dispose.`, e);
       return Promise.reject();
     });
   }

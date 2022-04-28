@@ -1,6 +1,6 @@
 'use strict';
 
-export namespace ExtConst {
+export namespace Const {
   export const languageId = 'zig';
   export const extensionId = 'zig';
   export const documentSelector = [{ language: 'zig', scheme: 'file' }];
@@ -12,7 +12,7 @@ export namespace ExtConst {
   export const cppToolsExtId = "ms-vscode.cpptools";
   export const lldbExtId = "vadimcn.vscode-lldb";
 }
-export namespace CmdConst {
+export namespace Cmd {
   export namespace zls {
     export const start   = "zig.zls.start";
     export const stop    = "zig.zls.stop";

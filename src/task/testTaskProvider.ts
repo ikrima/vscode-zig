@@ -2,8 +2,8 @@
 import * as vscode from "vscode";
 import { ext, fs, path } from '../utils';
 import { Disposable, DisposableCollection } from '../utils/dispose';
-import { CmdConst, ExtConst } from "../zigConst";
-import { zig_ext } from "../zigContext";
+import { Cmd, Const } from "../zigConst";
+import { zig_ext } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
 import ZigTestTask = vscode.Task;
 
@@ -23,11 +23,11 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
   constructor() { super(); }
   register() {
     this.addDisposables(
-      vscode.commands.registerCommand(CmdConst.zig.test, async (testStep: ZigTestStep) => {
+      vscode.commands.registerCommand(Cmd.zig.test, async (testStep: ZigTestStep) => {
         testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
         testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
-          type: ExtConst.testTaskType,
+          type: Const.testTaskType,
           label: testStep.label,
           buildArgs: {
             testSrcFile: testStep.buildArgs.testSrcFile,
@@ -42,7 +42,7 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
         const zigTask = this.makeZigTestTask(taskDef);
         await this.runTestTask(zigTask);
       }),
-      vscode.tasks.registerTaskProvider(ExtConst.testTaskType, this),
+      vscode.tasks.registerTaskProvider(Const.testTaskType, this),
     );
   }
 
@@ -78,7 +78,7 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
             taskEvent.dispose();
             try {
               // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
-              if (ext.isExtensionActive(ExtConst.cppToolsExtId)) {
+              if (ext.isExtensionActive(Const.cppToolsExtId)) {
                 await vscode.debug.startDebugging(
                   vscode.workspace.workspaceFolders?.[0],
                   {
@@ -92,7 +92,7 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
                   } as vscode.DebugConfiguration,
                 );
               }
-              else if (ext.isExtensionActive(ExtConst.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
+              else if (ext.isExtensionActive(Const.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
               else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
               resolve();
             }
@@ -125,13 +125,13 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
       taskDef,
       vscode.TaskScope.Workspace,
       taskDef.label,
-      ExtConst.taskProviderSourceStr,
+      Const.taskProviderSourceStr,
       new vscode.ShellExecution(
         zig.binary, // ext.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
         ["test", ...rslvdBldCmdArgs.cmdArgs],
         { cwd: rslvdBldCmdArgs.cwd },
       ),
-      zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
+      zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
     task.group = vscode.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;

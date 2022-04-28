@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from "vscode";
-import { CmdConst, ExtConst } from "../zigConst";
-import { zig_ext } from "../zigContext";
+import { Cmd, Const } from "../zigConst";
+import { zig_ext } from "../zigExt";
 import { Disposable } from '../utils/dispose';
 import { ZigBldStep, rawGetBuildSteps, rawPickBuildStep } from "./zigStep";
 import ZigBuildTask = vscode.Task;
@@ -28,19 +28,19 @@ class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
       fileWatcher.onDidChange(() => this.invalidateTasksCache()),
       fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
-      vscode.commands.registerCommand(CmdConst.zig.build.runStep, async (stepName: string) => {
+      vscode.commands.registerCommand(Cmd.zig.build.runStep, async (stepName: string) => {
         await this.runBuildStep(stepName);
       }),
-      vscode.commands.registerCommand(CmdConst.zig.build.lastTarget, async (args?: { forcePick: boolean }) => {
+      vscode.commands.registerCommand(Cmd.zig.build.lastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         if (!pickedStep) { return; }
         await this.runBuildStep(pickedStep);
       }),
-      vscode.commands.registerCommand(CmdConst.zig.build.getLastTarget, async (args?: { forcePick: boolean }) => {
+      vscode.commands.registerCommand(Cmd.zig.build.getLastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         return pickedStep ? pickedStep : Promise.reject("cancelled");
       }),
-      vscode.tasks.registerTaskProvider(ExtConst.buildTaskType, this),
+      vscode.tasks.registerTaskProvider(Const.buildTaskType, this),
     );
 
     // const zigFormatStatusBar: vscode.StatusBarItem = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
@@ -88,7 +88,7 @@ class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
     try {
       if (force || !this._cachedBldTasks) {
         this._cachedBldTasks = (await this.cachedBuildSteps())
-          .map(s => this.makeZigTask({ type: ExtConst.buildTaskType, label: s.name, stepName: s.name }));
+          .map(s => this.makeZigTask({ type: Const.buildTaskType, label: s.name, stepName: s.name }));
       }
       return this._cachedBldTasks;
     }
@@ -108,7 +108,7 @@ class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
   }
 
   private async runBuildStep(stepName: string): Promise<void> {
-    const bldTask = this.makeZigTask({ type: ExtConst.buildTaskType, label: stepName, stepName: stepName });
+    const bldTask = this.makeZigTask({ type: Const.buildTaskType, label: stepName, stepName: stepName });
     await vscode.tasks.executeTask(bldTask);
   }
   private makeZigTask(taskDef: ZigBuildTaskDefinition): ZigBuildTask {
@@ -125,7 +125,7 @@ class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
       taskDef,
       vscode.TaskScope.Workspace,
       taskDef.label,
-      ExtConst.taskProviderSourceStr,
+      Const.taskProviderSourceStr,
       new vscode.ShellExecution(
         zig.binary,
         [
@@ -134,7 +134,7 @@ class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
         ],
         { cwd: resolvedTaskArgs.cwd },
       ),
-      zig.enableTaskProblemMatcher ? ExtConst.problemMatcher : undefined,
+      zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
     const stepNameLower = taskDef.stepName.toLowerCase();
     if (stepNameLower.includes("build")) { task.group = vscode.TaskGroup.Build; }
