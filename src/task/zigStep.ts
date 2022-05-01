@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from "vscode";
-import { cp, fs, types } from '../utils';
+import { cp, fs, strings } from '../utils/common';
 import { zig_ext } from "../zigExt";
 
 
@@ -73,7 +73,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       }
     );
 
-    if (types.isNonBlank(stderr)) {
+    if (!strings.isWhiteSpace(stderr)) {
       zig_ext.logger.error(`zig build errors\n${stderr}`);
       return Promise.reject();
     }

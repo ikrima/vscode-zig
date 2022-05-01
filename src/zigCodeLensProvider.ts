@@ -2,10 +2,10 @@
 import * as vscode from "vscode";
 import { Const, Cmd } from "./zigConst";
 import type { ZigTestStep } from "./task/zigStep";
-import { Disposable } from './utils/dispose';
+import { DisposableStore } from './utils/dispose';
 
 
-class ZigCodelensProvider extends Disposable implements vscode.CodeLensProvider {
+class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProvider {
   public onDidChangeCodeLenses?: vscode.Event<void>;
   private codeLenses: vscode.CodeLens[] = [];
 

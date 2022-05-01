@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as vscode from "vscode";
-import { ext, Logger, LogLevel, path } from './utils';
-import { DisposableCollection } from './utils/dispose';
+import { path } from './utils/common';
+import * as ext from './utils/ext';
+import { Logger, LogLevel } from './utils/logger';
+import { DisposableStore } from './utils/dispose';
 import { Const } from './zigConst';
 import { registerLangClient } from './zigLangClient';
 import { registerBuildTaskProvider } from './task/buildTaskProvider';
@@ -13,13 +15,13 @@ export namespace zig_ext {
   export let extContext: vscode.ExtensionContext;
   export let logger: Logger;
   export let zigCfg: ZigExtConfig;
-  const subscriptions = new DisposableCollection();
+  const subscriptions = new DisposableStore();
   export async function activate(context: vscode.ExtensionContext): Promise<void> {
     extContext = context;
     const extChannel = vscode.window.createOutputChannel(Const.extensionId);
     logger = Logger.channelLogger(extChannel, LogLevel.warn);
     zigCfg = new ZigExtConfig();
-    subscriptions.add(...(
+    subscriptions.addDisposables(...(
       await Promise.all([
         registerLangClient(),
         registerCodeLensProvider(),

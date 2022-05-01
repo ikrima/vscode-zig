@@ -1,10 +1,11 @@
 'use strict';
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
-import { fs, types, path, Logger, LogLevel } from './utils';
+import { fs, path, strings } from './utils/common';
+import { Logger, LogLevel } from './utils/logger';
 import { Const, Cmd } from "./zigConst";
 import { zig_ext } from "./zigExt";
-import { Disposable } from './utils/dispose';
+import { DisposableStore } from './utils/dispose';
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
   // // Default implementation logs failures to output panel that's meant for extension debugging
@@ -19,7 +20,7 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
   // }
 }
 
-class ZlsContext extends Disposable {
+class ZlsContext extends DisposableStore {
   private zlsChannel: vscode.OutputChannel;
   readonly logger: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
@@ -62,7 +63,7 @@ class ZlsContext extends Disposable {
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zls.debugBinary ?? zls.binary;
     const zlsDbgArgs = ["--debug-log"];
-    const zlsCwd = types.isNonBlank(zig.buildRootDir)
+    const zlsCwd = !strings.isWhiteSpace(zig.buildRootDir)
       ? await fs.dirExists(zig.buildRootDir).then(exists => exists ? zig.buildRootDir : undefined)
       : undefined;
 
@@ -105,12 +106,12 @@ class ZlsContext extends Disposable {
       ? {
         command: zlsDbgPath,
         args: zlsDbgArgs,
-        options:  { cwd: zlsCwd  } as vscodelc.ExecutableOptions
+        options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
       }
       : {
         command: zls.binary,
         args: zlsArgs,
-        options:  { cwd: zlsCwd  } as vscodelc.ExecutableOptions
+        options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
       };
 
     // Client Options

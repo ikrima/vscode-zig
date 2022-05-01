@@ -1,7 +1,8 @@
 'use strict';
 import * as vscode from "vscode";
-import { ext, fs, path } from '../utils';
-import { Disposable, DisposableCollection } from '../utils/dispose';
+import { fs, path } from '../utils/common';
+import * as ext from '../utils/ext';
+import { DisposableStore } from '../utils/dispose';
 import { Cmd, Const } from "../zigConst";
 import { zig_ext } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
@@ -19,7 +20,7 @@ interface ZigTestTaskDefinition extends vscode.TaskDefinition {
     cwd?: string | undefined;
   };
 }
-class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
+class ZigTestTaskProvider extends DisposableStore implements vscode.TaskProvider {
   constructor() { super(); }
   register() {
     this.addDisposables(
@@ -71,8 +72,8 @@ class ZigTestTaskProvider extends Disposable implements vscode.TaskProvider {
 
     if (taskDef.runArgs?.debugLaunch) {
       await new Promise<void>((resolve, reject) => {
-        const taskEvent = new DisposableCollection();
-        taskEvent.add(
+        const taskEvent = new DisposableStore();
+        taskEvent.addDisposables(
           vscode.tasks.onDidEndTask(async (e) => {
             if (e.execution !== execution || taskEvent.isDisposed) { return; }
             taskEvent.dispose();

@@ -2,7 +2,7 @@
 import * as vscode from "vscode";
 import { Cmd, Const } from "../zigConst";
 import { zig_ext } from "../zigExt";
-import { Disposable } from '../utils/dispose';
+import { DisposableStore } from '../utils/dispose';
 import { ZigBldStep, rawGetBuildSteps, rawPickBuildStep } from "./zigStep";
 import ZigBuildTask = vscode.Task;
 
@@ -14,7 +14,7 @@ interface ZigBuildTaskDefinition extends vscode.TaskDefinition {
   cwd?: string;
 }
 
-class ZigBuildTaskProvider extends Disposable implements vscode.TaskProvider {
+class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvider {
   private _cachedBldSteps: ZigBldStep[] | undefined = undefined;
   private _cachedBldTasks: ZigBuildTask[] | undefined = undefined;
   private _cachedPickedStep: string | undefined = undefined;
@@ -279,8 +279,8 @@ export function registerBuildTaskProvider(): vscode.Disposable {
 //       const { stdout, stderr } = await processRun.completion;
 //
 //       // printBuildSummary
-//       const hasStdOut = types.isNonBlank(stdout);
-//       const hasStdErr = types.isNonBlank(stderr);
+//       const hasStdOut = !strings.isWhiteSpace(stdout);
+//       const hasStdErr = !strings.isWhiteSpace(stderr);
 //       if (
 //         (!hasStdOut && hasStdErr && stderr.includes("error"))
 //         || (hasStdOut && stdout.includes("error"))
