@@ -126,7 +126,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vscode.Task
       taskDef.label,
       Const.taskProviderSourceStr,
       new vscode.ShellExecution(
-        zig.binary,
+        isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
           "build",
           ...resolvedTaskArgs.cmdArgs,

@@ -66,30 +66,32 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
       return;
     }
     // Run Build Task
-    const execution = await vscode.tasks.executeTask(zigTask);
+    const executionPromise = vscode.tasks.executeTask(zigTask);
+    if (!taskDef.runArgs?.debugLaunch) {
+      await executionPromise;
+      return;
+    }
 
-    if (taskDef.runArgs?.debugLaunch) {
-      await new Promise<void>((resolve, reject) => {
-        let taskEvent: vscode.Disposable | undefined = vscode.tasks.onDidEndTask(async (e) => {
-          if (e.execution !== execution || !taskEvent) { return; }
-          taskEvent = undefined;
+    return await executionPromise.then(
+      execution => new Promise<void>((resolve, reject) => {
+        const listener = vscode.tasks.onDidEndTask(async (e) => {
+          if (e.execution !== execution) { return; }
+          listener.dispose();
           try {
             // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
-            if (ext.isExtensionActive(Const.cppToolsExtId)) {
-              await vscode.debug.startDebugging(
-                vscode.workspace.workspaceFolders?.[0],
-                {
-                  type: 'cppvsdbg',
-                  name: `Zig Test Debug`,
-                  request: 'launch',
-                  console: 'integratedTerminal',
-                  program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-                  args: [zig_cfg.zig.binary],
-                  cwd: taskDef.runArgs?.cwd,
-                } as vscode.DebugConfiguration,
-              );
+            if (isExtensionActive(Const.cppToolsExtId)) {
+              const debugConfig: vscode.DebugConfiguration = {
+                type: 'cppvsdbg',
+                name: `Zig Test Debug`,
+                request: 'launch',
+                console: 'integratedTerminal',
+                program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+                args: [zig_cfg.zig.binary],
+                cwd: taskDef.runArgs?.cwd,
+              };
+              await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], debugConfig);
             }
-            else if (ext.isExtensionActive(Const.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
+            else if (isExtensionActive(Const.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
             else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
             resolve();
           }
@@ -98,8 +100,13 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
             reject();
           }
         });
-      });
-    }
+      }),
+      e => {
+        zig_logger.error(`zig build for ${taskDef.label} failed`, e);
+      }
+    );
+
+
   }
   private makeZigTestTask(taskDef: ZigTestTaskDefinition): ZigTestTask {
     const zig = zig_cfg.zig;
@@ -123,7 +130,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
       taskDef.label,
       Const.taskProviderSourceStr,
       new vscode.ShellExecution(
-        zig.binary, // ext.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary;
+        isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         ["test", ...rslvdBldCmdArgs.cmdArgs],
         { cwd: rslvdBldCmdArgs.cwd },
       ),
