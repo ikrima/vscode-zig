@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { fs, path, strings } from './utils/common';
 import { Logger, LogLevel } from './utils/logger';
-import { Const, Cmd } from "./zigConst";
+import { Const, CmdId } from "./zigConst";
 import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
 
@@ -30,13 +30,13 @@ export class ZlsServices extends DisposableStore {
     this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
-      vscode.commands.registerCommand(Cmd.zls.start, async () => {
+      vscode.commands.registerCommand(CmdId.zls.start, async () => {
         await this.startClient();
       }),
-      vscode.commands.registerCommand(Cmd.zls.stop, async () => {
+      vscode.commands.registerCommand(CmdId.zls.stop, async () => {
         await this.stopClient();
       }),
-      vscode.commands.registerCommand(Cmd.zls.restart, async () => {
+      vscode.commands.registerCommand(CmdId.zls.restart, async () => {
         await this.stopClient();
         await this.startClient();
       }),
@@ -155,7 +155,7 @@ export class ZlsServices extends DisposableStore {
 
     this.logger.info("Stopping Zls...");
     return zlsClient.stop().catch(e => {
-      this.logger.error(`${Cmd.zls.stop} failed during dispose.`, e);
+      this.logger.error(`${CmdId.zls.stop} failed during dispose.`, e);
       return Promise.reject();
     });
   }

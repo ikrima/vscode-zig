@@ -137,7 +137,7 @@
         "owner": "zig",
         "fileLocation": [
           "autoDetect",
-          "${workspaceFolder}"
+          "${config:zig.buildRootDir}"
         ],
         "pattern": {
           "regexp": "([^\\s]*):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(note|error):\\s+(.*)$",

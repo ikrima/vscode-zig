@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from 'vscode';
-import { Const, Cmd } from "./zigConst";
+import { Const, CmdId } from "./zigConst";
 import type { ZigTestStep } from "./task/zigStep";
 import { DisposableStore } from './utils/dispose';
 
@@ -97,7 +97,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
           this.codeLenses.push(
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
-              command: Cmd.zig.test,
+              command: CmdId.zig.test,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -111,7 +111,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
             }),
             new vscode.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
-              command: Cmd.zig.test,
+              command: CmdId.zig.test,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -135,7 +135,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
       this.codeLenses.push(
         new vscode.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
-          command: Cmd.zig.test,
+          command: CmdId.zig.test,
           arguments: [
             {
               buildArgs: { testSrcFile: document.uri.fsPath },

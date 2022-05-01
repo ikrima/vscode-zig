@@ -1,9 +1,9 @@
 'use strict';
 import * as vscode from 'vscode';
 import { fs, path } from '../utils/common';
-import * as ext from '../utils/ext';
+import { isWindows, VariableResolver, isExtensionActive } from '../utils/ext';
 import { DisposableStore } from '../utils/dispose';
-import { Cmd, Const } from "../zigConst";
+import { CmdId, Const } from "../zigConst";
 import { zig_logger, zig_cfg } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
 import ZigTestTask = vscode.Task;
@@ -24,8 +24,8 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
   public activate() {
     this.addDisposables(
       vscode.tasks.registerTaskProvider(Const.testTaskType, this),
-      vscode.commands.registerCommand(Cmd.zig.test, async (testStep: ZigTestStep) => {
-        testStep.label                 = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
+      vscode.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {
+        testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
         testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
           type: Const.testTaskType,
@@ -103,7 +103,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
   }
   private makeZigTestTask(taskDef: ZigTestTaskDefinition): ZigTestTask {
     const zig = zig_cfg.zig;
-    const varCtx = new ext.VariableResolver();
+    const varCtx = new VariableResolver();
     const rslvdBldCmdArgs = {
       cmdArgs: [
         taskDef.buildArgs.testSrcFile,

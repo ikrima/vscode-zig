@@ -1,6 +1,7 @@
 'use strict';
 import * as vscode from 'vscode';
-import { Cmd, Const } from "../zigConst";
+import { CmdId, Const } from "../zigConst";
+import { isWindows } from '../utils/ext';
 import { zig_logger, zig_cfg } from "../zigExt";
 import { DisposableStore } from '../utils/dispose';
 import { ZigBldStep, rawGetBuildSteps, rawPickBuildStep } from "./zigStep";
@@ -27,15 +28,15 @@ export class ZigBuildTaskProvider extends DisposableStore implements vscode.Task
       fileWatcher.onDidChange(() => this.invalidateTasksCache()),
       fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
-      vscode.commands.registerCommand(Cmd.zig.build.runStep, async (stepName: string) => {
+      vscode.commands.registerCommand(CmdId.zig.build.runStep, async (stepName: string) => {
         await this.runBuildStep(stepName);
       }),
-      vscode.commands.registerCommand(Cmd.zig.build.lastTarget, async (args?: { forcePick: boolean }) => {
+      vscode.commands.registerCommand(CmdId.zig.build.lastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         if (!pickedStep) { return; }
         await this.runBuildStep(pickedStep);
       }),
-      vscode.commands.registerCommand(Cmd.zig.build.getLastTarget, async (args?: { forcePick: boolean }) => {
+      vscode.commands.registerCommand(CmdId.zig.build.getLastTarget, async (args?: { forcePick: boolean }) => {
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         return pickedStep ? pickedStep : Promise.reject("cancelled");
       }),
@@ -130,7 +131,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vscode.Task
           "build",
           ...resolvedTaskArgs.cmdArgs,
         ],
-        { cwd: resolvedTaskArgs.cwd },
+        { cwd: resolvedTaskArgs.cwd }  as vscode.ShellExecutionOptions,
       ),
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
@@ -312,14 +313,14 @@ export class ZigBuildTaskProvider extends DisposableStore implements vscode.Task
 //
 //   private emitLine(text: string) {
 //     this.writeEmitter.fire(text);
-//     this.writeEmitter.fire(ext.crlfString);
+//     this.writeEmitter.fire(crlfString);
 //   }
 //   private splitWriteEmitter(lines: string | Buffer) {
-//     const splitLines: string[] = lines.toString().split(ext.eolRegEx);
+//     const splitLines: string[] = lines.toString().split(eolRegEx);
 //     for (let i = 0; i < splitLines.length; i++) {
 //       let line = splitLines[i];
 //       // We may not get full lines, only output an eol when a full line is detected
-//       if (i !== splitLines.length - 1) { line += ext.crlfString; }
+//       if (i !== splitLines.length - 1) { line += crlfString; }
 //       this.writeEmitter.fire(line);
 //     }
 //   }

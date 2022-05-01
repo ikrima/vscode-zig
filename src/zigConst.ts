@@ -12,7 +12,7 @@ export namespace Const {
   export const cppToolsExtId         = "ms-vscode.cpptools";
   export const lldbExtId             = "vadimcn.vscode-lldb";
 }
-export namespace Cmd {
+export namespace CmdId {
   export namespace zls {
     export const start   = "zig.zls.start";
     export const stop    = "zig.zls.stop";
