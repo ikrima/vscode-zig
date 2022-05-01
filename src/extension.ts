@@ -1,10 +1,10 @@
 'use strict';
 import type * as vscode from 'vscode';
-import { zig_ext } from './zigExt';
+import { ZigExtServices } from './zigExt';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  return zig_ext.activate(context);
+	const zigExtServices = new ZigExtServices(context);
+	context.subscriptions.push(zigExtServices);
+	return zigExtServices.activate();
 }
-export function deactivate() {
-  zig_ext.deactivate();
-}
+export function deactivate() {} // eslint-disable-line @typescript-eslint/no-empty-function

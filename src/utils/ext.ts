@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import * as process_ from 'process';
 import * as os from 'os';
 import * as cp_ from 'child_process';

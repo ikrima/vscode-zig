@@ -1,7 +1,7 @@
 'use strict';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import { Cmd, Const } from "../zigConst";
-import { zig_ext } from "../zigExt";
+import { zig_logger, zig_cfg } from "../zigExt";
 import { DisposableStore } from '../utils/dispose';
 import { ZigBldStep, rawGetBuildSteps, rawPickBuildStep } from "./zigStep";
 import ZigBuildTask = vscode.Task;
@@ -14,17 +14,16 @@ interface ZigBuildTaskDefinition extends vscode.TaskDefinition {
   cwd?: string;
 }
 
-class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvider {
+export class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvider {
   private _cachedBldSteps: ZigBldStep[] | undefined = undefined;
   private _cachedBldTasks: ZigBuildTask[] | undefined = undefined;
   private _cachedPickedStep: string | undefined = undefined;
 
-  constructor() { super(); }
-  public register() {
-    const fileWatcher = vscode.workspace.createFileSystemWatcher(zig_ext.zigCfg.zig.buildFile);
+  public activate() {
+    const fileWatcher = this.addDisposable(vscode.workspace.createFileSystemWatcher(zig_cfg.zig.buildFile));
 
     this.addDisposables(
-      fileWatcher,
+      vscode.tasks.registerTaskProvider(Const.buildTaskType, this),
       fileWatcher.onDidChange(() => this.invalidateTasksCache()),
       fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
@@ -40,7 +39,6 @@ class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvide
         const pickedStep = await this.cachedPickedStep(args?.forcePick);
         return pickedStep ? pickedStep : Promise.reject("cancelled");
       }),
-      vscode.tasks.registerTaskProvider(Const.buildTaskType, this),
     );
 
     // const zigFormatStatusBar: vscode.StatusBarItem = vscode.window.createStatusBarItem("zig.statusBar", vscode.StatusBarAlignment.Left);
@@ -79,7 +77,7 @@ class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvide
     }
     catch (e) {
       this._cachedBldSteps = undefined;
-      zig_ext.logger.error('zig build errors', e);
+      zig_logger.error('zig build errors', e);
       return Promise.reject();
     }
   }
@@ -94,7 +92,7 @@ class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvide
     }
     catch (e) {
       this._cachedBldTasks = undefined;
-      zig_ext.logger.error('zig build errors', e);
+      zig_logger.error('zig build errors', e);
       return Promise.reject();
     }
   }
@@ -112,7 +110,7 @@ class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvide
     await vscode.tasks.executeTask(bldTask);
   }
   private makeZigTask(taskDef: ZigBuildTaskDefinition): ZigBuildTask {
-    const zig = zig_ext.zigCfg.zig;
+    const zig = zig_cfg.zig;
     const resolvedTaskArgs = {
       cmdArgs: [
         taskDef.stepName,
@@ -151,11 +149,6 @@ class ZigBuildTaskProvider extends DisposableStore implements vscode.TaskProvide
     return task;
   }
 }
-export function registerBuildTaskProvider(): vscode.Disposable {
-  const zigBuildTaskProvider = new ZigBuildTaskProvider();
-  zigBuildTaskProvider.register();
-  return zigBuildTaskProvider;
-}
 
 
 //  class ZigBuildHelper {
@@ -163,9 +156,9 @@ export function registerBuildTaskProvider(): vscode.Disposable {
 //    private cachedPick: ZigBldStep | null = null;
 //    public async getBuildSteps(forceReload: boolean): Promise<ZigBldStep[]> {
 //      if (forceReload || !this.cachedSteps) {
-//        const zig = zig_ext.zigCfg.zig;
+//        const zig = zig_cfg.zig;
 //        if (!await fs.fileExists(zig.buildFile)) {
-//          zig_ext.logger.error("Aborting build target fetch. No build.zig file found in workspace root.");
+//          zig_logger.error("Aborting build target fetch. No build.zig file found in workspace root.");
 //          return Promise.reject();
 //        }
 //        try {
@@ -184,7 +177,7 @@ export function registerBuildTaskProvider(): vscode.Disposable {
 //          );
 //
 //          if (types.isNonBlank(stderr)) {
-//            zig_ext.logger.error(`zig build errors\n${stderr}`);
+//            zig_logger.error(`zig build errors\n${stderr}`);
 //            return Promise.reject();
 //          }
 //          const stepsIdx = stdout.indexOf("Steps:");
@@ -204,7 +197,7 @@ export function registerBuildTaskProvider(): vscode.Disposable {
 //
 //        }
 //        catch (e) {
-//          zig_ext.logger.error('zig build errors', e);
+//          zig_logger.error('zig build errors', e);
 //          return Promise.reject();
 //        }
 //
@@ -267,7 +260,7 @@ export function registerBuildTaskProvider(): vscode.Disposable {
 //         {
 //           shellArgs: this.shellArgs,
 //           cwd: this.cwd,
-//           logger: zig_ext.logger,
+//           logger: zig_logger,
 //           onStart: () => this.emitLine("Starting build..."),
 //           onStdout: (str) => this.splitWriteEmitter(str),
 //           onStderr: (str) => this.splitWriteEmitter(str),

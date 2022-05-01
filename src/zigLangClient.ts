@@ -4,7 +4,7 @@ import * as vscodelc from 'vscode-languageclient/node';
 import { fs, path, strings } from './utils/common';
 import { Logger, LogLevel } from './utils/logger';
 import { Const, Cmd } from "./zigConst";
-import { zig_ext } from "./zigExt";
+import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
 
 class ZlsLanguageClient extends vscodelc.LanguageClient {
@@ -20,17 +20,16 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
   // }
 }
 
-class ZlsContext extends DisposableStore {
-  private zlsChannel: vscode.OutputChannel;
-  readonly logger: Logger;
+export class ZlsServices extends DisposableStore {
+  private zlsChannel!: vscode.OutputChannel;
+  private logger!: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
 
-  constructor() {
-    super();
-    this.zlsChannel = vscode.window.createOutputChannel("Zig Language Server");
-    this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
+  public async activate(): Promise<void> {
+    this.zlsChannel = this.addDisposable(vscode.window.createOutputChannel("Zig Language Server"));
+    this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
+
     this.addDisposables(
-      this.zlsChannel,
       vscode.commands.registerCommand(Cmd.zls.start, async () => {
         await this.startClient();
       }),
@@ -42,6 +41,7 @@ class ZlsContext extends DisposableStore {
         await this.startClient();
       }),
     );
+    return this.startClient();
   }
 
   override async dispose(): Promise<void> {
@@ -50,16 +50,14 @@ class ZlsContext extends DisposableStore {
   }
 
 
-  async startClient(): Promise<void> {
+  private async startClient(): Promise<void> {
     if (this.zlsClient) {
       this.logger.warn("Client already started");
       return Promise.resolve();
     }
     this.logger.info("Starting Zls...");
-    const zigCfg = zig_ext.zigCfg;
-    zigCfg.reload();
-    const zig = zigCfg.zig;
-    const zls = zigCfg.zig.zls;
+    const zig = zig_cfg.zig;
+    const zls = zig_cfg.zig.zls;
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zls.debugBinary ?? zls.binary;
     const zlsDbgArgs = ["--debug-log"];
@@ -147,7 +145,7 @@ class ZlsContext extends DisposableStore {
     return this.zlsClient.onReady();
   }
 
-  async stopClient(): Promise<void> {
+  private async stopClient(): Promise<void> {
     const zlsClient = this.zlsClient;
     this.zlsClient = undefined;
     if (!(zlsClient?.needsStop())) {
@@ -161,13 +159,6 @@ class ZlsContext extends DisposableStore {
       return Promise.reject();
     });
   }
-
-}
-
-export async function registerLangClient(): Promise<vscode.Disposable> {
-  const zlsContext = new ZlsContext();
-  await zlsContext.startClient();
-  return zlsContext;
 }
 
 //#region todo: advanced options
@@ -179,7 +170,7 @@ export async function registerLangClient(): Promise<vscode.Disposable> {
 // // We also mark the list as incomplete to force retrieving new rankings: https://github.com/microsoft/language-server-protocol/issues/898
 // provideCompletionItem: async (document, position, context, token, next) => {
 //   let list = await next(document, position, context, token);
-//   if (!zigCfg.zig.getWithFallback('serverCompletionRanking', false)) {
+//   if (!zig_cfg.zig.getWithFallback('serverCompletionRanking', false)) {
 //     return list;
 //   }
 //   const completionItems = utils.isArray(list) ? list : list!.items;
@@ -212,7 +203,7 @@ export async function registerLangClient(): Promise<vscode.Disposable> {
 //#endregion
 
 //#region todo: custom language features
-// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.zig.getWithFallback('maxRestartCount', 0));
+// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zig_cfg.zig.getWithFallback('maxRestartCount', 0));
 // this.zlsClient.registerFeature(new EnableEditsNearCursorFeature);
 // typeHierarchy.activate(this);
 // inlayHints.activate(this);

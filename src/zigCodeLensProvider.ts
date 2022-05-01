@@ -1,19 +1,18 @@
 'use strict';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import { Const, Cmd } from "./zigConst";
 import type { ZigTestStep } from "./task/zigStep";
 import { DisposableStore } from './utils/dispose';
 
 
-class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProvider {
+export class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProvider {
   public onDidChangeCodeLenses?: vscode.Event<void>;
   private codeLenses: vscode.CodeLens[] = [];
 
-  register() {
-    const onDidChangeCodeLensesEmitter = new vscode.EventEmitter<void>();
+  public activate(): void {
+    const onDidChangeCodeLensesEmitter = this.addDisposable(new vscode.EventEmitter<void>());
     this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
     this.addDisposables(
-      onDidChangeCodeLensesEmitter,
       vscode.languages.registerCodeLensProvider(Const.documentSelector, this),
       vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration(Const.extensionId)) {
@@ -22,18 +21,17 @@ class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProv
       }),
     );
   }
-
-  public provideCodeLenses(
+  async provideCodeLenses(
     document: vscode.TextDocument,
     token: vscode.CancellationToken
-  ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+  ): Promise<vscode.CodeLens[] | null> {
     this.codeLenses = [];
     const text = document.getText();
 
     for (let i = 0; i < text.length; i++) {
       const possibleTestKeyword = text.indexOf("test", i);
       if (possibleTestKeyword === -1) { break; }
-      if (token && token.isCancellationRequested) { break; }
+      if (token.isCancellationRequested) { break; }
 
       const previousWord =
         possibleTestKeyword > -1
@@ -148,13 +146,6 @@ class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProv
       );
     }
 
-    return this.codeLenses;
+    return Promise.resolve(this.codeLenses);
   }
-}
-
-
-export function registerCodeLensProvider(): vscode.Disposable {
-  const zigCodeLensProvider = new ZigCodelensProvider();
-  zigCodeLensProvider.register();
-  return zigCodeLensProvider;
 }

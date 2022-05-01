@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import * as os from 'os';
 import { types } from '../utils/common';
 

@@ -1,7 +1,7 @@
 'use strict';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import { cp, fs, strings } from '../utils/common';
-import { zig_ext } from "../zigExt";
+import { zig_cfg, zig_logger } from "../zigExt";
 
 
 export enum StepGroup {
@@ -52,9 +52,9 @@ export type ZigBldStep = {
 const stepsRegEx = /\s+(?<name>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
 
 export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
-  const zig = zig_ext.zigCfg.zig;
+  const zig = zig_cfg.zig;
   if (!await fs.fileExists(zig.buildFile)) {
-    zig_ext.logger.error("Aborting build target fetch. No build.zig file found in workspace root.");
+    zig_logger.error("Aborting build target fetch. No build.zig file found in workspace root.");
     return Promise.reject();
   }
 
@@ -74,7 +74,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     );
 
     if (!strings.isWhiteSpace(stderr)) {
-      zig_ext.logger.error(`zig build errors\n${stderr}`);
+      zig_logger.error(`zig build errors\n${stderr}`);
       return Promise.reject();
     }
     const stepsIdx = stdout.indexOf("Steps:");
@@ -91,7 +91,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     );
   }
   catch (e) {
-    zig_ext.logger.error('zig build errors', e);
+    zig_logger.error('zig build errors', e);
     return Promise.reject();
   }
 }

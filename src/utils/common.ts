@@ -38,10 +38,9 @@ export namespace types {
   export function isPrimitive            (o: unknown): o is Primitive       { return o === null || o === undefined || (typeof o !== 'object' && typeof o !== 'function');    }
   export function isStringArray          (o: unknown): o is string[]        { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e));                             }
   export function isFunctionArray        (o: unknown[]): o is Function[]    { return o.length > 0 && o.every(isFunction);                                                    } // eslint-disable-line @typescript-eslint/ban-types
-  // export function isIterable<T>       (o: unknown): o is Iterable<T>     { return isDefined(o) && isFunction((o as any)[Symbol.iterator]);                                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-	export function isIterable<T=unknown>  (o: unknown): o is Iterable<T>     { return !!o && typeof o === 'object' && isFunction((o as any)[Symbol.iterator]);                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+  export function isIterable<T=unknown>  (o: unknown): o is Iterable<T>     { return !!o && typeof o === 'object' && isFunction((o as any)[Symbol.iterator]);                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
 
-  export function assertNever            (_: never, msg: string = 'Unreachable'): never         { throw new TypeError(msg); }
+  export function assertNever            (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
   export function assertType             (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
   export function assertIsDefined<T>     (o: T | null | undefined):           asserts o is T    { if (types.isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
   export function assertAllDefined       (o: (unknown | null | undefined)[]): asserts o is NonNullable<unknown>[] {
