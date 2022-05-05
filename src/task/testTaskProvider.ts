@@ -1,7 +1,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import { fs, path } from '../utils/common';
-import { isWindows, VariableResolver, isExtensionActive } from '../utils/ext';
+import { VariableResolver, isExtensionActive } from '../utils/ext';
 import { DisposableStore } from '../utils/dispose';
 import { CmdId, Const } from "../zigConst";
 import { zig_logger, zig_cfg } from "../zigExt";
@@ -111,28 +111,25 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
   private makeZigTestTask(taskDef: ZigTestTaskDefinition): ZigTestTask {
     const zig = zig_cfg.zig;
     const varCtx = new VariableResolver();
-    const rslvdBldCmdArgs = {
-      cmdArgs: [
-        taskDef.buildArgs.testSrcFile,
-        ...(taskDef.buildArgs.mainPkgPath ? ["--main-pkg-path", taskDef.buildArgs.mainPkgPath] : []),
-        `-femit-bin=` + path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-        ...(taskDef.runArgs?.testFilter ? ["--test-filter", taskDef.runArgs.testFilter] : []),
-        ...(taskDef.runArgs?.debugLaunch ? [`--test-no-exec`] : []),
-        "--name", taskDef.label,
-        "--enable-cache",
-        "--cache-dir", zig_cfg.cacheDir,
-      ].map(arg => varCtx.resolveVars(arg)),
-      cwd: zig.buildRootDir,
-    };
     const task = new ZigTestTask(
       taskDef,
       vscode.TaskScope.Workspace,
       taskDef.label,
       Const.taskProviderSourceStr,
       new vscode.ShellExecution(
-        isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
-        ["test", ...rslvdBldCmdArgs.cmdArgs],
-        { cwd: rslvdBldCmdArgs.cwd },
+        zig.binary, // isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
+        [
+          "test",
+          taskDef.buildArgs.testSrcFile,
+          ...(taskDef.buildArgs.mainPkgPath ? ["--main-pkg-path", taskDef.buildArgs.mainPkgPath] : []),
+          `-femit-bin=` + path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+          ...(taskDef.runArgs?.testFilter ? ["--test-filter", taskDef.runArgs.testFilter] : []),
+          ...(taskDef.runArgs?.debugLaunch ? [`--test-no-exec`] : []),
+          "--name", taskDef.label,
+          "--enable-cache",
+          "--cache-dir", zig_cfg.cacheDir,
+        ].map(arg => varCtx.resolveVars(arg)),
+        { cwd: zig.buildRootDir },
       ),
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
