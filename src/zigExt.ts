@@ -17,7 +17,7 @@ export class ZigExtServices extends DisposableStore {
   constructor(public context: vscode.ExtensionContext) { super(); }
 
   public async activate(): Promise<void> {
-    const extChannel = this.addDisposable(vscode.window.createOutputChannel(Const.extensionId));
+    const extChannel = this.addDisposable(vscode.window.createOutputChannel(Const.zigChanName));
     zig_cfg          = new ZigExtConfig();
     zig_logger       = Logger.channelLogger(extChannel, LogLevel.warn);
 

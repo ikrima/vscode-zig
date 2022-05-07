@@ -26,7 +26,7 @@ export class ZlsServices extends DisposableStore {
   private zlsClient?: ZlsLanguageClient | undefined;
 
   public async activate(): Promise<void> {
-    this.zlsChannel = this.addDisposable(vscode.window.createOutputChannel("Zig Language Server"));
+    this.zlsChannel = this.addDisposable(vscode.window.createOutputChannel(Const.zlsChanName));
     this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
