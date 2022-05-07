@@ -11,8 +11,6 @@ export namespace Const {
   export const problemMatcher        = '$zig';
   export const zlsChanName           = 'zls';
   export const zlsDiagnosticsName    = 'zls';
-  export const cppToolsExtId         = 'ms-vscode.cpptools';
-  export const lldbExtId             = 'vadimcn.vscode-lldb';
 }
 export namespace CmdId {
   export namespace zls {

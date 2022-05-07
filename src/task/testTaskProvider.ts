@@ -1,7 +1,8 @@
 'use strict';
 import * as vscode from 'vscode';
 import { fs, path } from '../utils/common';
-import { VariableResolver, isExtensionActive } from '../utils/ext';
+import { VariableResolver, onceEvent } from '../utils/ext';
+import { Debugger, launchVsDbg, launchLLDB } from '../utils/debugger';
 import { DisposableStore } from '../utils/dispose';
 import { CmdId, Const } from "../zigConst";
 import { zig_logger, zig_cfg } from "../zigExt";
@@ -73,25 +74,29 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
     }
 
     return await executionPromise.then(
-      execution => new Promise<void>((resolve, reject) => {
-        const listener = vscode.tasks.onDidEndTask(async (e) => {
-          if (e.execution !== execution) { return; }
-          listener.dispose();
+      execution => {
+        const onceTaskEvent = onceEvent(vscode.tasks.onDidEndTask, e => e.execution === execution);
+        return new Promise<void>((resolve, reject) => onceTaskEvent(async _ => {
           try {
             // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
-            if (isExtensionActive(Const.cppToolsExtId)) {
-              const debugConfig: vscode.DebugConfiguration = {
-                type: 'cppvsdbg',
-                name: `Zig Test Debug`,
-                request: 'launch',
-                console: 'integratedTerminal',
+            if (Debugger.isActive(Debugger.vsdbg)) {
+              await launchVsDbg({
+                name:    `Zig Test Debug`,
                 program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-                args: [zig_cfg.zig.binary],
-                cwd: taskDef.runArgs?.cwd,
-              };
-              await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], debugConfig);
+                args:    [zig_cfg.zig.binary],
+                cwd:     taskDef.runArgs?.cwd,
+                console: 'integratedTerminal',
+              });
             }
-            else if (isExtensionActive(Const.lldbExtId)) { throw new Error("codeLLDB temporarily disabled"); }
+            else if (Debugger.isActive(Debugger.lldb)) {
+              await launchLLDB({
+                name:    `Zig Test Debug`,
+                program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+                args:    [zig_cfg.zig.binary],
+                cwd:     taskDef.runArgs?.cwd,
+                console: 'integratedTerminal',
+              });
+            }
             else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
             resolve();
           }
@@ -99,8 +104,8 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
             zig_logger.error(`Could not launch debugger`, e);
             reject();
           }
-        });
-      }),
+        }));
+      },
       e => {
         zig_logger.error(`zig build for ${taskDef.label} failed`, e);
       }
