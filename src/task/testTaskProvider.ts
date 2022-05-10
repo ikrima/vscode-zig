@@ -22,7 +22,7 @@ interface ZigTestTaskDefinition extends vscode.TaskDefinition {
   };
 }
 export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskProvider {
-  public activate() {
+  public activate(): void {
     this.addDisposables(
       vscode.tasks.registerTaskProvider(Const.testTaskType, this),
       vscode.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {

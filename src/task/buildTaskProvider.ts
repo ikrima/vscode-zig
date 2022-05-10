@@ -19,7 +19,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vscode.Task
   private _cachedBldTasks: ZigBuildTask[] | undefined = undefined;
   private _cachedPickedStep: string | undefined = undefined;
 
-  public activate() {
+  public activate(): void {
     const fileWatcher = this.addDisposable(vscode.workspace.createFileSystemWatcher(zig_cfg.zig.buildFile));
 
     this.addDisposables(
