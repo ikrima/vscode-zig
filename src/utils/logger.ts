@@ -32,6 +32,17 @@ export interface LogItem {
 }
 
 export namespace LogItem {
+  export function make(level: LogLevel, msg: string, data?: Error | unknown | null, reveal?: boolean): LogItem {
+    return {
+      level: level,
+      msg: msg,
+      reveal: reveal ?? (reveal === LogLevel.error || level === LogLevel.warn),
+      data: data ?? null,
+    };
+  }
+
+  export function is(o: unknown): o is LogItem { return types.isObject(o) && 'level' in o; }
+
   export function toString(item: LogItem): string {
     const strVals = [item.msg];
     if (types.isNativeError(item.data)) {
@@ -65,10 +76,10 @@ export namespace Logger {
       maxLogLevel: maxLogLevel,
       write:       val => chan.append(val),
       clear:       () => chan.clear(),
-      error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.error , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-      warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.warn  , msg: msg, reveal: reveal ?? true  , data: data ?? null}); },
-      info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.info  , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
-      trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem({level: LogLevel.trace , msg: msg, reveal: reveal ?? false , data: data ?? null}); },
+      error:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.error , msg, data, reveal)); },
+      warn:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.warn  , msg, data, reveal)); },
+      info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.info  , msg, data, reveal)); },
+      trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.trace , msg, data, reveal)); },
       logItem:     function (item: LogItem): void {
         if (item.level > this.maxLogLevel) { return; }
         this.write(LogItem.toString(item));
