@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "publisher": "ikrima",
   "private": true,
   "icon": "assets/zig-icon.png",
@@ -15,7 +15,7 @@
     "Programming Languages"
   ],
   "engines": {
-    "vscode": "^1.66.0"
+    "vscode": "^1.67.0"
   },
   "main": "./out/extension",
   "activationEvents": [
@@ -263,10 +263,10 @@
   "scripts": {
     "compile":           "tsc -p tsconfig.json --noEmit",
     "lint":              "eslint src --ext ts",
-    "esbuild-base":      "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
-    "build":             "npm run esbuild-base -- --sourcemap=external --sources-content=false",
-    "build-prod":        "npm run esbuild-base -- --minify",
-    "watch":             "npm run esbuild-base -- --sourcemap=external --sources-content=false --watch",
+    "esbuild":           "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
+    "build":             "npm run esbuild -- --sourcemap --sources-content=false",
+    "build-prod":        "npm run esbuild -- --minify --keep-names",
+    "watch":             "npm run esbuild -- --sourcemap --sources-content=false --watch",
     "test":              "npm run lint && node ./node_modules/vscode/bin/test",
     "clean":             "rimraf out",
     "vscode:prepublish": "npm run clean && npm run lint && npm run build-prod",
@@ -277,7 +277,7 @@
   "devDependencies": {
     "@types/mocha": "^9.1.0",
     "@types/node": "^16.x",
-    "@types/vscode": "^1.66.0",
+    "@types/vscode": "1.67.0",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
     "@vscode/test-electron": "^2.1.3",
