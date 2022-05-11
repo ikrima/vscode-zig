@@ -25,9 +25,9 @@ export class ZlsServices extends DisposableStore {
   private logger!: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
 
-  public async activate(): Promise<void> {
+  public activate(): void {
     this.zlsChannel = this.addDisposable(vscode.window.createOutputChannel(Const.zlsChanName));
-    this.logger     = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
+    this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
       vscode.commands.registerCommand(CmdId.zls.start, async () => {
@@ -41,7 +41,7 @@ export class ZlsServices extends DisposableStore {
         await this.startClient();
       }),
     );
-    return this.startClient();
+    void this.startClient();
   }
 
   override async dispose(): Promise<void> {
@@ -74,75 +74,74 @@ export class ZlsServices extends DisposableStore {
       await Promise.all([
         !path.isAbsolute(zls.binary)
           ? Promise.resolve()
-          : fs.fileExists(zls.binary).then(exists => {
-            if (!exists) {
-              this.logger.error(
-                `Failed to find zls executable ${zls.binary}\n` +
-                `  Please specify its path in your settings with "zig.zls.binary"`);
-            }
-            return exists ? Promise.resolve() : Promise.reject();
-          }),
+          : fs.fileExists(zls.binary).then(exists => exists
+            ? Promise.resolve()
+            : Promise.reject(new Error(
+              `Failed to find zls executable ${zls.binary}\n` +
+              `  Please specify its path in your settings with 'zig.zls.binary'`
+            ))),
         (!zls.enableDebug || zlsDbgPath === zls.binary || !path.isAbsolute(zlsDbgPath))
           ? Promise.resolve()
           : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
-              this.logger.error(
+              this.logger.warn(
                 `Failed to find zls debug executable ${zlsDbgPath}\n` +
-                `  Please specify its path in your settings with "zig.zls.zlsDebugBinPath"\n` +
-                `  Fallback to "zig.zls.binary"`);
+                `  Please specify its path in your settings with 'zig.zls.zlsDebugBinPath'\n` +
+                `  Fallback to 'zig.zls.binary'`);
+              zlsDbgPath = zls.binary;
             }
-            zlsDbgPath = zls.binary;
             return Promise.resolve();
           }),
       ]);
-    } catch {
-      return Promise.reject();
-    }
 
-    // Server Options
-    const serverOptions: vscodelc.Executable = zls.enableDebug
-      ? {
-        command: zlsDbgPath,
-        args: zlsDbgArgs,
-        options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
-      }
-      : {
-        command: zls.binary,
-        args: zlsArgs,
-        options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
+      // Server Options
+      const serverOptions: vscodelc.Executable = zls.enableDebug
+        ? {
+          command: zlsDbgPath,
+          args: zlsDbgArgs,
+          options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
+        }
+        : {
+          command: zls.binary,
+          args: zlsArgs,
+          options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
+        };
+
+      // Client Options
+      const clientOptions: vscodelc.LanguageClientOptions = {
+        documentSelector: Const.documentSelector,
+        outputChannel: this.zlsChannel,
+        diagnosticCollectionName: Const.zlsDiagnosticsName,
+        revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
+        // middleware: {
+        //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
+        //     diagnostics.forEach(d => {
+        //       d.code = {
+        //         value: d.code
+        //           ? ((Is.isNumber(d.code) || Is.isString(d.code)) ? d.code : d.code.value)
+        //           : "",
+        //         target: uri,
+        //       };
+        //     });
+        //     next(uri, diagnostics);
+        //   },
+        // },
       };
 
-    // Client Options
-    const clientOptions: vscodelc.LanguageClientOptions = {
-      documentSelector: Const.documentSelector,
-      outputChannel: this.zlsChannel,
-      diagnosticCollectionName: Const.zlsDiagnosticsName,
-      revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
-      // middleware: {
-      //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
-      //     diagnostics.forEach(d => {
-      //       d.code = {
-      //         value: d.code
-      //           ? ((Is.isNumber(d.code) || Is.isString(d.code)) ? d.code : d.code.value)
-      //           : "",
-      //         target: uri,
-      //       };
-      //     });
-      //     next(uri, diagnostics);
-      //   },
-      // },
-    };
-
-    // Create the language client and start the client
-    this.zlsClient = new ZlsLanguageClient(
-      'zlsClient',
-      'Zig Language Server Client',
-      serverOptions,
-      clientOptions,
-      zls.enableDebug,
-    );
-    this.zlsClient.start();
-    return this.zlsClient.onReady();
+      // Create the language client and start the client
+      this.zlsClient = new ZlsLanguageClient(
+        'zlsClient',
+        'Zig Language Server Client',
+        serverOptions,
+        clientOptions,
+        zls.enableDebug,
+      );
+      this.zlsClient.start();
+      await this.zlsClient.onReady();
+    } catch (e) {
+      this.logger.error('Failed to start client', e);
+      return Promise.reject();
+    }
   }
 
   private async stopClient(): Promise<void> {

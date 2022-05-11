@@ -1,6 +1,6 @@
 'use strict';
 import * as vscode from 'vscode';
-import { path, types } from './utils/common';
+import { path } from './utils/common';
 import { ExtensionConfigBase, VariableResolver } from './utils/ext';
 import { Logger, LogLevel } from './utils/logger';
 import { DisposableStore } from './utils/dispose';
@@ -16,23 +16,15 @@ export let zig_cfg:    ZigExtConfig; // eslint-disable-line @typescript-eslint/n
 export class ZigExtServices extends DisposableStore {
   constructor(public context: vscode.ExtensionContext) { super(); }
 
-  public async activate(): Promise<void> {
+  public activate(): void {
     const extChannel = this.addDisposable(vscode.window.createOutputChannel(Const.zigChanName));
     zig_cfg          = new ZigExtConfig();
     zig_logger       = Logger.channelLogger(extChannel, LogLevel.warn);
 
-    return Promise.allSettled([
-      this.addDisposable(new ZlsServices()).activate(),
-      this.addDisposable(new ZigCodelensProvider()).activate(),
-      this.addDisposable(new ZigBuildTaskProvider()).activate(),
-      this.addDisposable(new ZigTestTaskProvider()).activate(),
-    ]).then(results => results.forEach(p => {
-      switch (p.status) {
-        case 'fulfilled': break;
-        case 'rejected': zig_logger.error('Failed to activate extension', p.reason); break;
-        default: types.assertNever(p);
-      }
-    }));
+    this.addDisposable(new ZlsServices()).activate();
+    this.addDisposable(new ZigCodelensProvider()).activate();
+    this.addDisposable(new ZigBuildTaskProvider()).activate();
+    this.addDisposable(new ZigTestTaskProvider()).activate();
   }
 }
 
