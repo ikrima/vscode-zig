@@ -1,18 +1,27 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import * as os from 'os';
 import { types } from '../utils/common';
 
 export enum LogLevel {
-  off     = -1,
-  error   = 0,
-  warn    = 1,
-  info    = 2,
-  trace   = 3,
+  off     = 'off',
+  error   = 'error',
+  warn    = 'warn',
+  info    = 'info',
+  trace   = 'trace',
 }
-// export type LogLevelKey = keyof typeof LogLevel;
-export type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace';
+type LogLevelInt = -1    | 0       | 1      | 2      | 3;
+type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace'; // export type LogLevelKey = keyof typeof LogLevel;
 export namespace LogLevel {
+  export function toInt(value: LogLevel): LogLevelInt {
+    switch (value) {
+      case LogLevel.off:     return -1;
+      case LogLevel.error:   return 0;
+      case LogLevel.warn:    return 1;
+      case LogLevel.info:    return 2;
+      case LogLevel.trace:   return 3;
+    }
+  }
 	export function fromString(value: LogLevelKey): LogLevel {
     switch (value) {
       case 'off':     return LogLevel.off;
@@ -30,7 +39,6 @@ export interface LogItem {
   data:    Error | unknown | null;
   reveal:  boolean;
 }
-
 export namespace LogItem {
   export function make(level: LogLevel, msg: string, data?: Error | unknown | null, reveal?: boolean): LogItem {
     return {
@@ -71,7 +79,18 @@ export interface Logger {
 }
 
 export namespace Logger {
-  export function channelLogger(chan: vscode.OutputChannel, maxLogLevel: LogLevel): Logger {
+  export const noopLogger: Logger = {
+    maxLogLevel: LogLevel.off,
+    write:       _val => { /*noop*/ },
+    clear:       ()   => { /*noop*/ },
+    error:       function (_msg:  string, _data?: Error|unknown|null, _reveal?: boolean): void { /*noop*/ },
+    warn:        function (_msg:  string, _data?: Error|unknown|null, _reveal?: boolean): void { /*noop*/ },
+    info:        function (_msg:  string, _data?: Error|unknown|null, _reveal?: boolean): void { /*noop*/ },
+    trace:       function (_msg:  string, _data?: Error|unknown|null, _reveal?: boolean): void { /*noop*/ },
+    logItem:     function (_item: LogItem): void { /*noop*/  },
+  };
+
+  export function channelLogger(chan: vsc.OutputChannel, maxLogLevel: LogLevel): Logger {
     return {
       maxLogLevel: maxLogLevel,
       write:       val => chan.append(val),
@@ -81,16 +100,16 @@ export namespace Logger {
       info:        function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.info  , msg, data, reveal)); },
       trace:       function (msg:  string, data?: Error|unknown|null, reveal?: boolean): void { this.logItem(LogItem.make(LogLevel.trace , msg, data, reveal)); },
       logItem:     function (item: LogItem): void {
-        if (item.level > this.maxLogLevel) { return; }
+        if (LogLevel.toInt(item.level) > LogLevel.toInt(this.maxLogLevel)) { return; }
         this.write(LogItem.toString(item));
         switch(item.reveal ? item.level : LogLevel.off) {
           case LogLevel.off:     break;
-          case LogLevel.error:   void vscode.window.showErrorMessage       (item.msg); break;
-          case LogLevel.warn:    void vscode.window.showWarningMessage     (item.msg); break;
-          case LogLevel.info:    void vscode.window.showInformationMessage (item.msg); break;
-          case LogLevel.trace:   void vscode.window.showInformationMessage (item.msg); break;
+          case LogLevel.error:   void vsc.window.showErrorMessage       (item.msg); break;
+          case LogLevel.warn:    void vsc.window.showWarningMessage     (item.msg); break;
+          case LogLevel.info:    void vsc.window.showInformationMessage (item.msg); break;
+          case LogLevel.trace:   void vsc.window.showInformationMessage (item.msg); break;
         }
-      }
+      },
     };
   }
 }

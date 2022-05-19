@@ -7,4 +7,4 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(zigExtServices);
 	zigExtServices.activate();
 }
-export function deactivate() {} // eslint-disable-line @typescript-eslint/no-empty-function
+export function deactivate() { /*noop*/ }

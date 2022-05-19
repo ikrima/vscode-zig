@@ -4,7 +4,7 @@ export interface IDisposable {
   dispose(): void;
 }
 
-export const EmptyDisposable = Object.freeze<IDisposable>({ dispose: () => { } }); // eslint-disable-line @typescript-eslint/no-empty-function, @typescript-eslint/naming-convention
+export const EmptyDisposable = Object.freeze<IDisposable>({ dispose: () => { /*noop*/ } }); // eslint-disable-line @typescript-eslint/naming-convention
 
 export class DisposableStore {
   private _isDisposed = false;

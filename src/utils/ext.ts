@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import * as process_ from 'process';
 import * as os from 'os';
 import * as cp_ from 'child_process';
@@ -9,67 +9,67 @@ import type { Logger } from './logger';
 
 export const isWindows = process_.platform === "win32";
 
-export function isExtensionActive   (extId: string): boolean                            { return vscode.extensions.getExtension(extId)?.isActive ?? false; }
-export function findWorkspaceFolder (name: string):  vscode.WorkspaceFolder | undefined { return vscode.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
-export function defaultWksFolder    ():              vscode.WorkspaceFolder | undefined { return vscode.workspace.workspaceFolders?.[0]; }
-export function defaultWksFolderPath():              string | undefined                 { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
+export function isExtensionActive   (extId: string): boolean                         { return vsc.extensions.getExtension(extId)?.isActive ?? false; }
+export function findWorkspaceFolder (name: string):  vsc.WorkspaceFolder | undefined { return vsc.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
+export function defaultWksFolder    ():              vsc.WorkspaceFolder | undefined { return vsc.workspace.workspaceFolders?.[0]; }
+export function defaultWksFolderPath():              string | undefined              { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
 
 // export type EnvVarsWithNull = Record<string, string | undefined | null>;
 export type EnvVars = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
 type WksVars = {
-  pathSeparator: string | undefined;
-  workspaceFolder: string | undefined;
+  pathSeparator:           string | undefined;
+  workspaceFolder:         string | undefined;
   workspaceFolderBasename: string | undefined;
-  cwd: string | undefined;
-  file: string | undefined;
-  fileWorkspaceFolder: string | undefined;
-  relativeFile: string | undefined;
-  relativeFileDirname: string | undefined;
-  fileBasename: string | undefined;
-  fileExtname: string | undefined;
+  cwd:                     string | undefined;
+  file:                    string | undefined;
+  fileWorkspaceFolder:     string | undefined;
+  relativeFile:            string | undefined;
+  relativeFileDirname:     string | undefined;
+  fileBasename:            string | undefined;
+  fileExtname:             string | undefined;
   fileBasenameNoExtension: string | undefined;
-  fileDirname: string | undefined;
-  lineNumber: string | undefined;
-  selectedText: string | undefined;
+  fileDirname:             string | undefined;
+  lineNumber:              string | undefined;
+  selectedText:            string | undefined;
 };
 export class VariableResolver {
-  private readonly config: vscode.WorkspaceConfiguration;
+  private readonly config: vsc.WorkspaceConfiguration;
   private readonly envVars: EnvVars;
   private readonly wksVars: WksVars;
   constructor(ctxVars: Partial<WksVars> = {}, envVars: EnvVars = {}) {
-    this.config = vscode.workspace.getConfiguration();
+    this.config = vsc.workspace.getConfiguration();
     this.envVars = Object.assign({}, process_.env, envVars);
-    const dfltWksFolder = vscode.workspace.workspaceFolders?.[0];
-    const dfltEditor = vscode.window.activeTextEditor;
-    const pathSeparator = ctxVars.pathSeparator ?? path.sep;
-    const workspaceFolder = ctxVars.workspaceFolder ?? dfltWksFolder?.uri.fsPath;
+    const dfltWksFolder           = vsc.workspace.workspaceFolders?.[0];
+    const dfltEditor              = vsc.window.activeTextEditor;
+    const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;
+    const workspaceFolder         = ctxVars.workspaceFolder         ?? dfltWksFolder?.uri.fsPath;
     const workspaceFolderBasename = ctxVars.workspaceFolderBasename ?? dfltWksFolder?.name;
-    const cwd = ctxVars.cwd ?? workspaceFolder;
-    const file = ctxVars.file ?? dfltEditor?.document.uri.fsPath;
-    const fileWorkspaceFolder = ctxVars.fileWorkspaceFolder ?? (file ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file))?.uri.fsPath : undefined);
-    const relativeFile = ctxVars.relativeFile ?? (file ? vscode.workspace.asRelativePath(vscode.Uri.file(file)) : undefined);
-    const relativeFileDirname = ctxVars.relativeFileDirname ?? (relativeFile ? path.dirname(relativeFile) : undefined);
-    const fileBasename = ctxVars.fileBasename ?? (file ? path.basename(file) : undefined);
-    const fileExtname = ctxVars.fileExtname ?? (fileBasename ? path.extname(fileBasename) : undefined);
-    const fileBasenameNoExtension = ctxVars.fileBasenameNoExtension ?? (file ? path.extname(file) : undefined);
-    const fileDirname = ctxVars.fileDirname ?? (file ? path.dirname(file) : undefined);
-    const lineNumber = ctxVars.lineNumber ?? (dfltEditor ? (dfltEditor?.selection.start.line + 1).toString() : undefined);
-    const selectedText = ctxVars.selectedText ?? dfltEditor?.document.getText(dfltEditor.selection);
+    const cwd                     = ctxVars.cwd                     ?? workspaceFolder;
+    const file                    = ctxVars.file                    ?? dfltEditor?.document.uri.fsPath;
+    const fileWorkspaceFolder     = ctxVars.fileWorkspaceFolder     ?? (file         ? vsc.workspace.getWorkspaceFolder(vsc.Uri.file(file))?.uri.fsPath : undefined);
+    const relativeFile            = ctxVars.relativeFile            ?? (file         ? vsc.workspace.asRelativePath(vsc.Uri.file(file))                 : undefined);
+    const relativeFileDirname     = ctxVars.relativeFileDirname     ?? (relativeFile ? path.dirname(relativeFile)                                       : undefined);
+    const fileBasename            = ctxVars.fileBasename            ?? (file         ? path.basename(file)                                              : undefined);
+    const fileExtname             = ctxVars.fileExtname             ?? (fileBasename ? path.extname(fileBasename)                                       : undefined);
+    const fileBasenameNoExtension = ctxVars.fileBasenameNoExtension ?? (file         ? path.extname(file)                                               : undefined);
+    const fileDirname             = ctxVars.fileDirname             ?? (file         ? path.dirname(file)                                               : undefined);
+    const lineNumber              = ctxVars.lineNumber              ?? (dfltEditor   ? (dfltEditor?.selection.start.line + 1).toString()                : undefined);
+    const selectedText            = ctxVars.selectedText            ?? dfltEditor?.document.getText(dfltEditor.selection);
     this.wksVars = {
-      pathSeparator: pathSeparator,
-      workspaceFolder: workspaceFolder,
+      pathSeparator:           pathSeparator,
+      workspaceFolder:         workspaceFolder,
       workspaceFolderBasename: workspaceFolderBasename,
-      cwd: cwd,
-      file: file,
-      fileWorkspaceFolder: fileWorkspaceFolder,
-      relativeFile: relativeFile,
-      relativeFileDirname: relativeFileDirname,
-      fileBasename: fileBasename,
-      fileExtname: fileExtname,
+      cwd:                     cwd,
+      file:                    file,
+      fileWorkspaceFolder:     fileWorkspaceFolder,
+      relativeFile:            relativeFile,
+      relativeFileDirname:     relativeFileDirname,
+      fileBasename:            fileBasename,
+      fileExtname:             fileExtname,
       fileBasenameNoExtension: fileBasenameNoExtension,
-      fileDirname: fileDirname,
-      lineNumber: lineNumber,
-      selectedText: selectedText,
+      fileDirname:             fileDirname,
+      lineNumber:              lineNumber,
+      selectedText:            selectedText,
     };
   }
 
@@ -87,21 +87,21 @@ export class VariableResolver {
         case "config": { newValue = this.config.get<string>(name); break; }
         default: {
           switch (name) {
-            case "workspaceFolder": { newValue = this.wksVars.workspaceFolder; break; }
+            case "workspaceFolder"        : { newValue = this.wksVars.workspaceFolder        ; break; }
             case "workspaceFolderBasename": { newValue = this.wksVars.workspaceFolderBasename; break; }
-            case "cwd": { newValue = this.wksVars.cwd; break; }
-            case "pathSeparator": { newValue = this.wksVars.pathSeparator; break; }
-            case "file": { newValue = this.wksVars.file; break; }
-            case "fileWorkspaceFolder": { newValue = this.wksVars.fileWorkspaceFolder; break; }
-            case "relativeFile": { newValue = this.wksVars.relativeFile; break; }
-            case "relativeFileDirname": { newValue = this.wksVars.relativeFileDirname; break; }
-            case "fileBasename": { newValue = this.wksVars.fileBasename; break; }
+            case "cwd"                    : { newValue = this.wksVars.cwd                    ; break; }
+            case "pathSeparator"          : { newValue = this.wksVars.pathSeparator          ; break; }
+            case "file"                   : { newValue = this.wksVars.file                   ; break; }
+            case "fileWorkspaceFolder"    : { newValue = this.wksVars.fileWorkspaceFolder    ; break; }
+            case "relativeFile"           : { newValue = this.wksVars.relativeFile           ; break; }
+            case "relativeFileDirname"    : { newValue = this.wksVars.relativeFileDirname    ; break; }
+            case "fileBasename"           : { newValue = this.wksVars.fileBasename           ; break; }
             case "fileBasenameNoExtension": { newValue = this.wksVars.fileBasenameNoExtension; break; }
-            case "fileDirname": { newValue = this.wksVars.fileDirname; break; }
-            case "fileExtname": { newValue = this.wksVars.fileExtname; break; }
-            case "lineNumber": { newValue = this.wksVars.lineNumber; break; }
-            case "selectedText": { newValue = this.wksVars.selectedText; break; }
-            default: { void vscode.window.showErrorMessage(`unknown variable to resolve: [match: ${match}, scope: ${scope ?? "undefined"}, name: ${name}]`); break; }
+            case "fileDirname"            : { newValue = this.wksVars.fileDirname            ; break; }
+            case "fileExtname"            : { newValue = this.wksVars.fileExtname            ; break; }
+            case "lineNumber"             : { newValue = this.wksVars.lineNumber             ; break; }
+            case "selectedText"           : { newValue = this.wksVars.selectedText           ; break; }
+            default: { void vsc.window.showErrorMessage(`unknown variable to resolve: [match: ${match}, scope: ${scope ?? "undefined"}, name: ${name}]`); break; }
           }
         }
       }
@@ -117,20 +117,19 @@ export class VariableResolver {
 }
 
 export class ExtensionConfigBase<T> {
-  protected _cfgData: T;
-  get cfgData(): T { return this._cfgData; }
+  protected _cfgData?: T;
+  get cfgData(): T { return this._cfgData!; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
 
   constructor(
-    protected section: string,
-    protected scope?: vscode.ConfigurationScope | null,
+    protected section:  string,
+    protected scope?:   vsc.ConfigurationScope | null,
     protected resolve?: (config: T) => void,
   ) {
-    const rawConfig = vscode.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
-    this._cfgData = objects.deepCopy(rawConfig);
-    if (this.resolve) { this.resolve(this._cfgData); }
+    this.load(true);
   }
-  public reload(): void {
-    const rawConfig = vscode.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+  public load(force?: boolean): void {
+    if (this._cfgData && !force) { return; }
+    const rawConfig = vsc.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
     this._cfgData = objects.deepCopy(rawConfig);
     if (this.resolve) { this.resolve(this._cfgData); }
   }
@@ -243,7 +242,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
     completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       childProcess = cp_.exec(
         procCmd,
-        { cwd: options.cwd }, // options.cwd ?? vscode.workspace.workspaceFolders?.[0].uri.fsPath,
+        { cwd: options.cwd }, // options.cwd ?? vsc.workspace.workspaceFolders?.[0].uri.fsPath,
         (error: cp_.ExecException | null, stdout: string, stderr: string): void => {
           isRunning = false;
           if (options.onExit) { options.onExit(); }
@@ -297,8 +296,8 @@ export function once<T extends (...args: unknown[]) => unknown>(
     return result;
   };
 }
-export function onceEvent<T>(event: vscode.Event<T>, filter?: (arg: T) => boolean): vscode.Event<T> {
-  return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]): vscode.Disposable => {
+export function onceEvent<T>(event: vsc.Event<T>, filter?: (arg: T) => boolean): vsc.Event<T> {
+  return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vsc.Disposable[]): vsc.Disposable => {
     let didFire = false; // in case the event fires during the listener call
     const result = event(e => {
       if (didFire) { return; }
