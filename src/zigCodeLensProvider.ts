@@ -1,20 +1,20 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import { Const, CmdId } from "./zigConst";
 import type { ZigTestStep } from "./task/zigStep";
 import { DisposableStore } from './utils/dispose';
 
 
-export class ZigCodelensProvider extends DisposableStore implements vscode.CodeLensProvider {
-  public onDidChangeCodeLenses?: vscode.Event<void>;
-  private codeLenses: vscode.CodeLens[] = [];
+export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLensProvider {
+  public onDidChangeCodeLenses?: vsc.Event<void>;
+  private codeLenses: vsc.CodeLens[] = [];
 
   public activate(): void {
-    const onDidChangeCodeLensesEmitter = this.addDisposable(new vscode.EventEmitter<void>());
+    const onDidChangeCodeLensesEmitter = this.addDisposable(new vsc.EventEmitter<void>());
     this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
     this.addDisposables(
-      vscode.languages.registerCodeLensProvider(Const.documentSelector, this),
-      vscode.workspace.onDidChangeConfiguration(e => {
+      vsc.languages.registerCodeLensProvider(Const.documentSelector, this),
+      vsc.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration(Const.extensionId)) {
           onDidChangeCodeLensesEmitter.fire();
         }
@@ -22,9 +22,9 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
     );
   }
   async provideCodeLenses(
-    document: vscode.TextDocument,
-    token: vscode.CancellationToken
-  ): Promise<vscode.CodeLens[] | null> {
+    document: vsc.TextDocument,
+    token: vsc.CancellationToken
+  ): Promise<vsc.CodeLens[] | null> {
     this.codeLenses = [];
     const text = document.getText();
 
@@ -95,7 +95,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
 
           const line = document.lineAt(document.positionAt(possibleTestKeyword).line);
           this.codeLenses.push(
-            new vscode.CodeLens(line.rangeIncludingLineBreak, {
+            new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
               command: CmdId.zig.test,
               arguments: [
@@ -109,7 +109,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
               ],
               tooltip: "Run this test via zig test",
             }),
-            new vscode.CodeLens(line.rangeIncludingLineBreak, {
+            new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
               command: CmdId.zig.test,
               arguments: [
@@ -133,7 +133,7 @@ export class ZigCodelensProvider extends DisposableStore implements vscode.CodeL
     if (this.codeLenses.length > 0) {
       const line = document.lineAt(document.positionAt(0).line);
       this.codeLenses.push(
-        new vscode.CodeLens(line.range, {
+        new vsc.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
           command: CmdId.zig.test,
           arguments: [

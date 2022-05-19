@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import { cp, fs, strings } from '../utils/common';
 import { zig_cfg, zig_logger } from "../zigExt";
 
@@ -69,7 +69,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       {
         encoding: 'utf8',
         cwd: zig.buildRootDir,
-        shell: vscode.env.shell,
+        shell: vsc.env.shell,
       }
     );
 
@@ -97,7 +97,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
 }
 
 export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise<string | undefined> {
-  type StepPickItem = { step: ZigBldStep } & vscode.QuickPickItem;
+  type StepPickItem = { step: ZigBldStep } & vsc.QuickPickItem;
   const stepItems = bldSteps.then(steps => {
     return steps
       .sort((a, b) => a.group - b.group)
@@ -107,7 +107,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
         description: s.desc,
       }));
   });
-  const picked = await vscode.window.showQuickPick(
+  const picked = await vsc.window.showQuickPick(
     stepItems,
     {
       placeHolder: "Select the zig target to run",
@@ -142,7 +142,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //            {
 //              encoding: 'utf8',
 //              cwd: zig.buildRootDir,
-//              shell: vscode.env.shell,
+//              shell: vsc.env.shell,
 //            }
 //          );
 //
@@ -176,7 +176,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //    }
 //    public async pickBuildStep(forcePick: boolean): Promise<ZigBldStep | null> {
 //      if (forcePick || !this.cachedPick) {
-//        type StepPickItem = { step: ZigBldStep } & vscode.QuickPickItem;
+//        type StepPickItem = { step: ZigBldStep } & vsc.QuickPickItem;
 //        // const steps = await this.getBuildSteps(forcePick);
 //        // const stepItems = Array.from(steps, (s): StepPickItem => {
 //        //   return {
@@ -194,7 +194,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //              description: s.stepDesc,
 //            });
 //          });
-//        const picked = await vscode.window.showQuickPick(
+//        const picked = await vsc.window.showQuickPick(
 //          stepItems,
 //          {
 //            canPickMany: false,
@@ -208,11 +208,11 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //    }
 //  }
 //
-// class ZigBuildTerminal implements vscode.Pseudoterminal {
-//   private writeEmitter = new vscode.EventEmitter<string>();
-//   private closeEmitter = new vscode.EventEmitter<number>();
-//   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
-//   onDidClose: vscode.Event<number> = this.closeEmitter.event;
+// class ZigBuildTerminal implements vsc.Pseudoterminal {
+//   private writeEmitter = new vsc.EventEmitter<string>();
+//   private closeEmitter = new vsc.EventEmitter<number>();
+//   onDidWrite: vsc.Event<string> = this.writeEmitter.event;
+//   onDidClose: vsc.Event<number> = this.closeEmitter.event;
 //   private buildProc?: cp.ProcessRun | undefined;
 //
 //   constructor(
@@ -222,7 +222,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //   ) { }
 //
 //   // At this point we can start using the terminal.
-//   async open(_initialDimensions: vscode.TerminalDimensions | undefined): Promise<void> {
+//   async open(_initialDimensions: vsc.TerminalDimensions | undefined): Promise<void> {
 //     try {
 //       // Do build.
 //       const processRun = cp.runProcess(

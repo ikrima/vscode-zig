@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { fs, path, strings } from './utils/common';
 import { Logger, LogLevel } from './utils/logger';
@@ -21,22 +21,22 @@ class ZlsLanguageClient extends vscodelc.LanguageClient {
 }
 
 export class ZlsServices extends DisposableStore {
-  private zlsChannel!: vscode.OutputChannel;
+  private zlsChannel!: vsc.OutputChannel;
   private logger!: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
 
   public activate(): void {
-    this.zlsChannel = this.addDisposable(vscode.window.createOutputChannel(Const.zlsChanName));
+    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zlsChanName));
     this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
-      vscode.commands.registerCommand(CmdId.zls.start, async () => {
+      vsc.commands.registerCommand(CmdId.zls.start, async () => {
         await this.startClient();
       }),
-      vscode.commands.registerCommand(CmdId.zls.stop, async () => {
+      vsc.commands.registerCommand(CmdId.zls.stop, async () => {
         await this.stopClient();
       }),
-      vscode.commands.registerCommand(CmdId.zls.restart, async () => {
+      vsc.commands.registerCommand(CmdId.zls.restart, async () => {
         await this.stopClient();
         await this.startClient();
       }),
@@ -114,7 +114,7 @@ export class ZlsServices extends DisposableStore {
         diagnosticCollectionName: Const.zlsDiagnosticsName,
         revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
         // middleware: {
-        //   handleDiagnostics: (uri: vscode.Uri, diagnostics: vscode.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
+        //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
         //     diagnostics.forEach(d => {
         //       d.code = {
         //         value: d.code
@@ -175,13 +175,13 @@ export class ZlsServices extends DisposableStore {
 //   const completionItems = utils.isArray(list) ? list : list!.items;
 //   let items = completionItems.map(item => {
 //     // Gets the prefix used by VSCode when doing fuzzymatch.
-//     let prefix = document.getText(new vscode.Range((item.range as vscode.Range).start, position));
+//     let prefix = document.getText(new vsc.Range((item.range as vsc.Range).start, position));
 //     if (prefix) {
 //       item.filterText = prefix + '_' + item.filterText;
 //     }
 //     return item;
 //   });
-//   return new vscode.CompletionList(items, true);
+//   return new vsc.CompletionList(items, true);
 // },
 // // VSCode applies fuzzy match only on the symbol name, thus it throws away all results if query token is a prefix qualified name
 // //  By adding the containerName to the symbol name, it prevents VSCode from filtering out any results

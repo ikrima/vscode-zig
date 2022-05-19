@@ -1,5 +1,5 @@
 'use strict';
-import * as vscode from 'vscode';
+import * as vsc from 'vscode';
 import { fs, path } from '../utils/common';
 import { VariableResolver, onceEvent } from '../utils/ext';
 import { Debugger, launchVsDbg, launchLLDB } from '../utils/debugger';
@@ -7,9 +7,9 @@ import { DisposableStore } from '../utils/dispose';
 import { CmdId, Const } from "../zigConst";
 import { zig_logger, zig_cfg } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
-import ZigTestTask = vscode.Task;
+import ZigTestTask = vsc.Task;
 
-interface ZigTestTaskDefinition extends vscode.TaskDefinition {
+interface ZigTestTaskDefinition extends vsc.TaskDefinition {
   label: string;
   buildArgs: {
     testSrcFile: string;
@@ -21,11 +21,11 @@ interface ZigTestTaskDefinition extends vscode.TaskDefinition {
     cwd?: string | undefined;
   };
 }
-export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskProvider {
+export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
     this.addDisposables(
-      vscode.tasks.registerTaskProvider(Const.testTaskType, this),
-      vscode.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {
+      vsc.tasks.registerTaskProvider(Const.testTaskType, this),
+      vsc.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {
         testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
         testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
@@ -67,7 +67,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
       return;
     }
     // Run Build Task
-    const executionPromise = vscode.tasks.executeTask(zigTask);
+    const executionPromise = vsc.tasks.executeTask(zigTask);
     if (!taskDef.runArgs?.debugLaunch) {
       await executionPromise;
       return;
@@ -75,7 +75,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
 
     return await executionPromise.then(
       execution => {
-        const onceTaskEvent = onceEvent(vscode.tasks.onDidEndTask, e => e.execution === execution);
+        const onceTaskEvent = onceEvent(vsc.tasks.onDidEndTask, e => e.execution === execution);
         return new Promise<void>((resolve, reject) => onceTaskEvent(async _ => {
           try {
             // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
@@ -118,10 +118,10 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
     const varCtx = new VariableResolver();
     const task = new ZigTestTask(
       taskDef,
-      vscode.TaskScope.Workspace,
+      vsc.TaskScope.Workspace,
       taskDef.label,
       Const.taskProviderSourceStr,
-      new vscode.ShellExecution(
+      new vsc.ShellExecution(
         zig.binary, // isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
           "test",
@@ -138,13 +138,13 @@ export class ZigTestTaskProvider extends DisposableStore implements vscode.TaskP
       ),
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
-    task.group = vscode.TaskGroup.Test;
+    task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;
     task.presentationOptions = {
-      reveal: vscode.TaskRevealKind.Always,
+      reveal: vsc.TaskRevealKind.Always,
       echo: true,
       focus: false,
-      panel: vscode.TaskPanelKind.Shared,
+      panel: vsc.TaskPanelKind.Shared,
       showReuseMessage: false,
       clear: true,
     };
