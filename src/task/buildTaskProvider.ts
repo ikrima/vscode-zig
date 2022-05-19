@@ -12,6 +12,7 @@ interface ZigBuildTaskDefinition extends vsc.TaskDefinition {
   buildFile?: string;
   args?: string[];
   cwd?: string;
+  presentation?: vsc.TaskPresentationOptions;
 }
 
 export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskProvider {
@@ -54,12 +55,15 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   }
   // Resolves a task that has no [`execution`](#Task.execution) set.
   public resolveTask(task: ZigBuildTask): ZigBuildTask | undefined {
-    if (task.definition['stepName']) {
-      return !task.execution
-        ? this.makeZigTask(task.definition as ZigBuildTaskDefinition)
-        : task;
+    const definition = task.definition as ZigBuildTaskDefinition;
+    if (!definition.stepName
+      || task.scope === undefined
+      || task.scope === vsc.TaskScope.Global) {
+      return undefined;
     }
-    return undefined;
+    return !task.execution
+      ? this.getBuildTask(definition, task.scope)
+      : task;
   }
 
   private invalidateTasksCache(): void {
@@ -86,7 +90,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     try {
       if (force || !this._cachedBldTasks) {
         this._cachedBldTasks = (await this.cachedBuildSteps())
-          .map(s => this.makeZigTask({ type: Const.buildTaskType, label: s.name, stepName: s.name }));
+          .map(s => this.getBuildTask({ type: Const.buildTaskType, label: s.name, stepName: s.name }, vsc.TaskScope.Workspace));
       }
       return this._cachedBldTasks;
     }
@@ -106,14 +110,15 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   }
 
   private async runBuildStep(stepName: string): Promise<void> {
-    const bldTask = this.makeZigTask({ type: Const.buildTaskType, label: stepName, stepName: stepName });
-    await vsc.tasks.executeTask(bldTask);
+    await vsc.tasks.executeTask(
+      this.getBuildTask({ type: Const.buildTaskType, label: stepName, stepName: stepName }, vsc.TaskScope.Workspace)
+    );
   }
-  private makeZigTask(taskDef: ZigBuildTaskDefinition): ZigBuildTask {
+  private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigBuildTask {
     const zig = zig_cfg.zig;
     const task = new ZigBuildTask(
       taskDef,
-      vsc.TaskScope.Workspace,
+      workspaceFolder ?? vsc.TaskScope.Workspace,
       taskDef.label,
       Const.taskProviderSourceStr,
       new vsc.ShellExecution(
@@ -132,14 +137,14 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     if (stepNameLower.includes("build")) { task.group = vsc.TaskGroup.Build; }
     else if (stepNameLower.includes("test")) { task.group = vsc.TaskGroup.Test; }
     task.detail = `zig build ${taskDef.stepName}`;
-    task.presentationOptions = {
-      reveal: vsc.TaskRevealKind.Always,
-      echo: true,
-      focus: false,
-      panel: vsc.TaskPanelKind.Shared,
-      showReuseMessage: false,
-      clear: true,
-    };
+    task.presentationOptions = taskDef.presentation ?? {
+        reveal: vsc.TaskRevealKind.Always,
+        echo: true,
+        focus: false,
+        panel: vsc.TaskPanelKind.Shared,
+        showReuseMessage: false,
+        clear: true,
+      };
     return task;
   }
 }

@@ -8,6 +8,10 @@
     "rootDir":                            "src",
     "outDir":                             "out",
     "sourceMap":                          true,
+    // "declaration":                     true,
+    // "stripInternal":                   true,
+    // "incremental":                     true,
+    // "composite":                       true,
 
     "strict":                             true,
     "alwaysStrict":                       true,

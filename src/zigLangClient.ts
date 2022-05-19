@@ -7,18 +7,19 @@ import { Const, CmdId } from "./zigConst";
 import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
 
-class ZlsLanguageClient extends vscodelc.LanguageClient {
-  // // Default implementation logs failures to output panel that's meant for extension debugging
-  // // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
-  // handleFailedRequest<T>(type: vscodelc.MessageSignature, error: any, defaultValue: T): T {
-  //   if (error instanceof vscodelc.ResponseError
-  //     && type.method === 'workspace/executeCommand'
-  //   ) {
-  //     zlsContext.logger.error("ZlsLanguageClient error", error);
-  //   }
-  //   return super.handleFailedRequest(type, error, defaultValue);
-  // }
-}
+import ZlsLanguageClient = vscodelc.LanguageClient;
+// class ZlsLanguageClient extends vscodelc.LanguageClient {
+//   // Default implementation logs failures to output panel that's meant for extension debugging
+//   // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
+//   handleFailedRequest<T>(type: vscodelc.MessageSignature, error: any, defaultValue: T): T {
+//     if (error instanceof vscodelc.ResponseError
+//       && type.method === 'workspace/executeCommand'
+//     ) {
+//       zlsContext.logger.error("ZlsLanguageClient error", error);
+//     }
+//     return super.handleFailedRequest(type, error, defaultValue);
+//   }
+// }
 
 export class ZlsServices extends DisposableStore {
   private zlsChannel!: vsc.OutputChannel;
@@ -48,7 +49,6 @@ export class ZlsServices extends DisposableStore {
     if (this.zlsClient) { await this.stopClient().catch(); }
     super.dispose();
   }
-
 
   private async startClient(): Promise<void> {
     if (this.zlsClient) {

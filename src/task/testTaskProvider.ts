@@ -20,6 +20,7 @@ interface ZigTestTaskDefinition extends vsc.TaskDefinition {
     testFilter?: string | undefined;
     cwd?: string | undefined;
   };
+  presentation?: vsc.TaskPresentationOptions;
 }
 export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
@@ -41,7 +42,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
             cwd: testStep.runArgs.cwd,
           },
         };
-        const zigTask = this.makeZigTestTask(taskDef);
+        const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
         await this.runTestTask(zigTask);
       }),
     );
@@ -52,12 +53,15 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
   }
 
   public resolveTask(task: ZigTestTask): ZigTestTask | undefined {
-    if (task.definition['testSrcFile']) {
-      return !task.execution
-        ? this.makeZigTestTask(task.definition as ZigTestTaskDefinition)
-        : task;
+    const definition = task.definition as ZigTestTaskDefinition;
+    if (!definition.buildArgs.testSrcFile
+      || task.scope === undefined
+      || task.scope === vsc.TaskScope.Global) {
+      return undefined;
     }
-    return undefined;
+    return !task.execution
+      ? this.getTestTask(definition, task.scope)
+      : task;
   }
 
   private async runTestTask(zigTask: ZigTestTask): Promise<void> {
@@ -113,12 +117,12 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
 
 
   }
-  private makeZigTestTask(taskDef: ZigTestTaskDefinition): ZigTestTask {
+  private getTestTask(taskDef: ZigTestTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigTestTask {
     const zig = zig_cfg.zig;
     const varCtx = new VariableResolver();
     const task = new ZigTestTask(
       taskDef,
-      vsc.TaskScope.Workspace,
+      workspaceFolder ?? vsc.TaskScope.Workspace,
       taskDef.label,
       Const.taskProviderSourceStr,
       new vsc.ShellExecution(
@@ -140,7 +144,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
     );
     task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;
-    task.presentationOptions = {
+    task.presentationOptions = taskDef.presentation ?? {
       reveal: vsc.TaskRevealKind.Always,
       echo: true,
       focus: false,
