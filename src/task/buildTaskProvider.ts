@@ -24,7 +24,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     const fileWatcher = this.addDisposable(vsc.workspace.createFileSystemWatcher(zig_cfg.zig.buildFile));
 
     this.addDisposables(
-      vsc.tasks.registerTaskProvider(Const.buildTaskType, this),
+      vsc.tasks.registerTaskProvider(Const.zigBuildTaskType, this),
       fileWatcher.onDidChange(() => this.invalidateTasksCache()),
       fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
@@ -90,7 +90,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     try {
       if (force || !this._cachedBldTasks) {
         this._cachedBldTasks = (await this.cachedBuildSteps())
-          .map(s => this.getBuildTask({ type: Const.buildTaskType, label: s.name, stepName: s.name }, vsc.TaskScope.Workspace));
+          .map(s => this.getBuildTask({ type: Const.zigBuildTaskType, label: s.name, stepName: s.name }, vsc.TaskScope.Workspace));
       }
       return this._cachedBldTasks;
     }
@@ -111,7 +111,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
 
   private async runBuildStep(stepName: string): Promise<void> {
     await vsc.tasks.executeTask(
-      this.getBuildTask({ type: Const.buildTaskType, label: stepName, stepName: stepName }, vsc.TaskScope.Workspace)
+      this.getBuildTask({ type: Const.zigBuildTaskType, label: stepName, stepName: stepName }, vsc.TaskScope.Workspace)
     );
   }
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigBuildTask {

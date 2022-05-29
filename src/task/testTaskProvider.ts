@@ -25,12 +25,12 @@ interface ZigTestTaskDefinition extends vsc.TaskDefinition {
 export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
     this.addDisposables(
-      vsc.tasks.registerTaskProvider(Const.testTaskType, this),
+      vsc.tasks.registerTaskProvider(Const.zigTestTaskType, this),
       vsc.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {
         testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
         testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
-          type: Const.testTaskType,
+          type: Const.zigTestTaskType,
           label: testStep.label,
           buildArgs: {
             testSrcFile: testStep.buildArgs.testSrcFile,

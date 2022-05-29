@@ -31,7 +31,7 @@
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "zigbuild",
+        "type": "zig_build",
         "required": [
           "label",
           "stepName"
@@ -64,7 +64,7 @@
         "when": "shellExecutionSupported"
       },
       {
-        "type": "zigtest",
+        "type": "zig_test",
         "required": [
           "label"
         ],

@@ -6,8 +6,8 @@ export namespace Const {
   export const zigChanName           = 'zig';
   export const documentSelector      = [{ language: 'zig', scheme: 'file' }];
   export const taskProviderSourceStr = 'zig';
-  export const buildTaskType         = 'zigbuild';
-  export const testTaskType          = 'zigtest';
+  export const zigBuildTaskType      = 'zig_build';
+  export const zigTestTaskType       = 'zig_test';
   export const problemMatcher        = '$zig';
   export const zlsChanName           = 'zls';
   export const zlsDiagnosticsName    = 'zls';
