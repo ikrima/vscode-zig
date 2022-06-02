@@ -1,11 +1,11 @@
 'use strict';
 import * as vsc from 'vscode';
-import { fs, path } from '../utils/common';
-import { VariableResolver, onceEvent } from '../utils/ext';
-import { Debugger, launchVsDbg, launchLLDB } from '../utils/debugger';
+import { fs, objects, path } from '../utils/common';
+import { Debugger, launchLLDB, launchVsDbg } from '../utils/debugger';
 import { DisposableStore } from '../utils/dispose';
+import { onceEvent, VariableResolver } from '../utils/ext';
 import { CmdId, Const } from "../zigConst";
-import { zig_logger, zig_cfg } from "../zigExt";
+import { zig_cfg, zig_logger } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
 import ZigTestTask = vsc.Task;
 
@@ -22,6 +22,14 @@ interface ZigTestTaskDefinition extends vsc.TaskDefinition {
   };
   presentation?: vsc.TaskPresentationOptions;
 }
+const defaultPresentationOptions: vsc.TaskPresentationOptions = {
+  reveal:           vsc.TaskRevealKind.Always,
+  echo:             true,
+  focus:            false,
+  panel:            vsc.TaskPanelKind.Dedicated,
+  showReuseMessage: false,
+  clear:            true,
+};
 export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
     this.addDisposables(
@@ -144,14 +152,8 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
     );
     task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;
-    task.presentationOptions = taskDef.presentation ?? {
-      reveal: vsc.TaskRevealKind.Always,
-      echo: true,
-      focus: false,
-      panel: vsc.TaskPanelKind.Shared,
-      showReuseMessage: false,
-      clear: true,
-    };
+    task.presentationOptions = defaultPresentationOptions;
+    objects.mixin(task.presentationOptions, taskDef.presentation ?? ({} as vsc.TaskPresentationOptions), true);
     return task;
   }
 }

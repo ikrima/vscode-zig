@@ -1,9 +1,10 @@
 'use strict';
 import * as vsc from 'vscode';
-import { CmdId, Const } from "../zigConst";
-import { zig_logger, zig_cfg } from "../zigExt";
+import { objects } from '../utils/common';
 import { DisposableStore } from '../utils/dispose';
-import { ZigBldStep, rawGetBuildSteps, rawPickBuildStep } from "./zigStep";
+import { CmdId, Const } from "../zigConst";
+import { zig_cfg, zig_logger } from "../zigExt";
+import { rawGetBuildSteps, rawPickBuildStep, ZigBldStep } from "./zigStep";
 import ZigBuildTask = vsc.Task;
 
 interface ZigBuildTaskDefinition extends vsc.TaskDefinition {
@@ -14,7 +15,14 @@ interface ZigBuildTaskDefinition extends vsc.TaskDefinition {
   cwd?: string;
   presentation?: vsc.TaskPresentationOptions;
 }
-
+const defaultPresentationOptions: vsc.TaskPresentationOptions = {
+  reveal:           vsc.TaskRevealKind.Always,
+  echo:             true,
+  focus:            false,
+  panel:            vsc.TaskPanelKind.Dedicated,
+  showReuseMessage: false,
+  clear:            true,
+};
 export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskProvider {
   private _cachedBldSteps: ZigBldStep[] | undefined = undefined;
   private _cachedBldTasks: ZigBuildTask[] | undefined = undefined;
@@ -134,17 +142,11 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
     const stepNameLower = taskDef.stepName.toLowerCase();
-    if (stepNameLower.includes("build")) { task.group = vsc.TaskGroup.Build; }
-    else if (stepNameLower.includes("test")) { task.group = vsc.TaskGroup.Test; }
-    task.detail = `zig build ${taskDef.stepName}`;
-    task.presentationOptions = taskDef.presentation ?? {
-        reveal: vsc.TaskRevealKind.Always,
-        echo: true,
-        focus: false,
-        panel: vsc.TaskPanelKind.Shared,
-        showReuseMessage: false,
-        clear: true,
-      };
+    if      (stepNameLower.includes("build")) { task.group = vsc.TaskGroup.Build; }
+    else if (stepNameLower.includes("test"))  { task.group = vsc.TaskGroup.Test;  }
+    task.detail              = `zig build ${taskDef.stepName}`;
+    task.presentationOptions = defaultPresentationOptions;
+    objects.mixin(task.presentationOptions, taskDef.presentation ?? ({} as vsc.TaskPresentationOptions), true);
     return task;
   }
 }
