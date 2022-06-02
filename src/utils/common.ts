@@ -23,27 +23,27 @@ export namespace types {
   } = types_;
 
   export type Primitive = null|undefined|boolean|number|string;
-  export type AnyObj = Record<string,unknown>;
+  export type AnyObj    = Record<PropertyKey,unknown>;
   export function isUndefined            (o: unknown): o is undefined       { return o === undefined;                                                                        }
   export function isNull                 (o: unknown): o is null            { return o === null;                                                                             }
   export function isNullOrUndefined      (o: unknown): o is null|undefined  { return o === undefined || o === null;                                                          }
   export function isDefined<T>           (o: T | null | undefined): o is T  { return !isNullOrUndefined(o);                                                                  }
-  export function isSymbol               (o: unknown): o is symbol          { return typeof o === 'symbol';                                                                  }
-  export function isBoolean              (o: unknown): o is boolean         { return typeof o === 'boolean';                                                                 }
-  export function isNumber               (o: unknown): o is number          { return typeof o === "number";                                                                  }
-  export function isString               (o: unknown): o is string          { return typeof o === "string";                                                                  }
-  export function isArray<T>             (o: unknown): o is T[]             { return Array.isArray(o);                                                                       }
-  export function isObject               (o: unknown): o is AnyObj          { return typeof o === 'object' && o !== null && !isArray(o) && !isRegExp(o) && !isDate(o);       }
-  export function isFunction             (o: unknown): o is Function        { return typeof o === 'function';                                                                } // eslint-disable-line @typescript-eslint/ban-types
-  export function isPrimitive            (o: unknown): o is Primitive       { return o === null || o === undefined || (typeof o !== 'object' && typeof o !== 'function');    }
-  export function isStringArray          (o: unknown): o is string[]        { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e));                             }
+  export function isSymbol               (o: unknown  ): o is symbol        { return typeof o === 'symbol';                                                                  }
+  export function isBoolean              (o: unknown  ): o is boolean       { return typeof o === 'boolean';                                                                 }
+  export function isNumber               (o: unknown  ): o is number        { return typeof o === "number";                                                                  }
+  export function isString               (o: unknown  ): o is string        { return typeof o === "string";                                                                  }
+  export function isArray<T>             (o: unknown  ): o is T[]           { return Array.isArray(o);                                                                       }
+  export function isObject               (o: unknown  ): o is AnyObj        { return typeof o === 'object' && o !== null && !isArray(o) && !isRegExp(o) && !isDate(o);       }
+  export function isFunction             (o: unknown  ): o is Function      { return typeof o === 'function';                                                                } // eslint-disable-line @typescript-eslint/ban-types
+  export function isPrimitive            (o: unknown  ): o is Primitive     { return o === null || o === undefined || (typeof o !== 'object' && typeof o !== 'function');    }
+  export function isStringArray          (o: unknown  ): o is string[]      { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e));                             }
   export function isFunctionArray        (o: unknown[]): o is Function[]    { return o.length > 0 && o.every(isFunction);                                                    } // eslint-disable-line @typescript-eslint/ban-types
-  export function isIterable<T=unknown>  (o: unknown): o is Iterable<T>     { return !!o && typeof o === 'object' && isFunction((o as any)[Symbol.iterator]);                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+  export function isIterable<T=unknown>  (o: unknown  ): o is Iterable<T>   { return !!o && typeof o === 'object' && isFunction((o as any)[Symbol.iterator]);                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
 
-  export function assertNever            (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
-  export function assertType             (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
-  export function assertIsDefined<T>     (o: T | null | undefined):           asserts o is T    { if (types.isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
-  export function assertAllDefined       (o: (unknown | null | undefined)[]): asserts o is NonNullable<unknown>[] {
+  export function assertNever        (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
+  export function assertType         (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
+  export function assertIsDefined<T> (o: T | null | undefined):           asserts o is T    { if (types.isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
+  export function assertAllDefined   (o: (unknown | null | undefined)[]): asserts o is NonNullable<unknown>[] {
     o.every((e, i) => {
       if (isNullOrUndefined(e)) {
         throw new TypeError(`Assertion Failed: argument at index ${i} is undefined or null`);
@@ -57,48 +57,75 @@ export namespace types {
 
 export namespace objects {
   type Clonable = types.Primitive | Date | RegExp | unknown[] | types.AnyObj;
-  // export function deepCopy   (src: null                  ): null                   ;
-  // export function deepCopy   (src: undefined             ): undefined              ;
-  // export function deepCopy   (src: boolean               ): boolean                ;
-  // export function deepCopy   (src: number                ): number                 ;
-  // export function deepCopy   (src: string                ): string                 ;
-  export function deepCopy   (src: types.Primitive       ): typeof src             ;
-  export function deepCopy   (src: Date                  ): Date                   ;
-  export function deepCopy   (src: RegExp                ): RegExp                 ;
-  export function deepCopy   (src: Array<Clonable>       ): Clonable[]             ;
-  export function deepCopy   (src: types.AnyObj): types.AnyObj ;
-  export function deepCopy<T>(src: T                     ): T                      ;
-  export function deepCopy   (src: Clonable): typeof src {
-    if      (types.isPrimitive   (src)) { return src;         }
-    else if (types.isDate        (src)) { return new Date(src.getTime()); }
-    else if (types.isRegExp      (src)) { return new RegExp(src);         }
-    else if (types.isArray       (src)) { return src.map(deepCopy);       }
-    else if (types.isObject      (src)) {
+  // export function deepCopy(src: null           ): null;
+  // export function deepCopy(src: undefined      ): undefined;
+  // export function deepCopy(src: boolean        ): boolean;
+  // export function deepCopy(src: number         ): number;
+  // export function deepCopy(src: string         ): string;
+  export function deepCopy   (src: types.Primitive): typeof src;
+  export function deepCopy   (src: Date           ): Date;
+  export function deepCopy   (src: RegExp         ): RegExp;
+  export function deepCopy   (src: Array<Clonable>): Clonable[];
+  export function deepCopy   (src: types.AnyObj   ): types.AnyObj;
+  export function deepCopy<T>(src: T              ): T;
+  export function deepCopy   (src: Clonable       ): typeof src {
+    if      (types.isPrimitive(src)) { return src;                     }
+    else if (types.isDate     (src)) { return new Date(src.getTime()); }
+    else if (types.isRegExp   (src)) { return new RegExp(src);         }
+    else if (types.isArray    (src)) { return src.map(deepCopy);       }
+    else if (types.isObject   (src)) {
       // const srcRecord    = src as types.AnyObj;
       const result       = Object.create(null) as types.AnyObj;
       const srcPropDescs = Object.getOwnPropertyDescriptors(src);
-      Object.getOwnPropertyNames(src).forEach(k => {
+      for (const k of Object.getOwnPropertyNames(src)) {
         // const k = key as keyof typeof src;
         Object.defineProperty(result, k, srcPropDescs[k]);
         result[k] = deepCopy(src[k]);
-      });
+      }
       return result;
     }
     else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
   }
 
   // Copies all properties of src into target and optionally overwriting pre-existing target properties
-  export function mixin(dst: types.AnyObj, src: types.AnyObj, overwrite: boolean = true): types.AnyObj {
+  export function mixin     (dst: types.Primitive, src: types.Primitive, overwrite: boolean): typeof src;
+  export function mixin     (dst: Date           , src: Date           , overwrite: boolean): Date;
+  export function mixin     (dst: RegExp         , src: RegExp         , overwrite: boolean): RegExp;
+  export function mixin     (dst: Array<Clonable>, src: Array<Clonable>, overwrite: boolean): Clonable[];
+  export function mixin     (dst: types.AnyObj   , src: types.AnyObj   , overwrite: boolean): types.AnyObj;
+  export function mixin<T,U>(dst: T              , src: U              , overwrite: boolean): T|U;
+  export function mixin     (dst: Clonable       , src: Clonable       , overwrite: boolean): Clonable {
     if (!types.isObject(dst)) { return src; }
+    if (!types.isObject(src)) { return dst; }
 
-    if (types.isObject(src)) {
-      Object.getOwnPropertyNames(src).forEach(k => {
-        if (overwrite && k in dst) {
-          if (types.isObject(dst[k]) && types.isObject(src[k])) { mixin(dst[k] as types.AnyObj, src[k] as types.AnyObj, overwrite); }
-          else { dst[k] = src[k]; }
+    const srcPropDescs = Object.getOwnPropertyDescriptors(src);
+    for (const k of Object.getOwnPropertyNames(src)) {
+      if (!(k in dst)) {
+        Object.defineProperty(dst, k, srcPropDescs[k]);
+        dst[k] = deepCopy(src[k]);
+      }
+      else {
+        const hasSrcVal = !types.isNull(types.withUndefinedAsNull(src[k]));
+        const hasDstVal = !types.isNull(types.withUndefinedAsNull(dst[k]));
+        const needsUpdate =
+             (hasSrcVal && !hasDstVal)
+          || (hasSrcVal &&  hasDstVal && !overwrite);
+        if (!needsUpdate) {  continue; }
+
+        const srcVal = types.withUndefinedAsNull(src[k]);
+        if ( types.isPrimitive(srcVal)
+          || types.isDate     (srcVal)
+          || types.isRegExp   (srcVal)) { dst[k] = deepCopy(srcVal); }
+        else if (types.isArray(srcVal)) {
+          const  dstArr =  types.isArray(dst[k]) ? Array(dst[k]) : [];
+          dst[k] = srcVal.map((v, i) => {
+            if (!types.isObject(v)) { return deepCopy(v); }
+            else                    { return mixin(i < dstArr.length ? dstArr[i] : {}, v, overwrite); }
+          });
         }
-        else   { dst[k] = src[k]; }
-      });
+        else if (types.isObject(srcVal)) { dst[k] = mixin(types.isDefined(dst[k]) ? dst[k] : {}, srcVal, overwrite); }
+        else                             { throw new TypeError("Unable to copy obj prop! Its type isn't supported."); }
+      }
     }
     return dst;
   }
