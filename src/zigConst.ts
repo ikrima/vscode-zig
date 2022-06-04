@@ -21,9 +21,9 @@ export namespace CmdId {
   export namespace zig {
     export namespace build {
       export const runStep       = "zig.build.runStep";
-      export const lastTarget    = "zig.build.lastTarget";
+      export const runLastTarget = "zig.build.runLastTarget";
       export const getLastTarget = "zig.build.getLastTarget";
     }
-    export const test = "zig.test";
+    export const runTest = "zig.runTest";
   }
 }

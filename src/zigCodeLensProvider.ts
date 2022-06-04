@@ -97,7 +97,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
           this.codeLenses.push(
             new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
-              command: CmdId.zig.test,
+              command: CmdId.zig.runTest,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -111,7 +111,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
             }),
             new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
-              command: CmdId.zig.test,
+              command: CmdId.zig.runTest,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -135,7 +135,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
       this.codeLenses.push(
         new vsc.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
-          command: CmdId.zig.test,
+          command: CmdId.zig.runTest,
           arguments: [
             {
               buildArgs: { testSrcFile: document.uri.fsPath },

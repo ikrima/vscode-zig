@@ -88,15 +88,10 @@ export namespace objects {
   }
 
   // Copies all properties of src into target and optionally overwriting pre-existing target properties
-  export function mixin     (dst: types.Primitive, src: types.Primitive, overwrite: boolean): typeof src;
-  export function mixin     (dst: Date           , src: Date           , overwrite: boolean): Date;
-  export function mixin     (dst: RegExp         , src: RegExp         , overwrite: boolean): RegExp;
-  export function mixin     (dst: Array<Clonable>, src: Array<Clonable>, overwrite: boolean): Clonable[];
-  export function mixin     (dst: types.AnyObj   , src: types.AnyObj   , overwrite: boolean): types.AnyObj;
-  export function mixin<T,U>(dst: T              , src: U              , overwrite: boolean): T|U;
-  export function mixin     (dst: Clonable       , src: Clonable       , overwrite: boolean): Clonable {
-    if (!types.isObject(dst)) { return src; }
-    if (!types.isObject(src)) { return dst; }
+  export function mixin<T,U>(dst: T           , src: U           , overwrite: boolean): T|U;
+  export function mixin     (dst: types.AnyObj, src: types.AnyObj, overwrite: boolean): void {
+    types.assertType(types.isObject(src));
+    types.assertType(types.isObject(dst));
 
     const srcPropDescs = Object.getOwnPropertyDescriptors(src);
     for (const k of Object.getOwnPropertyNames(src)) {
@@ -105,29 +100,28 @@ export namespace objects {
         dst[k] = deepCopy(src[k]);
       }
       else {
-        const hasSrcVal = !types.isNull(types.withUndefinedAsNull(src[k]));
-        const hasDstVal = !types.isNull(types.withUndefinedAsNull(dst[k]));
+        const hasSrcVal = types.isDefined(src[k]);
+        const hasDstVal = types.isDefined(dst[k]);
         const needsUpdate =
              (hasSrcVal && !hasDstVal)
-          || (hasSrcVal &&  hasDstVal && !overwrite);
+          || (hasSrcVal &&  hasDstVal && overwrite);
         if (!needsUpdate) {  continue; }
 
-        const srcVal = types.withUndefinedAsNull(src[k]);
+        const srcVal = src[k];
         if ( types.isPrimitive(srcVal)
           || types.isDate     (srcVal)
           || types.isRegExp   (srcVal)) { dst[k] = deepCopy(srcVal); }
         else if (types.isArray(srcVal)) {
-          const  dstArr =  types.isArray(dst[k]) ? Array(dst[k]) : [];
-          dst[k] = srcVal.map((v, i) => {
-            if (!types.isObject(v)) { return deepCopy(v); }
-            else                    { return mixin(i < dstArr.length ? dstArr[i] : {}, v, overwrite); }
+          const dstArr = types.isArray(dst[k]) ? dst[k] as unknown[] : [];
+          dst[k] = Array.from(srcVal, (srcElm, i) => {
+            if (types.isObject(srcElm)) { const dstElm = i < dstArr.length ? dstArr[i] : {}; mixin(dstElm, srcElm, overwrite); return dstElm; }
+            else                        { return deepCopy(srcElm); }
           });
         }
-        else if (types.isObject(srcVal)) { dst[k] = mixin(types.isDefined(dst[k]) ? dst[k] : {}, srcVal, overwrite); }
+        else if (types.isObject(srcVal)) { const dstVal = types.isDefined(dst[k]) ? dst[k] : {}; mixin(dstVal, srcVal, overwrite); dst[k] = dstVal;  }
         else                             { throw new TypeError("Unable to copy obj prop! Its type isn't supported."); }
       }
     }
-    return dst;
   }
 
   export function isEmptyObject(obj: unknown): boolean {

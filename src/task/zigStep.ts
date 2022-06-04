@@ -160,7 +160,7 @@ export async function rawPickBuildStep(bldSteps: Promise<ZigBldStep[]>): Promise
 //                kind: 'zigBldStep',
 //                stepName: m[1],
 //                stepDesc: m[3],
-//                isDefault: !types.isNullOrUndefined(m[2])
+//                isDefault: types.isDefined(m[2])
 //              };
 //            },
 //          );

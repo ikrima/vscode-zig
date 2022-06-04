@@ -16,7 +16,7 @@
   "rules": {
     "@typescript-eslint/semi": "warn",
     "@typescript-eslint/member-delimiter-style": "warn",
-    "@typescript-eslint/naming-convention": "warn",
+    // "@typescript-eslint/naming-convention": "warn",
     "@typescript-eslint/no-inferrable-types": [
       "warn",
       {

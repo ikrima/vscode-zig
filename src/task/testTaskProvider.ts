@@ -22,32 +22,26 @@ interface ZigTestTaskDefinition extends vsc.TaskDefinition {
   };
   presentation?: vsc.TaskPresentationOptions;
 }
-const defaultPresentationOptions: vsc.TaskPresentationOptions = {
-  reveal:           vsc.TaskRevealKind.Always,
-  echo:             true,
-  focus:            false,
-  panel:            vsc.TaskPanelKind.Dedicated,
-  showReuseMessage: false,
-  clear:            true,
-};
+type RunTestCmdArgs = ZigTestStep;
+
 export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
     this.addDisposables(
       vsc.tasks.registerTaskProvider(Const.zigTestTaskType, this),
-      vsc.commands.registerCommand(CmdId.zig.test, async (testStep: ZigTestStep) => {
-        testStep.label = testStep.label ?? `test-${path.filename(testStep.buildArgs.testSrcFile)}`;
-        testStep.buildArgs.mainPkgPath = testStep.buildArgs.mainPkgPath ?? path.dirname(testStep.buildArgs.testSrcFile);
+      vsc.commands.registerCommand(CmdId.zig.runTest, async (args: RunTestCmdArgs) => {
+        args.label = args.label ?? `test-${path.filename(args.buildArgs.testSrcFile)}`;
+        args.buildArgs.mainPkgPath = args.buildArgs.mainPkgPath ?? path.dirname(args.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
           type: Const.zigTestTaskType,
-          label: testStep.label,
+          label: args.label,
           buildArgs: {
-            testSrcFile: testStep.buildArgs.testSrcFile,
-            mainPkgPath: testStep.buildArgs.mainPkgPath,
+            testSrcFile: args.buildArgs.testSrcFile,
+            mainPkgPath: args.buildArgs.mainPkgPath,
           },
           runArgs: {
-            debugLaunch: testStep.runArgs.debugLaunch,
-            testFilter: testStep.runArgs.testFilter,
-            cwd: testStep.runArgs.cwd,
+            debugLaunch: args.runArgs.debugLaunch,
+            testFilter: args.runArgs.testFilter,
+            cwd: args.runArgs.cwd,
           },
         };
         const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
@@ -152,8 +146,15 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
     );
     task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;
-    task.presentationOptions = defaultPresentationOptions;
-    objects.mixin(task.presentationOptions, taskDef.presentation ?? ({} as vsc.TaskPresentationOptions), true);
+    task.presentationOptions = {
+      reveal:           vsc.TaskRevealKind.Always,
+      echo:             true,
+      focus:            false,
+      panel:            vsc.TaskPanelKind.Dedicated,
+      showReuseMessage: false,
+      clear:            true,
+    };
+    objects.mixin(task.presentationOptions, taskDef.presentation ?? {}, true);
     return task;
   }
 }

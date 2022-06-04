@@ -24,26 +24,25 @@
     "onCommand:zig.zls.stop",
     "onCommand:zig.zls.restart",
     "onCommand:zig.build.runStep",
-    "onCommand:zig.build.lastTarget",
+    "onCommand:zig.build.runLastTarget",
     "onCommand:zig.build.getLastTarget",
-    "onCommand:zig.test"
+    "onCommand:zig.runTest"
   ],
   "contributes": {
     "taskDefinitions": [
       {
         "type": "zig_build",
         "required": [
-          "label",
           "stepName"
         ],
         "properties": {
-          "label": {
-            "type": "string",
-            "description": "The name of the task"
-          },
           "stepName": {
             "description": "build step",
             "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "description": "The name of the task"
           },
           "buildFile": {
             "description": "path to zig build file. Can be omitted.",
@@ -66,7 +65,8 @@
       {
         "type": "zig_test",
         "required": [
-          "label"
+          "label",
+          "buildArgs"
         ],
         "properties": {
           "label": {
@@ -243,7 +243,7 @@
         "category": "zig"
       },
       {
-        "command": "zig.build.lastTarget",
+        "command": "zig.build.runLastTarget",
         "title": "build last target",
         "category": "zig"
       },
@@ -253,8 +253,8 @@
         "category": "zig"
       },
       {
-        "command": "zig.test",
-        "title": "build test",
+        "command": "zig.runTest",
+        "title": "run test",
         "enablement": "zig.hasLastRanTask",
         "category": "zig"
       }
