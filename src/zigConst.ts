@@ -9,8 +9,11 @@ export namespace Const {
   export const zigBuildTaskType      = 'zig_build';
   export const zigTestTaskType       = 'zig_test';
   export const problemMatcher        = '$zig';
-  export const zlsChanName           = 'zls';
-  export const zlsDiagnosticsName    = 'zls';
+  export namespace zls {
+    export const outChanName         = 'zls';
+    export const traceChanName       = 'zls server trace';
+    export const diagnosticsName     = 'zls';
+  }
 }
 export namespace CmdId {
   export namespace zls {

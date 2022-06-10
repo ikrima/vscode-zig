@@ -23,11 +23,13 @@ import ZlsLanguageClient = vscodelc.LanguageClient;
 
 export class ZlsServices extends DisposableStore {
   private zlsChannel!: vsc.OutputChannel;
+  private zlsTraceChannel!: vsc.OutputChannel;
   private logger!: Logger;
   private zlsClient?: ZlsLanguageClient | undefined;
 
   public activate(): void {
-    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zlsChanName));
+    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.outChanName));
+    this.zlsTraceChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName));
     this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
@@ -111,7 +113,8 @@ export class ZlsServices extends DisposableStore {
       const clientOptions: vscodelc.LanguageClientOptions = {
         documentSelector: Const.documentSelector,
         outputChannel: this.zlsChannel,
-        diagnosticCollectionName: Const.zlsDiagnosticsName,
+        traceOutputChannel: this.zlsTraceChannel,
+        diagnosticCollectionName: Const.zls.diagnosticsName,
         revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
         // middleware: {
         //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {

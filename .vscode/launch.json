@@ -2,28 +2,37 @@
 // Use IntelliSense to learn about possible attributes.
 // Hover to view descriptions of existing attributes.
 // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+//
+// NOTE: --disable-extensions
+//  Disable all installed extensions to increase performance of the debug instance
+//  and prevent potential conflicts with other installed extensions.
 {
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"name":          "Run Extension",
-			"type":          "extensionHost",
-			"preLaunchTask": "npm: watch",
-			"request":       "launch",
-			"args":          [ "--extensionDevelopmentPath=${workspaceFolder}" ],
-			"sourceMaps": 	 true,
-			"outFiles":      [ "${workspaceFolder}/out/**/*.js" ],
-		},
-		{
-			"name":		 			  "Extension Tests",
-			"type":		 			  "extensionHost",
-			"preLaunchTask":  "npm: build",
-			"request": 			  "launch",
-			"args": 					[
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-			],
-			"outFiles": 			[ "${workspaceFolder}/out/test/**/*.js" ],
-		}
-	]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name":          "Run Extension",
+      "type":          "extensionHost",
+      "preLaunchTask": "npm: watch",
+      "request":       "launch",
+      // "runtimeExecutable": "${execPath}",
+      "args":          [
+        // "--disable-extensions",
+        "--extensionDevelopmentPath=${workspaceFolder}",
+      ],
+      "sourceMaps": 	 true,
+      "outFiles":      [ "${workspaceFolder}/out/**/*.js" ],
+      "skipFiles":     [ "<node_internals>/**"            ],
+    },
+    {
+      "name":		 			  "Extension Tests",
+      "type":		 			  "extensionHost",
+      "preLaunchTask":  "npm: build",
+      "request": 			  "launch",
+      "args": 					[
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+      ],
+      "outFiles": 			[ "${workspaceFolder}/out/test/**/*.js" ],
+    }
+  ]
 }
