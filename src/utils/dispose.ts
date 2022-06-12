@@ -1,5 +1,7 @@
 'use strict';
 
+import { ScopedError } from "./logger";
+
 export interface IDisposable {
   dispose(): void;
 }
@@ -21,7 +23,7 @@ export class DisposableStore {
   public get isDisposed(): boolean { return this._isDisposed; }
 
   protected addDisposable<T extends IDisposable>(val: T): T {
-    if ((val as unknown) === this) { throw new Error('Cannot add a disposable on itself!'); }
+    if ((val as unknown) === this) { throw ScopedError.make('Cannot add a disposable on itself!'); }
     if (this._isDisposed) { val.dispose(); }
     else { this._disposables.push(val); }
     return val;
@@ -32,7 +34,7 @@ export class DisposableStore {
     }
     else {
       for (const o of vals) {
-        if ((o as unknown) === this) { throw new Error('Cannot add a disposable on itself!'); }
+        if ((o as unknown) === this) { throw ScopedError.make('Cannot add a disposable on itself!'); }
         this._disposables.push(o);
       }
     }

@@ -188,6 +188,34 @@ export namespace fs {
 
 export namespace cp {
   export const execFile = promisify(cp_.execFile);
+  export const {
+    exec,
+    spawn,
+  } = cp_;
+  export type ChildProcess      = cp_.ChildProcess;
+  export type ExecException     = cp_.ExecException;
+  export type ExecFileException = cp_.ExecFileException;
+  export function isExecException(o: unknown): o is ExecException {
+    return types.isObject(o)
+      && types.isNativeError(o)
+      && ( (types.isString (o['cmd'   ]) ||  'cmd'    in o)
+        || (types.isBoolean(o['killed']) ||  'killed' in o)
+        || (types.isNumber (o['code'  ]) ||  'code'   in o)
+        || (types.isString (o['signal']) ||  'signal' in o)
+      );
+  }
+  export function isErrnoException(o: unknown): o is NodeJS.ErrnoException {
+    return types.isObject(o)
+      && types.isNativeError(o)
+      && ( (types.isNumber(o['errno'  ]) || 'errno'   in o)
+        || (types.isString(o['code'   ]) || 'code'    in o)
+        || (types.isString(o['path'   ]) || 'path'    in o)
+        || (types.isString(o['syscall']) || 'syscall' in o)
+      );
+ }
+  export function isExecFileException(o: unknown): o is ExecFileException {
+    return isExecException(o) && isErrnoException(o);
+ }
 }
 
 export namespace strings {
@@ -201,6 +229,8 @@ export namespace strings {
   export function compare           (a: string, b: string): number   { return (a < b) ? -1 : (a > b) ? 1 : 0; }
   export function compareIgnoreCase (a: string, b: string): number   { return compare(a.toLowerCase(), b.toLowerCase()); }
   export function equalsIgnoreCase  (a: string, b: string): boolean  { return a.length === b.length && a.toLowerCase() === b.toLowerCase(); }
+  export function nonEmptyFilter    (a: string | undefined | null): a is string { return a?.length !== 0; }
+  export function filterJoin        (items: (string | undefined | null)[], sep: string): string { return items.filter(nonEmptyFilter).join(sep); }
 
   export function fuzzyContains(target: string, query: string): boolean {
     // return early if target or query are undefined

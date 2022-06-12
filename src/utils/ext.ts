@@ -2,9 +2,8 @@
 import * as vsc from 'vscode';
 import * as process_ from 'process';
 import * as os from 'os';
-import * as cp_ from 'child_process';
-import { path, objects } from '../utils/common';
-import type { Logger } from './logger';
+import { path, objects, types, cp, strings } from '../utils/common';
+import { Logger, ScopedError } from './logger';
 
 
 export const isWindows = process_.platform === "win32";
@@ -199,23 +198,23 @@ export function normalizeShellArg(arg: string): string {
 
 // A promise for running process and also a wrapper to access ChildProcess-like methods
 export interface ProcessRunOptions {
-  shellArgs?: string[];               // Any arguments
-  cwd?: string;                 // Current working directory
-  logger?: Logger;                 // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
-  onStart?: () => void;             // Called after the process successfully starts
+  shellArgs?: string[];              // Any arguments
+  cwd?: string;                      // Current working directory
+  logger?: Logger;                   // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
+  onStart?: () => void;              // Called after the process successfully starts
   onStdout?: (data: string) => void; // Called when data is sent to stdout
   onStderr?: (data: string) => void; // Called when data is sent to stderr
-  onExit?: () => void;             // Called after the command (successfully or unsuccessfully) exits
-  notFoundText?: string;                 // Text to add when command is not found (maybe helping how to install)
+  onExit?: () => void;               // Called after the command (successfully or unsuccessfully) exits
+  notFoundText?: string;             // Text to add when command is not found (maybe helping how to install)
 }
 export type ProcessRun = {
   procCmd: string;
-  childProcess: cp_.ChildProcess | undefined;
+  childProcess: cp.ChildProcess | undefined;
   isRunning: () => boolean;
   kill: () => void;
   completion: Promise<{ stdout: string; stderr: string }>;
 };
-export interface ProcRunException extends cp_.ExecException {
+export interface ProcRunException extends cp.ExecException {
   stdout?: string | undefined;
   stderr?: string | undefined;
 }
@@ -224,11 +223,11 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   let firstResponse = true;
   let wasKilledbyUs = false;
   let isRunning = true;
-  let childProcess: cp_.ChildProcess | undefined;
-  const procCmd = [cmd]
-    .concat(options.shellArgs ?? [])
-    .map(arg => normalizeShellArg(arg))
-    .join(' ');
+  let childProcess: cp.ChildProcess | undefined;
+  const procCmd = strings.filterJoin([
+    cmd,
+    ...(options.shellArgs ?? [])
+  ].map(normalizeShellArg), ' ');
   return {
     procCmd: procCmd,
     childProcess: childProcess,
@@ -236,33 +235,33 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
     kill: () => {
       if (!(childProcess?.pid)) { return; }
       wasKilledbyUs = true;
-      if (isWindows) { cp_.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
+      if (isWindows) { cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
       else { childProcess.kill('SIGINT'); }
     },
     completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-      childProcess = cp_.exec(
+      childProcess = cp.exec(
         procCmd,
         { cwd: options.cwd }, // options.cwd ?? vsc.workspace.workspaceFolders?.[0].uri.fsPath,
-        (error: cp_.ExecException | null, stdout: string, stderr: string): void => {
+        (err: cp.ExecException | null, stdout: string, stderr: string): void => {
           isRunning = false;
           if (options.onExit) { options.onExit(); }
           childProcess = undefined;
-          if (wasKilledbyUs || !error) {
+          if (wasKilledbyUs || !err) {
             resolve({ stdout, stderr });
           } else {
             if (options.logger) {
               const cmdName = cmd.split(' ', 1)[0];
               const cmdWasNotFound = isWindows
-                ? error.message.includes(`'${cmdName}' is not recognized`)
-                : error?.code === 127;
+                ? err.message.includes(`'${cmdName}' is not recognized`)
+                : err?.code === 127;
               options.logger.error(
                 cmdWasNotFound
                   ? (options.notFoundText ?? `${cmdName} is not available in your path;`)
-                  : error.message
+                  : err.message
               );
             }
             reject(Object.assign(
-              (error ?? { name: "RunException", message: "Unknown" }) as ProcRunException,
+              (err ?? { name: "RunException", message: "Unknown" }) as ProcRunException,
               { stdout: stdout, stderr: stderr }
             ));
           }
@@ -297,7 +296,7 @@ export function once<T extends (...args: unknown[]) => unknown>(
   };
 }
 export function onceEvent<T>(event: vsc.Event<T>, filter?: (arg: T) => boolean): vsc.Event<T> {
-  return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vsc.Disposable[]): vsc.Disposable => {
+  const filtered_event = (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vsc.Disposable[]): vsc.Disposable => {
     let didFire = false; // in case the event fires during the listener call
     const result = event(e => {
       if (didFire) { return; }
@@ -310,4 +309,107 @@ export function onceEvent<T>(event: vsc.Event<T>, filter?: (arg: T) => boolean):
 
     return result;
   };
+  return filtered_event;
+}
+
+export interface TaskRun {
+  on_task_start: Promise<void>;
+  on_task_end: Promise<void>;
+}
+export namespace TaskRun {
+  type TaskEventArg = vsc.TaskStartEvent | vsc.TaskEndEvent | vsc.TaskProcessStartEvent | vsc.TaskProcessEndEvent;
+  export interface TaskRunEvent {
+    on_trigger: Promise<void>;
+    isBound(): boolean; // in case the event fires during the listener call
+    unbind(): void;
+  }
+  export function bindEvent(
+    unfilteredTaskEvent: vsc.Event<TaskEventArg>,
+    taskExecution: vsc.TaskExecution,
+    callbacks?: {
+      onResolve?: (value: void) => void;
+      onReject?: (reason?: unknown) => void;
+    },
+  ): TaskRunEvent {
+    const ret = {
+      on_trigger: Promise.resolve(),
+      _disposable: undefined as vsc.Disposable | undefined,
+      _isBound: true,
+      taskExecution: taskExecution,
+      isBound: function (): boolean { return this._isBound; },
+      unbind: function (): void {
+        if (!this._isBound) { return; }
+        this._isBound = false;
+        this._disposable?.dispose();
+        this._disposable = undefined;
+      },
+    };
+    ret.on_trigger = new Promise<void>((resolve, reject) => {
+      ret._disposable = unfilteredTaskEvent((e: TaskEventArg) => {
+        if (!ret._isBound && !ret._disposable) {
+          return;
+        }
+        else if (ret._isBound && ret._disposable) {
+          if (callbacks?.onReject) { callbacks.onReject(); }
+          reject();
+        }
+        else if (ret.taskExecution === e.execution) {
+          ret.unbind();
+          if (callbacks?.onResolve) { callbacks.onResolve(); }
+          resolve();
+        }
+      });
+    });
+    return ret;
+  }
+
+  export async function startTask(task: vsc.Task): Promise<TaskRun> {
+    return await vsc.tasks.executeTask(task).then(
+      (task_execution) => {
+        let start_event: TaskRunEvent | undefined = undefined;
+        let end_event: TaskRunEvent | undefined = undefined;
+        start_event = TaskRun.bindEvent(vsc.tasks.onDidStartTask, task_execution, {
+          onReject: () => end_event?.unbind(),
+        });
+        end_event = TaskRun.bindEvent(vsc.tasks.onDidEndTask, task_execution, {
+          onReject: () => start_event?.unbind(),
+        });
+        return {
+          on_task_start: start_event.on_trigger,
+          on_task_end: end_event.on_trigger,
+        } as TaskRun;
+      },
+      e => {
+        if (cp.isExecException(e)) {
+          const cmd    = e.cmd    ? `  cmd   : ${e.cmd}`   : undefined;
+          const code   = e.code   ? `  code  : ${e.code}`  : undefined;
+          const signal = e.signal ? `  signal: ${e.signal}`: undefined;
+          const stderr = types.isObject(e) && 'stderr' in e && types.isString(e['stderr'])
+            ? `  task output: ${e['stderr']}`
+            : undefined;
+          const detail_msg = strings.filterJoin([
+            cmd,
+            code,
+            signal,
+            stderr,
+          ], os.EOL);
+          return Promise.reject(
+            ScopedError.make(
+              `${task.name} task run: finished with error(s)`,
+              detail_msg,
+              undefined,
+              undefined,
+              e.stack,
+            )
+          );
+        }
+        else {
+          return Promise.reject(
+            ScopedError.make(`${task.name} task run: finished with error(s)`, e)
+          );
+          // return Promise.reject(reason);
+        }
+      }
+    );
+  }
 }

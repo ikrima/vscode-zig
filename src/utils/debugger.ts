@@ -2,6 +2,7 @@
 'use strict';
 import * as vsc from 'vscode';
 import { isExtensionActive } from '../utils/ext';
+import { ScopedError } from './logger';
 
 
 export interface ExecutableTarget {
@@ -47,7 +48,7 @@ export async function launchVsDbg(
   target: VsDbgConfig,
   folder?: vsc.WorkspaceFolder | undefined
 ): Promise<boolean> {
-  if (!Debugger.isActive(Debugger.vsdbg)) { throw new Error("cpptools extension must be enabled or installed"); }
+  if (!Debugger.isActive(Debugger.vsdbg)) { throw ScopedError.make("cpptools extension must be enabled or installed"); }
   const debugConfig: vsc.DebugConfiguration = {
     type: 'cppvsdbg',
     request: 'launch',
@@ -57,6 +58,6 @@ export async function launchVsDbg(
 }
 
 export async function launchLLDB(_target: ExecutableTarget): Promise<boolean> {
-  if (!Debugger.isActive(Debugger.lldb)) { throw new Error("vscode-lldb extension must be enabled or installed."); }
-  return Promise.reject(new Error("codeLLDB temporarily disabled"));
+  if (!Debugger.isActive(Debugger.lldb)) { throw ScopedError.make("vscode-lldb extension must be enabled or installed."); }
+  return Promise.reject(ScopedError.make("codeLLDB temporarily disabled"));
 }
