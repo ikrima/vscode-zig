@@ -2,7 +2,7 @@
 import * as vsc from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 import { fs, path, strings } from './utils/common';
-import { Logger, LogLevel } from './utils/logger';
+import { Logger, LogLevel, ScopedError } from './utils/logger';
 import { Const, CmdId } from "./zigConst";
 import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
@@ -11,13 +11,13 @@ import ZlsLanguageClient = vscodelc.LanguageClient;
 // class ZlsLanguageClient extends vscodelc.LanguageClient {
 //   // Default implementation logs failures to output panel that's meant for extension debugging
 //   // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
-//   handleFailedRequest<T>(type: vscodelc.MessageSignature, error: any, defaultValue: T): T {
-//     if (error instanceof vscodelc.ResponseError
+//   handleFailedRequest<T>(type: vscodelc.MessageSignature, err: any, defaultValue: T): T {
+//     if (err instanceof vscodelc.ResponseError
 //       && type.method === 'workspace/executeCommand'
 //     ) {
-//       zlsContext.logger.error("ZlsLanguageClient error", error);
+//       zlsContext.logger.error("ZlsLanguageClient err", err);
 //     }
-//     return super.handleFailedRequest(type, error, defaultValue);
+//     return super.handleFailedRequest(type, err, defaultValue);
 //   }
 // }
 
@@ -78,7 +78,7 @@ export class ZlsServices extends DisposableStore {
           ? Promise.resolve()
           : fs.fileExists(zls.binary).then(exists => exists
             ? Promise.resolve()
-            : Promise.reject(new Error(
+            : Promise.reject(ScopedError.make(
               `Failed to find zls executable ${zls.binary}\n` +
               `  Please specify its path in your settings with 'zig.zls.binary'`
             ))),

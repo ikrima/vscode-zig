@@ -2,6 +2,8 @@
 import * as vsc from 'vscode';
 import { objects } from '../utils/common';
 import { DisposableStore } from '../utils/dispose';
+import { TaskRun } from '../utils/ext';
+import { ScopedError } from '../utils/logger';
 import { CmdId, Const } from "../zigConst";
 import { zig_cfg, zig_logger } from "../zigExt";
 import { rawGetBuildSteps, rawPickBuildStep, ZigBldStep } from "./zigStep";
@@ -39,8 +41,8 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
       vsc.commands.registerCommand(CmdId.zig.build.runStep, async (args: RunStepCmdArgs) => {
         await this.runBuildStep({
-          type:         Const.zigBuildTaskType,
-          stepName:     args.stepName,
+          type: Const.zigBuildTaskType,
+          stepName: args.stepName,
           presentation: args.presentation,
         });
       }),
@@ -68,7 +70,10 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     // zigFormatStatusBar.show();
   }
   public async provideTasks(): Promise<ZigBuildTask[]> {
-    const tasks = await this.cachedBuildTasks();
+    const tasks: ZigBuildTask[] = await this.cachedBuildTasks().catch(e => {
+      zig_logger.logMsg(ScopedError.wrap(e));
+      return [];
+    });
     return tasks;
   }
   // Resolves a task that has no [`execution`](#Task.execution) set.
@@ -92,15 +97,12 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
 
   private async cachedBuildSteps(force?: boolean): Promise<ZigBldStep[]> {
     try {
-      if (force || !this._cachedBldSteps) {
-        this._cachedBldSteps = await rawGetBuildSteps();
-      }
+      if (force || !this._cachedBldSteps) { this._cachedBldSteps = await rawGetBuildSteps(); }
       return this._cachedBldSteps;
     }
     catch (e) {
       this._cachedBldSteps = undefined;
-      zig_logger.error('zig build errors', e);
-      return Promise.reject();
+      return Promise.reject(e);
     }
   }
 
@@ -114,8 +116,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     }
     catch (e) {
       this._cachedBldTasks = undefined;
-      zig_logger.error('zig build errors', e);
-      return Promise.reject();
+      return Promise.reject(e);
     }
   }
 
@@ -128,8 +129,14 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   }
 
   private async runBuildStep(taskDef: ZigBuildTaskDefinition): Promise<void> {
-    await vsc.tasks.executeTask(this.getBuildTask(taskDef, vsc.TaskScope.Workspace));
+    const zigTask = this.getBuildTask(taskDef, vsc.TaskScope.Workspace);
+    await TaskRun.startTask(zigTask).catch((e?: unknown) => {
+      return Promise.reject(
+        ScopedError.make(`zig build for ${zigTask.name} failed`, e)
+      );
+    });
   }
+
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace): ZigBuildTask {
     const zig = zig_cfg.zig;
     const task = new ZigBuildTask(
@@ -149,16 +156,16 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
       ),
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
-    if      (/build/i.test(taskDef.stepName))  { task.group = vsc.TaskGroup.Build; }
-    else if (/test/i.test (taskDef.stepName))  { task.group = vsc.TaskGroup.Test;  }
-    task.detail              = `zig build ${taskDef.stepName}`;
+    if (/build/i.test(taskDef.stepName)) { task.group = vsc.TaskGroup.Build; }
+    else if (/test/i.test(taskDef.stepName)) { task.group = vsc.TaskGroup.Test; }
+    task.detail = `zig build ${taskDef.stepName}`;
     task.presentationOptions = {
-      reveal:           vsc.TaskRevealKind.Always,
-      echo:             true,
-      focus:            false,
-      panel:            vsc.TaskPanelKind.Dedicated,
+      reveal: vsc.TaskRevealKind.Always,
+      echo: true,
+      focus: false,
+      panel: vsc.TaskPanelKind.Dedicated,
       showReuseMessage: false,
-      clear:            true,
+      clear: true,
     };
     objects.mixin(task.presentationOptions, taskDef.presentation ?? {}, true);
 

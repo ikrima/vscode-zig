@@ -2,8 +2,9 @@
 import * as vsc from 'vscode';
 import { fs, objects, path } from '../utils/common';
 import { Debugger, launchLLDB, launchVsDbg } from '../utils/debugger';
+import { ScopedError } from '../utils/logger';
 import { DisposableStore } from '../utils/dispose';
-import { onceEvent, VariableResolver } from '../utils/ext';
+import { TaskRun, VariableResolver } from '../utils/ext';
 import { CmdId, Const } from "../zigConst";
 import { zig_cfg, zig_logger } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
@@ -45,7 +46,9 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
           },
         };
         const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
-        await this.runTestTask(zigTask);
+        await this.runTestTask(zigTask).catch(e => {
+          zig_logger.logMsg(ScopedError.wrap(e));
+        });
       }),
     );
   }
@@ -69,56 +72,48 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
   private async runTestTask(zigTask: ZigTestTask): Promise<void> {
     const taskDef = zigTask.definition as ZigTestTaskDefinition;
     try { if (!(await fs.dirExists(zig_cfg.outDir))) { await fs.createDir(zig_cfg.outDir); } } catch (e) {
-      zig_logger.error(`Could not create testEmitBinDir: (${zig_cfg.outDir}) does not exists.`, e);
-      return;
+      return Promise.reject(
+        ScopedError.make(`Could not create testEmitBinDir: (${zig_cfg.outDir}) does not exists.`, e)
+      );
     }
     // Run Build Task
-    const executionPromise = vsc.tasks.executeTask(zigTask);
-    if (!taskDef.runArgs?.debugLaunch) {
-      await executionPromise;
-      return;
-    }
 
-    return await executionPromise.then(
-      execution => {
-        const onceTaskEvent = onceEvent(vsc.tasks.onDidEndTask, e => e.execution === execution);
-        return new Promise<void>((resolve, reject) => onceTaskEvent(async _ => {
-          try {
-            // if (!(await fs.fileExists(debugArgs.program))) { throw new Error(`Failed to find compiled test binary: (${debugArgs.program})`); }
-            if (Debugger.isActive(Debugger.vsdbg)) {
-              await launchVsDbg({
-                name:    `Zig Test Debug`,
-                program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-                args:    [zig_cfg.zig.binary],
-                cwd:     taskDef.runArgs?.cwd,
-                console: 'integratedTerminal',
-              });
-            }
-            else if (Debugger.isActive(Debugger.lldb)) {
-              await launchLLDB({
-                name:    `Zig Test Debug`,
-                program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-                args:    [zig_cfg.zig.binary],
-                cwd:     taskDef.runArgs?.cwd,
-                console: 'integratedTerminal',
-              });
-            }
-            else { throw new Error("cpptools/vscode-lldb extension must be enabled or installed."); }
-            resolve();
-          }
-          catch (e) {
-            zig_logger.error(`Could not launch debugger`, e);
-            reject();
-          }
-        }));
-      },
-      e => {
-        zig_logger.error(`zig build for ${taskDef.label} failed`, e);
+    const { on_task_start } = await TaskRun.startTask(zigTask).catch((e?: unknown) => {
+      return Promise.reject(
+        ScopedError.make(`zig build for ${zigTask.name} failed`, e)
+      );
+    });
+    if (!taskDef.runArgs?.debugLaunch) { return; }
+    try {
+      await on_task_start;
+      // if (!(await fs.fileExists(debugArgs.program))) { throw ScopedError.make(`Failed to find compiled test binary: (${debugArgs.program})`); }
+      if (Debugger.isActive(Debugger.vsdbg)) {
+        await launchVsDbg({
+          name: `Zig Test Debug`,
+          program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+          args: [zig_cfg.zig.binary],
+          cwd: taskDef.runArgs?.cwd,
+          console: 'integratedTerminal',
+        });
       }
-    );
-
-
+      else if (Debugger.isActive(Debugger.lldb)) {
+        await launchLLDB({
+          name: `Zig Test Debug`,
+          program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+          args: [zig_cfg.zig.binary],
+          cwd: taskDef.runArgs?.cwd,
+          console: 'integratedTerminal',
+        });
+      }
+      else { throw ScopedError.make("cpptools/vscode-lldb extension must be enabled or installed."); }
+    }
+    catch (e) {
+      return Promise.reject(
+        ScopedError.make(`Could not launch debugger`, e)
+      );
+    }
   }
+
   private getTestTask(taskDef: ZigTestTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigTestTask {
     const zig = zig_cfg.zig;
     const varCtx = new VariableResolver();
