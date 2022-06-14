@@ -27,7 +27,7 @@ export namespace types {
   export function isUndefined            (o: unknown): o is undefined       { return o === undefined;                                                                        }
   export function isNull                 (o: unknown): o is null            { return o === null;                                                                             }
   export function isNullOrUndefined      (o: unknown): o is null|undefined  { return o === undefined || o === null;                                                          }
-  export function isDefined<T>           (o: T | null | undefined): o is T  { return !isNullOrUndefined(o);                                                                  }
+  export function isDefined<T>           (o: T | null | undefined): o is T  { return o !== undefined && o !== null;                                                          }
   export function isSymbol               (o: unknown  ): o is symbol        { return typeof o === 'symbol';                                                                  }
   export function isBoolean              (o: unknown  ): o is boolean       { return typeof o === 'boolean';                                                                 }
   export function isNumber               (o: unknown  ): o is number        { return typeof o === "number";                                                                  }
@@ -39,7 +39,7 @@ export namespace types {
   export function isStringArray          (o: unknown  ): o is string[]      { return Array.isArray(o) && (<unknown[]>o).every(e => isString(e));                             }
   export function isFunctionArray        (o: unknown[]): o is Function[]    { return o.length > 0 && o.every(isFunction);                                                    } // eslint-disable-line @typescript-eslint/ban-types
   export function isIterable<T=unknown>  (o: unknown  ): o is Iterable<T>   { return !!o && typeof o === 'object' && isFunction((o as any)[Symbol.iterator]);                } // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-
+  export function isThenable<T>          (o: unknown  ): o is Promise<T>    { return !!o && typeof (o as Promise<T>).then === 'function';                                    }
   export function assertNever        (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
   export function assertType         (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
   export function assertIsDefined<T> (o: T | null | undefined):           asserts o is T    { if (types.isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
@@ -218,8 +218,13 @@ export namespace cp {
  }
 }
 
-export namespace strings {
+export namespace arrays {
+  export function coalesce<T>(array: ReadonlyArray<T | undefined | null>): T[] {
+    return <T[]>array.filter(e => !!e);
+  }
+}
 
+export namespace strings {
   export const eolRegEx   = /\r\n|\r|\n/;
   export const crlfString = "\r\n";
   export const lfString   = "\n";
@@ -230,7 +235,7 @@ export namespace strings {
   export function compareIgnoreCase (a: string, b: string): number   { return compare(a.toLowerCase(), b.toLowerCase()); }
   export function equalsIgnoreCase  (a: string, b: string): boolean  { return a.length === b.length && a.toLowerCase() === b.toLowerCase(); }
   export function nonEmptyFilter    (a: string | undefined | null): a is string { return a?.length !== 0; }
-  export function filterJoin        (items: (string | undefined | null)[], sep: string): string { return items.filter(nonEmptyFilter).join(sep); }
+  export function filterJoin        (sep: string, items: (string | undefined | null)[]): string { return items.filter(nonEmptyFilter).join(sep); }
 
   export function fuzzyContains(target: string, query: string): boolean {
     // return early if target or query are undefined

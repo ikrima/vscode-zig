@@ -47,17 +47,25 @@ export namespace Debugger {
 export async function launchVsDbg(
   target: VsDbgConfig,
   folder?: vsc.WorkspaceFolder | undefined
-): Promise<boolean> {
-  if (!Debugger.isActive(Debugger.vsdbg)) { throw ScopedError.make("cpptools extension must be enabled or installed"); }
+): Promise<void> {
+  if (!Debugger.isActive(Debugger.vsdbg)) {
+    return Promise.reject(ScopedError.make("cpptools extension must be enabled or installed"));
+  }
   const debugConfig: vsc.DebugConfiguration = {
     type: 'cppvsdbg',
     request: 'launch',
     ...target,
   };
-  return await vsc.debug.startDebugging(folder ?? vsc.workspace.workspaceFolders?.[0], debugConfig);
+  return vsc.debug.startDebugging(folder ?? vsc.workspace.workspaceFolders?.[0], debugConfig).then(
+    started => started ? Promise.resolve() : Promise.reject(ScopedError.make("could not launch cpptools debug instance")),
+    e => Promise.reject(ScopedError.make("Could not launch cppvsdbg debug instance", e))
+  );
+
 }
 
-export async function launchLLDB(_target: ExecutableTarget): Promise<boolean> {
-  if (!Debugger.isActive(Debugger.lldb)) { throw ScopedError.make("vscode-lldb extension must be enabled or installed."); }
+export async function launchLLDB(_target: ExecutableTarget): Promise<void> {
+  if (!Debugger.isActive(Debugger.lldb)) {
+    return Promise.reject(ScopedError.make("vscode-lldb extension must be enabled or installed."));
+  }
   return Promise.reject(ScopedError.make("codeLLDB temporarily disabled"));
 }

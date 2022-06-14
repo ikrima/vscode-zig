@@ -36,6 +36,31 @@ export namespace LogLevel {
   }
 }
 
+export class Stacktrace {
+  private constructor(readonly stack: string) { }
+
+  public static create(arg?: Error | types.AnyObj | string | unknown | undefined): Stacktrace {
+    return Stacktrace.from(arg) ?? Stacktrace.capture();
+  }
+  public static from(arg: Error | types.AnyObj | string | unknown): Stacktrace | undefined {
+    const stack: string | undefined | null =
+      types.isString(arg)                                   ? arg          :
+      types.isNativeError(arg)                              ? arg.stack    :
+      (types.isObject(arg) && types.isString(arg['stack'])) ? arg['stack'] :
+      undefined;
+		return stack ? new Stacktrace(stack) : undefined;
+	}
+  public static capture(): Stacktrace {
+    const err = new Error();
+    if (!err.stack) { Error.captureStackTrace(err); }
+    return new Stacktrace(err.stack ?? '');
+  }
+
+  public toString(): string {
+    return this.stack.split('\n').slice(2).join('\n');
+  }
+}
+
 export interface ScopedMsg {
   level:   LogLevel;
   message: string;
@@ -62,12 +87,12 @@ export namespace ScopedMsg {
       types.isString     (detail) ? detail         :
       types.isDefined    (detail) ? String(detail) :
       undefined;
-    const stack = types.isNativeError(detail) && detail.stack ? detail.stack : undefined;
-    return strings.filterJoin([
+    const trace = Stacktrace.from(detail);
+    return strings.filterJoin(os.EOL, [
       message,
-      detail_msg ? `  Error: ${detail_msg}` : null,
-      stack      ? `  StackTrace: ${stack}` : null,
-    ], os.EOL);
+      detail_msg ? `  Error: ${detail_msg}`            : null,
+      trace      ? `  StackTrace: ${trace.toString()}` : null,
+    ]);
   }
 }
 
@@ -83,11 +108,12 @@ export class ScopedError extends Error {
   }
 
   public override toString(): string {
-    return strings.filterJoin([
+    const stack = Stacktrace.from(this.stack)?.toString();
+    return strings.filterJoin(os.EOL, [
       this.message,
       this.detail_msg ? `  Error: ${this.detail_msg}` : null,
-      this.stack      ? `  StackTrace: ${this.stack}` : null,
-    ], os.EOL);
+      stack           ? `  StackTrace: ${stack}`      : null,
+    ]);
   }
 
   public static is(o: unknown): o is ScopedError {
@@ -111,9 +137,7 @@ export class ScopedError extends Error {
       reveal ?? (level ? level === LogLevel.error || level === LogLevel.warn : true),
       detail_msg,
     );
-    if       (stack)                                       { err.stack = stack; }
-    else if  (types.isNativeError(detail) && detail.stack) { err.stack = detail.stack; }
-    else                                                   { Error.captureStackTrace(err); }
+    err.stack = Stacktrace.create(stack ?? detail).stack;
     return err;
   }
 

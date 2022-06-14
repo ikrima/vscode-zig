@@ -2,7 +2,7 @@
 import * as vsc from 'vscode';
 import { objects } from '../utils/common';
 import { DisposableStore } from '../utils/dispose';
-import { TaskRun } from '../utils/ext';
+import { TaskInstance } from '../utils/ext';
 import { ScopedError } from '../utils/logger';
 import { CmdId, Const } from "../zigConst";
 import { zig_cfg, zig_logger } from "../zigExt";
@@ -130,7 +130,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
 
   private async runBuildStep(taskDef: ZigBuildTaskDefinition): Promise<void> {
     const zigTask = this.getBuildTask(taskDef, vsc.TaskScope.Workspace);
-    await TaskRun.startTask(zigTask).catch((e?: unknown) => {
+    await TaskInstance.launch(zigTask).catch((e?: unknown) => {
       return Promise.reject(
         ScopedError.make(`zig build for ${zigTask.name} failed`, e)
       );

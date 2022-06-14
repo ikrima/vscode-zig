@@ -102,12 +102,12 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       const stderr = types.isObject(e) && 'stderr' in e && types.isString(e['stderr'])
         ? `  errors: ${e['stderr']}`
         : undefined;
-      const detail_msg = strings.filterJoin([
+      const detail_msg = strings.filterJoin(os.EOL, [
         cmd,
         code,
         signal,
         stderr,
-      ], os.EOL);
+      ]);
       return Promise.reject(
         ScopedError.make(
           `zig build: finished with error(s)`,

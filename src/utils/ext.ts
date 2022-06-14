@@ -4,6 +4,7 @@ import * as process_ from 'process';
 import * as os from 'os';
 import { path, objects, types, cp, strings } from '../utils/common';
 import { Logger, ScopedError } from './logger';
+import { OnceEvent } from './async';
 
 
 export const isWindows = process_.platform === "win32";
@@ -224,10 +225,10 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   let wasKilledbyUs = false;
   let isRunning = true;
   let childProcess: cp.ChildProcess | undefined;
-  const procCmd = strings.filterJoin([
+  const procCmd = strings.filterJoin(' ', [
     cmd,
     ...(options.shellArgs ?? [])
-  ].map(normalizeShellArg), ' ');
+  ].map(normalizeShellArg));
   return {
     procCmd: procCmd,
     childProcess: childProcess,
@@ -281,135 +282,49 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   };
 }
 
-export function once<T extends (...args: unknown[]) => unknown>(
-  fn: (...args: Parameters<T>) => ReturnType<T>
-): (...args: Parameters<T>) => ReturnType<T> {
-  // export function once(fn: (...args: unknown[]) => unknown): (...args: unknown[]) => unknown {
-  let didCall = false;
-  let result: ReturnType<T>;
 
-  return (...args: Parameters<T>): ReturnType<T> => {
-    if (didCall) { return result; }
-    didCall = true;
-    result = fn(...args);
-    return result;
-  };
-}
-export function onceEvent<T>(event: vsc.Event<T>, filter?: (arg: T) => boolean): vsc.Event<T> {
-  const filtered_event = (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vsc.Disposable[]): vsc.Disposable => {
-    let didFire = false; // in case the event fires during the listener call
-    const result = event(e => {
-      if (didFire) { return; }
-      else if (filter ? filter(e) : true) {
-        didFire = true;
-        result.dispose();
-        return listener.call(thisArgs, e);
-      }
-    }, null, disposables);
-
-    return result;
-  };
-  return filtered_event;
-}
-
-export interface TaskRun {
+export interface TaskInstance {
   on_task_start: Promise<void>;
   on_task_end: Promise<void>;
 }
-export namespace TaskRun {
+export namespace TaskInstance {
   type TaskEventArg = vsc.TaskStartEvent | vsc.TaskEndEvent | vsc.TaskProcessStartEvent | vsc.TaskProcessEndEvent;
-  export interface TaskRunEvent {
-    on_trigger: Promise<void>;
-    isBound(): boolean; // in case the event fires during the listener call
-    unbind(): void;
-  }
-  export function bindEvent(
-    unfilteredTaskEvent: vsc.Event<TaskEventArg>,
-    taskExecution: vsc.TaskExecution,
-    callbacks?: {
-      onResolve?: (value: void) => void;
-      onReject?: (reason?: unknown) => void;
-    },
-  ): TaskRunEvent {
-    const ret = {
-      on_trigger: Promise.resolve(),
-      _disposable: undefined as vsc.Disposable | undefined,
-      _isBound: true,
-      taskExecution: taskExecution,
-      isBound: function (): boolean { return this._isBound; },
-      unbind: function (): void {
-        if (!this._isBound) { return; }
-        this._isBound = false;
-        this._disposable?.dispose();
-        this._disposable = undefined;
-      },
-    };
-    ret.on_trigger = new Promise<void>((resolve, reject) => {
-      ret._disposable = unfilteredTaskEvent((e: TaskEventArg) => {
-        if (!ret._isBound && !ret._disposable) {
-          return;
-        }
-        else if (ret._isBound && ret._disposable) {
-          if (callbacks?.onReject) { callbacks.onReject(); }
-          reject();
-        }
-        else if (ret.taskExecution === e.execution) {
-          ret.unbind();
-          if (callbacks?.onResolve) { callbacks.onResolve(); }
-          resolve();
-        }
-      });
-    });
-    return ret;
-  }
+  export async function launch(task: vsc.Task): Promise<TaskInstance> {
+    return vsc.tasks.executeTask(task).then(
+      (execution: vsc.TaskExecution): TaskInstance => {
+        let on_start_once: OnceEvent | undefined = undefined;
+        let on_end_once: OnceEvent | undefined = undefined;
+        const taskFilter = (e: TaskEventArg): boolean => execution === e.execution;
+        const eventFinalizer = () => {
+          on_start_once?.cancel();
+          on_end_once?.cancel();
+        };
+        const on_task_start = new Promise<void>((resolve, reject) => {
+          on_start_once = OnceEvent.once(vsc.tasks.onDidStartTask, taskFilter, reject)(_ => resolve());
+        }).finally(eventFinalizer);
+        const on_task_end = new Promise<void>((resolve, reject) => {
+          on_end_once = OnceEvent.once(vsc.tasks.onDidEndTask, taskFilter, reject)(_ => resolve());
+        }).finally(eventFinalizer);
 
-  export async function startTask(task: vsc.Task): Promise<TaskRun> {
-    return await vsc.tasks.executeTask(task).then(
-      (task_execution) => {
-        let start_event: TaskRunEvent | undefined = undefined;
-        let end_event: TaskRunEvent | undefined = undefined;
-        start_event = TaskRun.bindEvent(vsc.tasks.onDidStartTask, task_execution, {
-          onReject: () => end_event?.unbind(),
-        });
-        end_event = TaskRun.bindEvent(vsc.tasks.onDidEndTask, task_execution, {
-          onReject: () => start_event?.unbind(),
-        });
-        return {
-          on_task_start: start_event.on_trigger,
-          on_task_end: end_event.on_trigger,
-        } as TaskRun;
+        return { on_task_start, on_task_end };
       },
-      e => {
-        if (cp.isExecException(e)) {
-          const cmd    = e.cmd    ? `  cmd   : ${e.cmd}`   : undefined;
-          const code   = e.code   ? `  code  : ${e.code}`  : undefined;
-          const signal = e.signal ? `  signal: ${e.signal}`: undefined;
-          const stderr = types.isObject(e) && 'stderr' in e && types.isString(e['stderr'])
-            ? `  task output: ${e['stderr']}`
-            : undefined;
-          const detail_msg = strings.filterJoin([
-            cmd,
-            code,
-            signal,
-            stderr,
-          ], os.EOL);
-          return Promise.reject(
-            ScopedError.make(
-              `${task.name} task run: finished with error(s)`,
-              detail_msg,
-              undefined,
-              undefined,
-              e.stack,
-            )
-          );
-        }
-        else {
-          return Promise.reject(
-            ScopedError.make(`${task.name} task run: finished with error(s)`, e)
-          );
-          // return Promise.reject(reason);
-        }
-      }
-    );
+      (reason?: unknown) => {
+        const scopedError = cp.isExecException(reason)
+          ? ScopedError.make(
+            `${task.name} task run: finished with error(s)`,
+            strings.filterJoin(os.EOL, [
+              reason.cmd    ? `  cmd   : ${reason.cmd}`    : undefined,
+              reason.code   ? `  code  : ${reason.code}`   : undefined,
+              reason.signal ? `  signal: ${reason.signal}` : undefined,
+              types.isObject(reason) && types.isString(reason['stderr'])
+                ? `  task output: ${reason['stderr']}`
+                : undefined,
+            ]),
+            undefined,
+            undefined,
+            reason.stack)
+          : ScopedError.make(`${task.name} task run: finished with error(s)`, reason);
+        return Promise.reject(scopedError);
+      });
   }
 }
