@@ -32,6 +32,16 @@
     {
       "beforeText": "^\\s*(?:def|for|while|if|else|switch).*?:\\s*$",
       "action":     { "indent": "indent" },
-    }
+    },
+    // Doc comment e.g. ///
+    {
+      "beforeText": "^\\s*///.*$",
+      "action": { "indent": "none", "appendText": "/// " },
+    },
+    // Single comment e.g. ///
+    {
+        "beforeText": "^\\s*//\\s?.*$",
+        "action": { "indent": "none", "appendText": "// " },
+    },
   ],
 }
