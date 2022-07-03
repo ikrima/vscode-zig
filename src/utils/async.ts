@@ -18,15 +18,19 @@ export function onceFn<T extends (...args: unknown[]) => unknown>(
   };
 }
 
-export function asPromise<T>(callback: () => T | Thenable<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const item = callback();
-    if (types.isThenable<T>(item)) {
-      item.then(resolve, reject);
-    } else {
-      resolve(item);
-    }
-  });
+export function asPromise<T>(value: Promise<T> | Thenable<T> | (() => T)): Promise<T> {
+  if (types.isPromise(value)) {
+    return value;
+  }
+  else if (types.isThenable<T>(value)) {
+		return new Promise((resolve, reject) => {
+			value.then((resolved) => resolve(resolved), (error) => reject(error));
+		});
+  }
+  else {
+    types.assertType(types.isFunction(value));
+    return new Promise<T>((resolve) => { resolve(value()); });
+  }
 }
 
 export interface OnceEvent extends vsc.Disposable {

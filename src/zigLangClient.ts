@@ -1,18 +1,17 @@
 'use strict';
 import * as vsc from 'vscode';
-import * as vscodelc from 'vscode-languageclient/node';
+import * as lc from 'vscode-languageclient/node';
 import { fs, path, strings } from './utils/common';
 import { Logger, LogLevel, ScopedError } from './utils/logger';
 import { Const, CmdId } from "./zigConst";
 import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
 
-import ZlsLanguageClient = vscodelc.LanguageClient;
-// class ZlsLanguageClient extends vscodelc.LanguageClient {
+// class ZlsLanguageClient extends lc.LanguageClient {
 //   // Default implementation logs failures to output panel that's meant for extension debugging
 //   // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
-//   handleFailedRequest<T>(type: vscodelc.MessageSignature, err: any, defaultValue: T): T {
-//     if (err instanceof vscodelc.ResponseError
+//   handleFailedRequest<T>(type: lc.MessageSignature, err: any, defaultValue: T): T {
+//     if (err instanceof lc.ResponseError
 //       && type.method === 'workspace/executeCommand'
 //     ) {
 //       zlsContext.logger.error("ZlsLanguageClient err", err);
@@ -25,7 +24,7 @@ export class ZlsServices extends DisposableStore {
   private zlsChannel!: vsc.OutputChannel;
   private zlsTraceChannel!: vsc.OutputChannel;
   private logger!: Logger;
-  private zlsClient?: ZlsLanguageClient | undefined;
+  private zlsClient?: lc.LanguageClient | undefined;
 
   public activate(): void {
     this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.outChanName));
@@ -97,31 +96,31 @@ export class ZlsServices extends DisposableStore {
       ]);
 
       // Server Options
-      const serverOptions: vscodelc.Executable = zls.enableDebug
+      const serverOptions: lc.Executable = zls.enableDebug
         ? {
           command: zlsDbgPath,
           args: zlsDbgArgs,
-          options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
+          options: { cwd: zlsCwd } as lc.ExecutableOptions
         }
         : {
           command: zls.binary,
           args: zlsArgs,
-          options: { cwd: zlsCwd } as vscodelc.ExecutableOptions
+          options: { cwd: zlsCwd } as lc.ExecutableOptions
         };
 
       // Client Options
-      const clientOptions: vscodelc.LanguageClientOptions = {
+      const clientOptions: lc.LanguageClientOptions = {
         documentSelector: Const.documentSelector,
         outputChannel: this.zlsChannel,
         traceOutputChannel: this.zlsTraceChannel,
         diagnosticCollectionName: Const.zls.diagnosticsName,
-        revealOutputChannelOn: vscodelc.RevealOutputChannelOn.Never,
+        revealOutputChannelOn: lc.RevealOutputChannelOn.Never,
         // middleware: {
-        //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: vscodelc.HandleDiagnosticsSignature): void => {
+        //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: lc.HandleDiagnosticsSignature): void => {
         //     diagnostics.forEach(d => {
         //       d.code = {
         //         value: d.code
-        //           ? ((Is.isNumber(d.code) || Is.isString(d.code)) ? d.code : d.code.value)
+        //           ? ((types.isNumber(d.code) || types.isString(d.code)) ? d.code : d.code.value)
         //           : "",
         //         target: uri,
         //       };
@@ -132,7 +131,7 @@ export class ZlsServices extends DisposableStore {
       };
 
       // Create the language client and start the client
-      this.zlsClient = new ZlsLanguageClient(
+      this.zlsClient = new lc.LanguageClient(
         'zlsClient',
         'Zig Language Server Client',
         serverOptions,
