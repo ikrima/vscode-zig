@@ -33,15 +33,16 @@
       "beforeText": "^\\s*(?:def|for|while|if|else|switch).*?:\\s*$",
       "action":     { "indent": "indent" },
     },
+    // Single comment e.g. //
+    {
+        // "beforeText": "^\\s*//[^/].*$",
+        "beforeText": "^\\s*//(?! zig fmt: on|/).*$",
+        "action": { "indent": "none", "appendText": "// " },
+    },
     // Doc comment e.g. ///
     {
       "beforeText": "^\\s*///.*$",
       "action": { "indent": "none", "appendText": "/// " },
-    },
-    // Single comment e.g. ///
-    {
-        "beforeText": "^\\s*//\\s?.*$",
-        "action": { "indent": "none", "appendText": "// " },
     },
   ],
 }
