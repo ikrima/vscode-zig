@@ -139,6 +139,8 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
 
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace): ZigBuildTask {
     const zig = zig_cfg.zig;
+    const is_build_step = /build/i.test(taskDef.stepName);
+    const is_test_step  = !is_build_step && /test/i.test(taskDef.stepName);
     const task = new ZigBuildTask(
       taskDef,
       workspaceFolder,
@@ -150,14 +152,15 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
           "build",
           taskDef.stepName,
           ...[`--build-file`, taskDef.buildFile ?? zig.buildFile],
-          ...(taskDef.args ?? [])
+          ...(taskDef.args ?? []),
+          ...(is_test_step ? ["2>&1|", "cat"] : []), //TODO: ikrimae: #zig-workaround: for test runner swallowing output [https://github.com/ziglang/zig/issues/10203]
         ],
         { cwd: taskDef.cwd ?? zig.buildRootDir },
       ),
       zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
     );
-    if (/build/i.test(taskDef.stepName)) { task.group = vsc.TaskGroup.Build; }
-    else if (/test/i.test(taskDef.stepName)) { task.group = vsc.TaskGroup.Test; }
+    if      (is_build_step) { task.group = vsc.TaskGroup.Build; }
+    else if (is_test_step)  { task.group = vsc.TaskGroup.Test;  }
     task.detail = `zig build ${taskDef.stepName}`;
     task.presentationOptions = {
       reveal: vsc.TaskRevealKind.Always,
