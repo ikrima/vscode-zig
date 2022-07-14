@@ -71,9 +71,11 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
 
   private async runTestTask(zigTask: ZigTestTask): Promise<void> {
     const taskDef = zigTask.definition as ZigTestTaskDefinition;
-    try { if (!(await fs.dirExists(zig_cfg.outDir))) { await fs.createDir(zig_cfg.outDir); } } catch (e) {
+    const zig = zig_cfg.zig;
+    const outBinDir = path.join(zig.buildOutDir, "bin");
+    try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (e) {
       return Promise.reject(
-        ScopedError.make(`Could not create testEmitBinDir: (${zig_cfg.outDir}) does not exists.`, e)
+        ScopedError.make(`Could not create testEmitBinDir: (${outBinDir}) does not exists.`, e)
       );
     }
     // Run Build Task
@@ -90,8 +92,8 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
       if (Debugger.isActive(Debugger.vsdbg)) {
         await launchVsDbg({
           name: `Zig Test Debug`,
-          program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-          args: [zig_cfg.zig.binary],
+          program: path.join(outBinDir, `${taskDef.label}.exe`),
+          args: [zig.binary],
           cwd: taskDef.runArgs?.cwd,
           console: 'integratedTerminal'
         });
@@ -99,8 +101,8 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
       else if (Debugger.isActive(Debugger.lldb)) {
         await launchLLDB({
           name: `Zig Test Debug`,
-          program: path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
-          args: [zig_cfg.zig.binary],
+          program: path.join(outBinDir, `${taskDef.label}.exe`),
+          args: [zig.binary],
           cwd: taskDef.runArgs?.cwd,
           console: 'integratedTerminal'
         });
@@ -116,6 +118,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
 
   private getTestTask(taskDef: ZigTestTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigTestTask {
     const zig = zig_cfg.zig;
+    const outBinDir = path.join(zig.buildOutDir, "bin");
     const varCtx = new VariableResolver();
     const task = new ZigTestTask(
       taskDef,
@@ -128,12 +131,12 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
           "test",
           taskDef.buildArgs.testSrcFile,
           ...(taskDef.buildArgs.mainPkgPath ? ["--main-pkg-path", taskDef.buildArgs.mainPkgPath] : []),
-          `-femit-bin=` + path.join(zig_cfg.outDir, `${taskDef.label}.exe`),
+          `-femit-bin=` + path.join(outBinDir, `${taskDef.label}.exe`),
           ...(taskDef.runArgs?.testFilter ? ["--test-filter", taskDef.runArgs.testFilter] : []),
           ...(taskDef.runArgs?.debugLaunch ? [`--test-no-exec`] : []),
           "--name", taskDef.label,
           "--enable-cache",
-          "--cache-dir", zig_cfg.cacheDir,
+          "--cache-dir", zig.buildCacheDir,
         ].map(arg => varCtx.resolveVars(arg)),
         { cwd: zig.buildRootDir },
       ),

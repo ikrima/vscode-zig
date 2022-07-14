@@ -3,6 +3,7 @@
 export namespace Const {
   export const languageId            = 'zig';
   export const extensionId           = 'zig';
+  export const langServerId          = 'zls';
   export const zigChanName           = 'zig';
   export const documentSelector      = [{ language: 'zig', scheme: 'file' }];
   export const taskProviderSourceStr = 'zig';
@@ -17,9 +18,9 @@ export namespace Const {
 }
 export namespace CmdId {
   export namespace zls {
-    export const start   = "zig.zls.start";
-    export const stop    = "zig.zls.stop";
-    export const restart = "zig.zls.restart";
+    export const start   = "zls.start";
+    export const stop    = "zls.stop";
+    export const restart = "zls.restart";
   }
   export namespace zig {
     export namespace build {

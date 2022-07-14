@@ -20,9 +20,9 @@
   "main": "./out/extension",
   "activationEvents": [
     "onLanguage:zig",
-    "onCommand:zig.zls.start",
-    "onCommand:zig.zls.stop",
-    "onCommand:zig.zls.restart",
+    "onCommand:zls.start",
+    "onCommand:zls.stop",
+    "onCommand:zls.restart",
     "onCommand:zig.build.runStep",
     "onCommand:zig.build.runLastTarget",
     "onCommand:zig.build.getLastTarget",
@@ -149,68 +149,172 @@
         }
       }
     ],
-    "configuration": {
-      "type": "object",
-      "title": "zig",
-      "properties": {
-        "zig.binary": {
-          "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH.",
-          "type": "string",
-          "scope": "window",
-          "default": "zig.exe"
-        },
-        "zig.zls.binary": {
-          "description": "Path to `zls` executable. Example: `C:/zls/zig-out/bin/zls.exe`.",
-          "type": "string",
-          "scope": "window",
-          "default": "zls.exe"
-        },
-        "zig.zls.debugBinary": {
-          "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`.",
-          "type": [
-            "string",
-            "null"
-          ],
-          "scope": "window",
-          "default": null
-        },
-        "zig.zls.enableDebug": {
-          "description": "Enable debug logging in release builds of zls.",
-          "type": "boolean",
-          "scope": "window",
-          "default": false
-        },
-        "zlsClient.trace.server": {
-          "description": "Traces the communication between VS Code and the language server.",
-          "type": "string",
-          "scope": "window",
-          "enum": [
-            "off",
-            "messages",
-            "verbose"
-          ],
-          "default": "off"
-        },
-        "zig.buildRootDir": {
-          "description": "The zig build root directory.",
-          "type": "string",
-          "scope": "resource",
-          "default": "${workspaceFolder}"
-        },
-        "zig.buildFile": {
-          "description": "The path to build.zig. This is only required if zig.buildOptions = build.",
-          "type": "string",
-          "scope": "resource",
-          "default": "build.zig"
-        },
-        "zig.enableTaskProblemMatcher": {
-          "description": "Highlight lines where tests failed",
-          "type": "boolean",
-          "scope": "resource",
-          "default": true
+    "configuration": [
+      {
+        "type": "object",
+        "title": "zig",
+        "properties": {
+          "zig.binary": {
+            "description": "Set a custom path to the Zig binary. Defaults to 'zig' in your PATH.",
+            "type": "string",
+            "scope": "window",
+            "default": "zig.exe"
+          },
+          "zig.buildRootDir": {
+            "description": "The zig build root directory.",
+            "type": "string",
+            "scope": "resource",
+            "default": "${workspaceFolder}"
+          },
+          "zig.buildCacheDir": {
+            "description": "The zig build cache directory.",
+            "type": "string",
+            "scope": "resource",
+            "default": "zig-cache"
+          },
+          "zig.buildOutDir": {
+            "description": "The zig build output directory.",
+            "type": "string",
+            "scope": "resource",
+            "default": "zig-out"
+          },
+          "zig.buildFile": {
+            "description": "The path to build.zig. This is only required if zig.buildOptions = build.",
+            "type": "string",
+            "scope": "resource",
+            "default": "build.zig"
+          },
+          "zig.enableTaskProblemMatcher": {
+            "description": "Highlight lines where tests failed",
+            "type": "boolean",
+            "scope": "resource",
+            "default": true
+          }
+        }
+      },
+      {
+        "type": "object",
+        "title": "zls",
+        "properties": {
+          "zls.binary": {
+            "description": "Path to `zls` executable. Example: `C:/zls/zig-out/bin/zls.exe`.",
+            "type": "string",
+            "scope": "window",
+            "default": "zls.exe"
+          },
+          "zls.debugBinary": {
+            "description": "Path to `zls` debug executable. Example: `C:/zls/zig-out-dbg/bin/zls.exe`.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "scope": "window",
+            "default": null
+          },
+          "zls.enableDebug": {
+            "description": "Enable debug logging in release builds of zls.",
+            "type": "boolean",
+            "scope": "window",
+            "default": false
+          },
+          "zls.trace.server": {
+            "description": "Traces the communication between VS Code and the language server.",
+            "type": "string",
+            "scope": "window",
+            "enum": [
+              "off",
+              "messages",
+              "verbose"
+            ],
+            "default": "off"
+          },
+          "zls.enable_snippets": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether to enable snippet completions",
+            "default": false
+          },
+          "zls.enable_unused_variable_warnings": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether to enable unused variable warnings",
+            "default": false
+          },
+          "zls.enable_import_embedfile_argument_completions": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether to enable import/embedFile argument completions (NOTE: these are triggered manually as updating the autotrigger characters may cause issues)",
+            "default": false
+          },
+          "zls.zig_lib_path": {
+            "scope": "resource",
+            "type": "string",
+            "description": "Zig library path",
+            "default": null
+          },
+          "zls.zig_exe_path": {
+            "scope": "resource",
+            "type": "string",
+            "description": "Zig executable path used to run the custom build runner. May be used to find a lib path if none is provided.",
+            "default": null
+          },
+          "zls.warn_style": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether to pay attention to style issues. This is opt-in since the style guide explicitly states that the style info provided is a guideline only.",
+            "default": false
+          },
+          "zls.build_runner_path": {
+            "scope": "resource",
+            "type": "string",
+            "description": "Path to the build_runner.zig file.",
+            "default": null
+          },
+          "zls.build_runner_cache_path": {
+            "scope": "resource",
+            "type": "string",
+            "description": "Path to a directory that will be used as cache when `zig run`ning the build runner",
+            "default": null
+          },
+          "zls.enable_semantic_tokens": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Semantic token support",
+            "default": true
+          },
+          "zls.operator_completions": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether to enable `*` and `?` operators in completion lists",
+            "default": true
+          },
+          "zls.include_at_in_builtins": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Whether the @ sign should be part of the completion of builtins",
+            "default": false
+          },
+          "zls.max_detail_length": {
+            "scope": "resource",
+            "type": "integer",
+            "description": "The detail field of completions is truncated to be no longer than this (in bytes).",
+            "default": 1048576
+          },
+          "zls.skip_std_references": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Skips references to std. This will improve lookup speeds. Going to definition however will continue to work",
+            "default": false
+          },
+          "zls.builtin_path": {
+            "scope": "resource",
+            "type": "string",
+            "description": "Path to \"builtin;\" useful for debugging, automatically set if let null",
+            "default": null
+          }
         }
       }
-    },
+    ],
     "configurationDefaults": {
       "[zig]": {
         "editor.defaultFormatter": "ikrima.zig",
@@ -223,17 +327,17 @@
     },
     "commands": [
       {
-        "command": "zig.zls.start",
+        "command": "zls.start",
         "title": "start",
         "category": "zls"
       },
       {
-        "command": "zig.zls.stop",
+        "command": "zls.stop",
         "title": "stop",
         "category": "zls"
       },
       {
-        "command": "zig.zls.restart",
+        "command": "zls.restart",
         "title": "restart",
         "category": "zls"
       },
@@ -261,27 +365,27 @@
     ]
   },
   "scripts": {
-    "compile":           "tsc -p tsconfig.json --noEmit",
-    "lint":              "eslint src --ext ts",
-    "esbuild":           "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
-    "build":             "npm run esbuild -- --sourcemap --sources-content=false",
-    "build-prod":        "npm run esbuild -- --minify --keep-names",
-    "watch":             "npm run esbuild -- --sourcemap --sources-content=false --watch",
-    "test":              "npm run lint && node ./node_modules/vscode/bin/test",
-    "clean":             "rimraf out",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext ts",
+    "esbuild": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
+    "build": "npm run esbuild -- --sourcemap --sources-content=false",
+    "build-prod": "npm run esbuild -- --minify --keep-names",
+    "watch": "npm run esbuild -- --sourcemap --sources-content=false --watch",
+    "test": "npm run lint && node ./node_modules/vscode/bin/test",
+    "clean": "rimraf out",
     "vscode:prepublish": "npm run clean && npm run lint && npm run build-prod",
-    "package":           "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
-    "deploy":            "npm run package && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix",
-    "undeploy":          "code --uninstall-extension ikrima.%npm_package_name%"
+    "package": "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
+    "deploy": "npm run package && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix",
+    "undeploy": "code --uninstall-extension ikrima.%npm_package_name%"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.7",
     "@types/vscode": "1.68.1",
-    "@typescript-eslint/eslint-plugin": "^5.30.3",
-    "@typescript-eslint/parser": "^5.30.3",
+    "@typescript-eslint/eslint-plugin": "^5.30.6",
+    "@typescript-eslint/parser": "^5.30.6",
     "@vscode/test-electron": "^2.1.5",
-    "esbuild": "^0.14.48",
+    "esbuild": "^0.14.49",
     "eslint": "^8.19.0",
     "mocha": "^10.0.0",
     "rimraf": "^3.0.2",
@@ -289,6 +393,6 @@
     "vsce": "^2.9.2"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0"
+    "vscode-languageclient": "^8.0.2"
   }
 }

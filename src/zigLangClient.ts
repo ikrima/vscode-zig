@@ -53,12 +53,12 @@ export class ZlsServices extends DisposableStore {
 
   private async startClient(): Promise<void> {
     if (this.zlsClient) {
-      this.logger.warn("Client already started");
+      this.logger.warn("Zls already started");
       return Promise.resolve();
     }
     this.logger.info("Starting Zls...");
     const zig = zig_cfg.zig;
-    const zls = zig_cfg.zig.zls;
+    const zls = zig_cfg.zls;
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zls.debugBinary ?? zls.binary;
     const zlsDbgArgs = ["--debug-log"];
@@ -69,8 +69,8 @@ export class ZlsServices extends DisposableStore {
     try {
       if (zls.enableDebug && !zls.debugBinary) {
         this.logger.warn(
-          "Using Zls debug mode without `zig.zls.debugBinary`;\n" +
-          "  Fallback to `zig.zls.binary`");
+          "Using Zls debug mode without `zls.debugBinary`;\n" +
+          "  Fallback to `zls.binary`");
       }
       await Promise.all([
         !path.isAbsolute(zls.binary)
@@ -78,17 +78,17 @@ export class ZlsServices extends DisposableStore {
           : fs.fileExists(zls.binary).then(exists => exists
             ? Promise.resolve()
             : Promise.reject(ScopedError.make(
-              `Failed to find zls executable ${zls.binary}\n` +
-              `  Please specify its path in your settings with 'zig.zls.binary'`
+              `Zls executable not found at ${zls.binary}\n` +
+              `  Please specify its path in your settings with 'zls.binary'`
             ))),
         (!zls.enableDebug || zlsDbgPath === zls.binary || !path.isAbsolute(zlsDbgPath))
           ? Promise.resolve()
           : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
               this.logger.warn(
-                `Failed to find zls debug executable ${zlsDbgPath}\n` +
-                `  Please specify its path in your settings with 'zig.zls.zlsDebugBinPath'\n` +
-                `  Fallback to 'zig.zls.binary'`);
+                `Zls debug executable not found at ${zlsDbgPath}\n` +
+                `  Please specify its path in your settings with 'zls.zlsDebugBinPath'\n` +
+                `  Fallback to 'zls.binary'`);
               zlsDbgPath = zls.binary;
             }
             return Promise.resolve();
@@ -130,18 +130,17 @@ export class ZlsServices extends DisposableStore {
         // },
       };
 
-      // Create the language client and start the client
+      // Create and start the language client
       this.zlsClient = new lc.LanguageClient(
-        'zlsClient',
-        'Zig Language Server Client',
+        'zls',
+        'Zig Language Server',
         serverOptions,
         clientOptions,
         zls.enableDebug,
       );
-      this.zlsClient.start();
-      await this.zlsClient.onReady();
+      await this.zlsClient.start();
     } catch (e) {
-      this.logger.error('Failed to start client', e);
+      this.logger.error('Zls client failed to start', e);
       return Promise.reject();
     }
   }
@@ -150,7 +149,7 @@ export class ZlsServices extends DisposableStore {
     const zlsClient = this.zlsClient;
     this.zlsClient = undefined;
     if (!(zlsClient?.needsStop())) {
-      this.logger.warn("Client already stopped");
+      this.logger.warn("Zls client already stopped");
       return Promise.resolve();
     }
 

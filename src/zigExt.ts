@@ -28,35 +28,62 @@ export class ZigExtServices extends DisposableStore {
   }
 }
 
-export interface ZlsConfigData {
-  binary:      string;
-  debugBinary: string | null;
-  enableDebug: boolean;
-}
-export interface ZigConfigData {
+export interface ZigSettingsData {
   binary:                   string;
   buildRootDir:             string;
+  buildCacheDir:            string;
+  buildOutDir:              string;
   buildFile:                string;
   enableTaskProblemMatcher: boolean;
-  zls:                      ZlsConfigData;
 }
-export class ZigExtConfig extends ExtensionConfigBase<ZigConfigData> {
+class ZigSettings extends ExtensionConfigBase<ZigSettingsData> {
   constructor(scope?: vsc.ConfigurationScope | null) {
     super(
       Const.extensionId,
       scope,
-      (zig: ZigConfigData): void => {
+      (zig: ZigSettingsData): void => {
         const varCtx = new VariableResolver();
-        zig.binary          = varCtx.resolveVars(zig.binary, { normalizePath: true });
-        zig.buildRootDir    = varCtx.resolveVars(zig.buildRootDir, { normalizePath: true });        // defaultWksFolderPath() ?? ""          );
-        zig.buildFile       = varCtx.resolveVars(zig.buildFile, { relBasePath: zig.buildRootDir }); // path.join(this.build_rootDir,"build.zig") );
-        zig.zls.binary      = varCtx.resolveVars(zig.zls.binary, { normalizePath: true });
-        zig.zls.debugBinary = zig.zls.debugBinary ? varCtx.resolveVars(zig.zls.debugBinary, { normalizePath: true }) : null;
+        zig.binary        = varCtx.resolveVars(zig.binary, { normalizePath: true });
+        zig.buildRootDir  = varCtx.resolveVars(zig.buildRootDir, { normalizePath: true });
+        zig.buildCacheDir = varCtx.resolveVars(zig.buildCacheDir, { relBasePath: zig.buildRootDir });
+        zig.buildCacheDir = path.isAbsolute(zig.buildCacheDir) ? zig.buildCacheDir : path.join(zig.buildRootDir, zig.buildCacheDir);
+        zig.buildOutDir   = varCtx.resolveVars(zig.buildOutDir, { relBasePath: zig.buildRootDir });
+        zig.buildOutDir   = path.isAbsolute(zig.buildOutDir) ? zig.buildOutDir : path.join(zig.buildRootDir, zig.buildOutDir);
+        zig.buildFile     = varCtx.resolveVars(zig.buildFile, { relBasePath: zig.buildRootDir });
+      },
+    );
+  }
+}
+export interface ZlsSettingsData {
+  binary:      string;
+  debugBinary: string | null;
+  enableDebug: boolean;
+}
+class ZlsSettings extends ExtensionConfigBase<ZlsSettingsData> {
+  constructor(scope?: vsc.ConfigurationScope | null) {
+    super(
+      Const.langServerId,
+      scope,
+      (zls: ZlsSettingsData): void => {
+        const varCtx = new VariableResolver();
+        zls.binary      = varCtx.resolveVars(zls.binary, { normalizePath: true });
+        zls.debugBinary = zls.debugBinary ? varCtx.resolveVars(zls.debugBinary, { normalizePath: true }) : null;
       },
     );
   }
 
-  get zig(): ZigConfigData { return this._cfgData!; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
-  get outDir(): string { return path.join(this.zig.buildRootDir, "zig-out", "bin"); }
-  get cacheDir(): string { return path.join(this.zig.buildRootDir, "zig-cache"); }
+  get zls(): ZlsSettingsData { return this._cfgData!; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
+}
+
+export class ZigExtConfig  {
+  protected _zig: ZigSettings;
+  protected _zls: ZlsSettings;
+  constructor(scope?: vsc.ConfigurationScope | null) {
+    this._zig = new ZigSettings(scope);
+    this._zls = new ZlsSettings(scope);
+  }
+
+  get zig(): ZigSettingsData { return this._zig.cfgData; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
+  get zls(): ZlsSettingsData { return this._zls.cfgData; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
+
 }
