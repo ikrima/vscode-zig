@@ -111,9 +111,9 @@ export class ZlsServices extends DisposableStore {
       // Client Options
       const clientOptions: lc.LanguageClientOptions = {
         documentSelector: Const.documentSelector,
+        diagnosticCollectionName: Const.zls.diagnosticsName,
         outputChannel: this.zlsChannel,
         traceOutputChannel: this.zlsTraceChannel,
-        diagnosticCollectionName: Const.zls.diagnosticsName,
         revealOutputChannelOn: lc.RevealOutputChannelOn.Never,
         // middleware: {
         //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: lc.HandleDiagnosticsSignature): void => {

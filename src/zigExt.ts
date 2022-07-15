@@ -1,7 +1,8 @@
 'use strict';
 import * as vsc from 'vscode';
 import { path } from './utils/common';
-import { ExtensionConfigBase, VariableResolver } from './utils/ext';
+import { ConfigSettings } from './utils/config';
+import { VariableResolver } from './utils/ext';
 import { Logger, LogLevel } from './utils/logger';
 import { DisposableStore } from './utils/dispose';
 import { Const } from './zigConst';
@@ -28,7 +29,7 @@ export class ZigExtServices extends DisposableStore {
   }
 }
 
-export interface ZigSettingsData {
+interface ZigSettings {
   binary:                   string;
   buildRootDir:             string;
   buildCacheDir:            string;
@@ -36,54 +37,43 @@ export interface ZigSettingsData {
   buildFile:                string;
   enableTaskProblemMatcher: boolean;
 }
-class ZigSettings extends ExtensionConfigBase<ZigSettingsData> {
-  constructor(scope?: vsc.ConfigurationScope | null) {
-    super(
-      Const.extensionId,
-      scope,
-      (zig: ZigSettingsData): void => {
-        const varCtx = new VariableResolver();
-        zig.binary        = varCtx.resolveVars(zig.binary, { normalizePath: true });
-        zig.buildRootDir  = varCtx.resolveVars(zig.buildRootDir, { normalizePath: true });
-        zig.buildCacheDir = varCtx.resolveVars(zig.buildCacheDir, { relBasePath: zig.buildRootDir });
-        zig.buildCacheDir = path.isAbsolute(zig.buildCacheDir) ? zig.buildCacheDir : path.join(zig.buildRootDir, zig.buildCacheDir);
-        zig.buildOutDir   = varCtx.resolveVars(zig.buildOutDir, { relBasePath: zig.buildRootDir });
-        zig.buildOutDir   = path.isAbsolute(zig.buildOutDir) ? zig.buildOutDir : path.join(zig.buildRootDir, zig.buildOutDir);
-        zig.buildFile     = varCtx.resolveVars(zig.buildFile, { relBasePath: zig.buildRootDir });
-      },
-    );
-  }
-}
-export interface ZlsSettingsData {
+interface ZlsSettings {
   binary:      string;
   debugBinary: string | null;
   enableDebug: boolean;
 }
-class ZlsSettings extends ExtensionConfigBase<ZlsSettingsData> {
+export class ZigExtConfig  {
+  private varCtx: VariableResolver;
+  private _zig: ConfigSettings<ZigSettings>;
+  private _zls: ConfigSettings<ZlsSettings>;
   constructor(scope?: vsc.ConfigurationScope | null) {
-    super(
+    this.varCtx = new VariableResolver();
+    this._zig = ConfigSettings.create<ZigSettings>(
+      Const.extensionId,
+      scope,
+      (zig: ZigSettings): ZigSettings => {
+        zig.binary        = this.varCtx.resolveVars(zig.binary, { normalizePath: true });
+        zig.buildRootDir  = this.varCtx.resolveVars(zig.buildRootDir, { normalizePath: true });
+        zig.buildCacheDir = this.varCtx.resolveVars(zig.buildCacheDir, { relBasePath: zig.buildRootDir });
+        zig.buildCacheDir = path.isAbsolute(zig.buildCacheDir) ? zig.buildCacheDir : path.join(zig.buildRootDir, zig.buildCacheDir);
+        zig.buildOutDir   = this.varCtx.resolveVars(zig.buildOutDir, { relBasePath: zig.buildRootDir });
+        zig.buildOutDir   = path.isAbsolute(zig.buildOutDir) ? zig.buildOutDir : path.join(zig.buildRootDir, zig.buildOutDir);
+        zig.buildFile     = this.varCtx.resolveVars(zig.buildFile, { relBasePath: zig.buildRootDir });
+        return zig;
+      },
+    );
+    this._zls = ConfigSettings.create<ZlsSettings>(
       Const.langServerId,
       scope,
-      (zls: ZlsSettingsData): void => {
-        const varCtx = new VariableResolver();
-        zls.binary      = varCtx.resolveVars(zls.binary, { normalizePath: true });
-        zls.debugBinary = zls.debugBinary ? varCtx.resolveVars(zls.debugBinary, { normalizePath: true }) : null;
+      (zls: ZlsSettings): ZlsSettings => {
+        zls.binary      = this.varCtx.resolveVars(zls.binary, { normalizePath: true });
+        zls.debugBinary = zls.debugBinary ? this.varCtx.resolveVars(zls.debugBinary, { normalizePath: true }) : null;
+        return zls;
       },
     );
   }
 
-  get zls(): ZlsSettingsData { return this._cfgData!; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
-}
-
-export class ZigExtConfig  {
-  protected _zig: ZigSettings;
-  protected _zls: ZlsSettings;
-  constructor(scope?: vsc.ConfigurationScope | null) {
-    this._zig = new ZigSettings(scope);
-    this._zls = new ZlsSettings(scope);
-  }
-
-  get zig(): ZigSettingsData { return this._zig.cfgData; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
-  get zls(): ZlsSettingsData { return this._zls.cfgData; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
+  get zig(): ZigSettings { return this._zig.cfgData; }
+  get zls(): ZlsSettings { return this._zls.cfgData; }
 
 }

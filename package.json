@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "publisher": "ikrima",
   "private": true,
   "icon": "assets/zig-icon.png",
@@ -15,9 +15,9 @@
     "Programming Languages"
   ],
   "engines": {
-    "vscode": "^1.68.0"
+    "vscode": "^1.69.0"
   },
-  "main": "./out/extension",
+  "main": "./out/bundle",
   "activationEvents": [
     "onLanguage:zig",
     "onCommand:zls.start",
@@ -367,7 +367,7 @@
   "scripts": {
     "compile": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext ts",
-    "esbuild": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=out/extension.js",
+    "esbuild": "esbuild ./src/extension.ts --bundle --outfile=out/bundle.js --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node",
     "build": "npm run esbuild -- --sourcemap --sources-content=false",
     "build-prod": "npm run esbuild -- --minify --keep-names",
     "watch": "npm run esbuild -- --sourcemap --sources-content=false --watch",
@@ -381,7 +381,7 @@
   "devDependencies": {
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.7",
-    "@types/vscode": "1.68.1",
+    "@types/vscode": "1.69.0",
     "@typescript-eslint/eslint-plugin": "^5.30.6",
     "@typescript-eslint/parser": "^5.30.6",
     "@vscode/test-electron": "^2.1.5",
@@ -390,7 +390,7 @@
     "mocha": "^10.0.0",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4",
-    "vsce": "^2.9.2"
+    "vsce": "^2.9.3"
   },
   "dependencies": {
     "vscode-languageclient": "^8.0.2"

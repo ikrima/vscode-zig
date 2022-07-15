@@ -2,7 +2,7 @@
 import * as vsc from 'vscode';
 import * as process_ from 'process';
 import * as os from 'os';
-import { path, objects, types, cp, strings } from '../utils/common';
+import { path, types, cp, strings } from '../utils/common';
 import { Logger, ScopedError } from './logger';
 import { OnceEvent } from './async';
 
@@ -114,63 +114,6 @@ export class VariableResolver {
     if (opt.normalizePath) { ret = path.normalize(ret); }
     return ret;
   }
-}
-
-export class ExtensionConfigBase<T> {
-  protected _cfgData?: T;
-  get cfgData(): T { return this._cfgData!; } // eslint-disable-line @typescript-eslint/no-non-null-assertion
-
-  constructor(
-    protected section:  string,
-    protected scope?:   vsc.ConfigurationScope | null,
-    protected resolve?: (config: T) => void,
-  ) {
-    this.load(true);
-  }
-  public load(force?: boolean): void {
-    if (this._cfgData && !force) { return; }
-    const rawConfig = vsc.workspace.getConfiguration(undefined, this.scope).get<T>(this.section)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
-    this._cfgData = objects.deepCopy(rawConfig);
-    if (this.resolve) { this.resolve(this._cfgData); }
-  }
-
-  // public getWithDefault<T>(section: string): T {
-  //     const info: any = this.config.inspect<T>(section);
-  //     if (info.workspaceFolderValue !== undefined) {
-  //         return info.workspaceFolderValue;
-  //     } else if (info.workspaceValue !== undefined) {
-  //         return info.workspaceValue;
-  //     } else if (info.globalValue !== undefined) {
-  //         return info.globalValue;
-  //     }
-  //     return info.defaultValue;
-  // }
-  // protected getWithNullAsUndefined<T>(section: string): T | undefined {
-  //     const result: T | undefined | null = this.config.get<T>(section);
-  //     if (result === null) {
-  //         return undefined;
-  //     }
-  //     return result;
-  // }
-  // public getWithUndefinedDefault<T>(section: string): T | undefined {
-  //     const info: any = this.config.inspect<T>(section);
-  //     if (info.workspaceFolderValue !== undefined) {
-  //         return info.workspaceFolderValue;
-  //     } else if (info.workspaceValue !== undefined) {
-  //         return info.workspaceValue;
-  //     } else if (info.globalValue !== undefined) {
-  //         return info.globalValue;
-  //     }
-  //     return undefined;
-  // }
-  // public getEnum<T>(section: string): T {
-  //     let configVal = this.config.get<string>(section);
-  //     type BuildStepKeys = keyof typeof BuildStep; // Equiv to: type BuildStepKeys = 'buildFile' | 'buildExe' | 'buildLib' | 'buildObj';
-  //     type BuildStepMap = { [P in BuildStepKeys]: number; }; // will have strongly typed keys
-  //     declare const color: BuildStep;
-  //     declare const buildStepMap: BuildStepMap;
-  //     return buildStepMap[configVal];
-  // }
 }
 
 

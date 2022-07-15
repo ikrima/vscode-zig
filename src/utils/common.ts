@@ -42,17 +42,17 @@ export namespace types {
   export function isThenable<T>          (o: unknown  ): o is Promise<T>    { return !!o && typeof (o as Promise<T>).then === 'function';                                    }
   export function assertNever        (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
   export function assertType         (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
-  export function assertIsDefined<T> (o: T | null | undefined):           asserts o is T    { if (types.isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
+  export function assertIsDefined<T> (o: T | null | undefined):           asserts o is T    { if (!isDefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
   export function assertAllDefined   (o: (unknown | null | undefined)[]): asserts o is NonNullable<unknown>[] {
     o.every((e, i) => {
-      if (isNullOrUndefined(e)) {
+      if (!isDefined(e)) {
         throw new TypeError(`Assertion Failed: argument at index ${i} is undefined or null`);
       }
     });
   }
 
-  export function withNullAsUndefined<T>(x: T | null     ): T | undefined { return types.isNull(x)      ? undefined : x; } // Converts null to undefined, passes all other values through
-  export function withUndefinedAsNull<T>(x: T | undefined): T | null      { return types.isUndefined(x) ? null      : x; } // Converts undefined to null, passes all other values through
+  export function withNullAsUndefined<T>(x: T | null     ): T | undefined { return isNull(x)      ? undefined : x; } // Converts null to undefined, passes all other values through
+  export function withUndefinedAsNull<T>(x: T | undefined): T | null      { return isUndefined(x) ? null      : x; } // Converts undefined to null, passes all other values through
 }
 
 export namespace objects {
