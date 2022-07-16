@@ -7,16 +7,15 @@ import { Const, CmdId } from "./zigConst";
 import { zig_cfg } from './zigExt';
 import { DisposableStore } from './utils/dispose';
 
-// class ZlsLanguageClient extends lc.LanguageClient {
+// class ZlsClient extends lc.LanguageClient {
+//   private logger!: Logger;
 //   // Default implementation logs failures to output panel that's meant for extension debugging
 //   // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
-//   handleFailedRequest<T>(type: lc.MessageSignature, err: any, defaultValue: T): T {
-//     if (err instanceof lc.ResponseError
-//       && type.method === 'workspace/executeCommand'
-//     ) {
-//       zlsContext.logger.error("ZlsLanguageClient err", err);
+//   override handleFailedRequest<T>(type: lc.MessageSignature, err: unknown, token: vsc.CancellationToken | undefined, defaultValue: T): T {
+//     if (err instanceof lc.ResponseError && type.method === 'workspace/executeCommand') {
+//       this.logger.error("Zls Client err", err);
 //     }
-//     return super.handleFailedRequest(type, err, defaultValue);
+//     return super.handleFailedRequest(type, token, err, defaultValue);
 //   }
 // }
 
@@ -110,7 +109,7 @@ export class ZlsServices extends DisposableStore {
 
       // Client Options
       const clientOptions: lc.LanguageClientOptions = {
-        documentSelector: Const.documentSelector,
+        documentSelector: Const.zig.documentSelector,
         diagnosticCollectionName: Const.zls.diagnosticsName,
         outputChannel: this.zlsChannel,
         traceOutputChannel: this.zlsTraceChannel,
@@ -132,7 +131,7 @@ export class ZlsServices extends DisposableStore {
 
       // Create and start the language client
       this.zlsClient = new lc.LanguageClient(
-        'zls',
+        Const.zls.langServerId,
         'Zig Language Server',
         serverOptions,
         clientOptions,

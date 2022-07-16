@@ -28,12 +28,12 @@ type RunTestCmdArgs = ZigTestStep;
 export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
   public activate(): void {
     this.addDisposables(
-      vsc.tasks.registerTaskProvider(Const.zigTestTaskType, this),
+      vsc.tasks.registerTaskProvider(Const.zig.testTaskType, this),
       vsc.commands.registerCommand(CmdId.zig.runTest, async (args: RunTestCmdArgs) => {
         args.label = args.label ?? `test-${path.filename(args.buildArgs.testSrcFile)}`;
         args.buildArgs.mainPkgPath = args.buildArgs.mainPkgPath ?? path.dirname(args.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
-          type: Const.zigTestTaskType,
+          type: Const.zig.testTaskType,
           label: args.label,
           buildArgs: {
             testSrcFile: args.buildArgs.testSrcFile,
@@ -124,7 +124,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
       taskDef,
       workspaceFolder ?? vsc.TaskScope.Workspace,
       taskDef.label,
-      Const.taskProviderSourceStr,
+      Const.zig.taskProviderSourceStr,
       new vsc.ShellExecution(
         zig.binary, // isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
@@ -140,7 +140,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
         ].map(arg => varCtx.resolveVars(arg)),
         { cwd: zig.buildRootDir },
       ),
-      zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
+      zig.enableTaskProblemMatcher ? Const.zig.problemMatcher : undefined,
     );
     task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;

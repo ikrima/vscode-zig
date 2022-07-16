@@ -18,7 +18,7 @@ export class ZigExtServices extends DisposableStore {
   constructor(public context: vsc.ExtensionContext) { super(); }
 
   public activate(): void {
-    const extChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zigChanName));
+    const extChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zig.extChanName));
     zig_cfg          = new ZigExtConfig();
     zig_logger       = Logger.channelLogger(extChannel, LogLevel.warn);
 
@@ -49,7 +49,7 @@ export class ZigExtConfig  {
   constructor(scope?: vsc.ConfigurationScope | null) {
     this.varCtx = new VariableResolver();
     this._zig = ConfigSettings.create<ZigSettings>(
-      Const.extensionId,
+      Const.zig.extensionId,
       scope,
       (zig: ZigSettings): ZigSettings => {
         zig.binary        = this.varCtx.resolveVars(zig.binary, { normalizePath: true });
@@ -63,7 +63,7 @@ export class ZigExtConfig  {
       },
     );
     this._zls = ConfigSettings.create<ZlsSettings>(
-      Const.langServerId,
+      Const.zls.langServerId,
       scope,
       (zls: ZlsSettings): ZlsSettings => {
         zls.binary      = this.varCtx.resolveVars(zls.binary, { normalizePath: true });

@@ -35,13 +35,13 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     const fileWatcher = this.addDisposable(vsc.workspace.createFileSystemWatcher(zig_cfg.zig.buildFile));
 
     this.addDisposables(
-      vsc.tasks.registerTaskProvider(Const.zigBuildTaskType, this),
+      vsc.tasks.registerTaskProvider(Const.zig.buildTaskType, this),
       fileWatcher.onDidChange(() => this.invalidateTasksCache()),
       fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
       fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
       vsc.commands.registerCommand(CmdId.zig.build.runStep, async (args: RunStepCmdArgs) => {
         await this.runBuildStep({
-          type: Const.zigBuildTaskType,
+          type: Const.zig.buildTaskType,
           stepName: args.stepName,
           presentation: args.presentation,
         });
@@ -50,7 +50,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
         const pickedStep = await this.cachedPickedStep(args.forcePick);
         if (!pickedStep) { return; }
         await this.runBuildStep({
-          type: Const.zigBuildTaskType,
+          type: Const.zig.buildTaskType,
           stepName: pickedStep,
           label: `zig-lastTarget`,
           presentation: args.presentation,
@@ -110,7 +110,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
     try {
       if (force || !this._cachedBldTasks) {
         this._cachedBldTasks = (await this.cachedBuildSteps())
-          .map(s => this.getBuildTask({ type: Const.zigBuildTaskType, stepName: s.name }, vsc.TaskScope.Workspace));
+          .map(s => this.getBuildTask({ type: Const.zig.buildTaskType, stepName: s.name }, vsc.TaskScope.Workspace));
       }
       return this._cachedBldTasks;
     }
@@ -145,7 +145,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
       taskDef,
       workspaceFolder,
       taskDef.label ?? `zig-${taskDef.stepName}`,
-      Const.taskProviderSourceStr,
+      Const.zig.taskProviderSourceStr,
       new vsc.ShellExecution(
         zig.binary, // isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
@@ -157,7 +157,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
         ],
         { cwd: taskDef.cwd ?? zig.buildRootDir },
       ),
-      zig.enableTaskProblemMatcher ? Const.problemMatcher : undefined,
+      zig.enableTaskProblemMatcher ? Const.zig.problemMatcher : undefined,
     );
     if      (is_build_step) { task.group = vsc.TaskGroup.Build; }
     else if (is_test_step)  { task.group = vsc.TaskGroup.Test;  }

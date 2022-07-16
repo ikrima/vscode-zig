@@ -13,9 +13,9 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
     const onDidChangeCodeLensesEmitter = this.addDisposable(new vsc.EventEmitter<void>());
     this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
     this.addDisposables(
-      vsc.languages.registerCodeLensProvider(Const.documentSelector, this),
+      vsc.languages.registerCodeLensProvider(Const.zig.documentSelector, this),
       vsc.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration(Const.extensionId)) {
+        if (e.affectsConfiguration(Const.zig.extensionId)) {
           onDidChangeCodeLensesEmitter.fire();
         }
       }),
