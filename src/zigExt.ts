@@ -41,6 +41,24 @@ interface ZlsSettings {
   binary:      string;
   debugBinary: string | null;
   enableDebug: boolean;
+  trace: {
+    server: string; // lc.Trace
+    format: string; // lc.TraceFormat
+  };
+  enable_snippets:                              boolean;
+  enable_unused_variable_warnings:              boolean;
+  enable_import_embedfile_argument_completions: boolean;
+  zig_lib_path:                                 string | null;
+  zig_exe_path:                                 string | null;
+  warn_style:                                   boolean;
+  build_runner_path:                            string | null;
+  build_runner_cache_path:                      string | null;
+  enable_semantic_tokens:                       boolean;
+  operator_completions:                         boolean;
+  include_at_in_builtins:                       boolean;
+  max_detail_length:                            number;
+  skip_std_references:                          boolean;
+  builtin_path:                                 string | null;
 }
 export class ZigExtConfig  {
   private varCtx: VariableResolver;

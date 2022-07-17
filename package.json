@@ -218,15 +218,30 @@
             "default": false
           },
           "zls.trace.server": {
-            "description": "Traces the communication between VS Code and the language server.",
-            "type": "string",
+            "type": "object",
             "scope": "window",
-            "enum": [
-              "off",
-              "messages",
-              "verbose"
-            ],
-            "default": "off"
+            "description": "Traces the communication between VS Code and the language server.",
+            "properties": {
+              "verbosity": {
+                "type": "string",
+                "description": "Controls the verbosity of the trace.",
+                "enum": [
+                  "off",
+                  "message",
+                  "verbose"
+                ],
+                "default": "off"
+              },
+              "format": {
+                "type": "string",
+                "description": "Controls the output format of the trace.",
+                "enum": [
+                  "text",
+                  "json"
+                ],
+                "default": "text"
+              }
+            }
           },
           "zls.enable_snippets": {
             "scope": "resource",
@@ -248,13 +263,19 @@
           },
           "zls.zig_lib_path": {
             "scope": "resource",
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Zig library path",
             "default": null
           },
           "zls.zig_exe_path": {
             "scope": "resource",
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Zig executable path used to run the custom build runner. May be used to find a lib path if none is provided.",
             "default": null
           },
@@ -266,13 +287,19 @@
           },
           "zls.build_runner_path": {
             "scope": "resource",
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Path to the build_runner.zig file.",
             "default": null
           },
           "zls.build_runner_cache_path": {
             "scope": "resource",
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Path to a directory that will be used as cache when `zig run`ning the build runner",
             "default": null
           },
@@ -308,7 +335,10 @@
           },
           "zls.builtin_path": {
             "scope": "resource",
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Path to \"builtin;\" useful for debugging, automatically set if let null",
             "default": null
           }
