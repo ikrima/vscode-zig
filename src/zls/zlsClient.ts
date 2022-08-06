@@ -26,18 +26,10 @@ export class ZlsServices extends DisposableStore {
   private zlsClient?: lc.LanguageClient | undefined;
 
   public activate(): void {
-    const zls = zigCfg.zls;
     this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.outChanName));
-    switch (zls.trace.server.verbosity) {
-      case lc.Trace.Messages:
-      case lc.Trace.Compact:
-      case lc.Trace.Verbose:
-        this.zlsTraceChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName, zls.trace.server.format === lc.TraceFormat.JSON ? "json" : "plaintext"));
-        break;
-      case lc.Trace.Off:
-      default:
-        this.zlsTraceChannel = this.zlsChannel;
-    }
+    this.zlsTraceChannel = lc.Trace.fromString(zigCfg.zls.trace.server.verbosity) !== lc.Trace.Off
+      ? this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName, 'json'))
+      : this.zlsChannel;
     this.zlsLog = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(

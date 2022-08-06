@@ -2,7 +2,8 @@
 import * as path_ from 'path';
 import * as fs_ from 'fs';
 import * as cp_ from 'child_process';
-import { promisify, types as types_ } from 'util';
+import { promisify } from 'util';
+import * as types_ from 'util/types';
 
 export namespace types {
   export const {

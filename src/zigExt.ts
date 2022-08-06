@@ -40,8 +40,8 @@ interface ZlsSettings {
   enableDebug: boolean;
   trace: {
     server: {
-      verbosity: lc.Trace;       // lc.TraceValues;
-      format:    lc.TraceFormat; // 'text' | 'json'; // lc.TraceFormat
+      verbosity: lc.TraceValues;       // lc.TraceValues;
+      format:    'text' | 'json'; // lc.TraceFormat
     };
   };
   enable_snippets:                              boolean;
@@ -53,6 +53,9 @@ interface ZlsSettings {
   build_runner_path:                            string | null;
   build_runner_cache_path:                      string | null;
   enable_semantic_tokens:                       boolean;
+  enable_inlay_hints:                           boolean;
+  inlay_hints_show_builtin:                     boolean;
+  inlay_hints_exclude_single_argument:          boolean;
   operator_completions:                         boolean;
   include_at_in_builtins:                       boolean;
   max_detail_length:                            number;

@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "publisher": "ikrima",
   "private": true,
   "icon": "assets/zig-icon.png",
@@ -310,6 +310,24 @@
             "description": "Semantic token support",
             "default": true
           },
+          "zls.enable_inlay_hints": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "Inlay hint support",
+            "default": false
+          },
+          "zls.inlay_hints_show_builtin": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "enable inlay hints for builtin functions",
+            "default": true
+          },
+          "zls.inlay_hints_exclude_single_argument": {
+            "scope": "resource",
+            "type": "boolean",
+            "description": "don't show inlay hints for single argument calls",
+            "default": true
+          },
           "zls.operator_completions": {
             "scope": "resource",
             "type": "boolean",
@@ -412,16 +430,16 @@
   "devDependencies": {
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.7",
-    "@types/vscode": "1.69.0",
-    "@typescript-eslint/eslint-plugin": "^5.30.6",
-    "@typescript-eslint/parser": "^5.30.6",
+    "@types/vscode": "^1.69.1",
+    "@typescript-eslint/eslint-plugin": "^5.32.0",
+    "@typescript-eslint/parser": "^5.32.0",
     "@vscode/test-electron": "^2.1.5",
-    "esbuild": "^0.14.49",
-    "eslint": "^8.19.0",
+    "esbuild": "^0.14.53",
+    "eslint": "^8.21.0",
     "mocha": "^10.0.0",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4",
-    "vsce": "^2.9.3"
+    "vsce": "^2.10.0"
   },
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
