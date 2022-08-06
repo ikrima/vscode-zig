@@ -3,7 +3,7 @@ import * as vsc from 'vscode';
 import * as process_ from 'process';
 import * as os from 'os';
 import { path, types, cp, strings } from '../utils/common';
-import { Logger, ScopedError } from './logger';
+import { Logger, ScopedError } from './logging';
 import { OnceEvent } from './async';
 
 

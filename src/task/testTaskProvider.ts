@@ -2,11 +2,11 @@
 import * as vsc from 'vscode';
 import { fs, objects, path } from '../utils/common';
 import { Debugger, launchLLDB, launchVsDbg } from '../utils/debugger';
-import { ScopedError } from '../utils/logger';
+import { ScopedError } from '../utils/logging';
 import { DisposableStore } from '../utils/dispose';
-import { TaskInstance, VariableResolver } from '../utils/ext';
+import { TaskInstance, VariableResolver } from '../utils/vsc';
 import { CmdId, Const } from "../zigConst";
-import { zig_cfg, zig_logger } from "../zigExt";
+import { zigCfg } from "../zigExt";
 import type { ZigTestStep } from "./zigStep";
 import ZigTestTask = vsc.Task;
 
@@ -47,7 +47,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
         };
         const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
         await this.runTestTask(zigTask).catch(e => {
-          zig_logger.logMsg(ScopedError.wrap(e));
+          zigCfg.mainLog.logMsg(ScopedError.wrap(e));
         });
       }),
     );
@@ -71,7 +71,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
 
   private async runTestTask(zigTask: ZigTestTask): Promise<void> {
     const taskDef = zigTask.definition as ZigTestTaskDefinition;
-    const zig = zig_cfg.zig;
+    const zig = zigCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
     try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (e) {
       return Promise.reject(
@@ -117,7 +117,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
   }
 
   private getTestTask(taskDef: ZigTestTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigTestTask {
-    const zig = zig_cfg.zig;
+    const zig = zigCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
     const varCtx = new VariableResolver();
     const task = new ZigTestTask(

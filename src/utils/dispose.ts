@@ -1,6 +1,6 @@
 'use strict';
 
-import { ScopedError } from "./logger";
+import { ScopedError } from "./logging";
 
 export interface IDisposable {
   dispose(): void;

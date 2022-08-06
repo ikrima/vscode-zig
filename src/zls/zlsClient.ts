@@ -1,19 +1,19 @@
 'use strict';
 import * as vsc from 'vscode';
 import * as lc from 'vscode-languageclient/node';
-import { fs, path, strings } from './utils/common';
-import { Logger, LogLevel, ScopedError } from './utils/logger';
-import { Const, CmdId } from "./zigConst";
-import { zig_cfg } from './zigExt';
-import { DisposableStore } from './utils/dispose';
+import { fs, path, strings } from '../utils/common';
+import { DisposableStore } from '../utils/dispose';
+import { Logger, LogLevel, ScopedError } from '../utils/logging';
+import { CmdId, Const } from "../zigConst";
+import { zigCfg } from '../zigExt';
 
 // class ZlsClient extends lc.LanguageClient {
-//   private logger!: Logger;
+//   private zlsLog!: Logger;
 //   // Default implementation logs failures to output panel that's meant for extension debugging
 //   // For user-interactive operations (e.g. applyFixIt, applyTweaks), bubble up the failure to users
 //   override handleFailedRequest<T>(type: lc.MessageSignature, err: unknown, token: vsc.CancellationToken | undefined, defaultValue: T): T {
 //     if (err instanceof lc.ResponseError && type.method === 'workspace/executeCommand') {
-//       this.logger.error("Zls Client err", err);
+//       this.mainLog.error("Zls Client err", err);
 //     }
 //     return super.handleFailedRequest(type, token, err, defaultValue);
 //   }
@@ -22,13 +22,23 @@ import { DisposableStore } from './utils/dispose';
 export class ZlsServices extends DisposableStore {
   private zlsChannel!: vsc.OutputChannel;
   private zlsTraceChannel!: vsc.OutputChannel;
-  private logger!: Logger;
+  private zlsLog!: Logger;
   private zlsClient?: lc.LanguageClient | undefined;
 
   public activate(): void {
+    const zls = zigCfg.zls;
     this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.outChanName));
-    this.zlsTraceChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName));
-    this.logger = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
+    switch (zls.trace.server.verbosity) {
+      case lc.Trace.Messages:
+      case lc.Trace.Compact:
+      case lc.Trace.Verbose:
+        this.zlsTraceChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName, zls.trace.server.format === lc.TraceFormat.JSON ? "json" : "plaintext"));
+        break;
+      case lc.Trace.Off:
+      default:
+        this.zlsTraceChannel = this.zlsChannel;
+    }
+    this.zlsLog = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
       vsc.commands.registerCommand(CmdId.zls.start, async () => {
@@ -52,12 +62,12 @@ export class ZlsServices extends DisposableStore {
 
   private async startClient(): Promise<void> {
     if (this.zlsClient) {
-      this.logger.warn("Zls already started");
+      this.zlsLog.warn("Zls already started");
       return Promise.resolve();
     }
-    this.logger.info("Starting Zls...");
-    const zig = zig_cfg.zig;
-    const zls = zig_cfg.zls;
+    this.zlsLog.info("Starting Zls...");
+    const zig = zigCfg.zig;
+    const zls = zigCfg.zls;
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zls.debugBinary ?? zls.binary;
     const zlsDbgArgs = ["--debug-log"];
@@ -67,7 +77,7 @@ export class ZlsServices extends DisposableStore {
 
     try {
       if (zls.enableDebug && !zls.debugBinary) {
-        this.logger.warn(
+        this.zlsLog.warn(
           "Using Zls debug mode without `zls.debugBinary`;\n" +
           "  Fallback to `zls.binary`");
       }
@@ -84,7 +94,7 @@ export class ZlsServices extends DisposableStore {
           ? Promise.resolve()
           : fs.fileExists(zlsDbgPath).then(exists => {
             if (!exists) {
-              this.logger.warn(
+              this.zlsLog.warn(
                 `Zls debug executable not found at ${zlsDbgPath}\n` +
                 `  Please specify its path in your settings with 'zls.zlsDebugBinPath'\n` +
                 `  Fallback to 'zls.binary'`);
@@ -139,7 +149,7 @@ export class ZlsServices extends DisposableStore {
       );
       await this.zlsClient.start();
     } catch (e) {
-      this.logger.error('Zls client failed to start', e);
+      this.zlsLog.error('Zls client failed to start', e);
       return Promise.reject();
     }
   }
@@ -148,13 +158,13 @@ export class ZlsServices extends DisposableStore {
     const zlsClient = this.zlsClient;
     this.zlsClient = undefined;
     if (!(zlsClient?.needsStop())) {
-      this.logger.warn("Zls client already stopped");
+      this.zlsLog.warn("Zls client already stopped");
       return Promise.resolve();
     }
 
-    this.logger.info("Stopping Zls...");
+    this.zlsLog.info("Stopping Zls...");
     return zlsClient.stop().catch(e => {
-      this.logger.error(`${CmdId.zls.stop} failed during dispose.`, e);
+      this.zlsLog.error(`${CmdId.zls.stop} failed during dispose.`, e);
       return Promise.reject();
     });
   }
@@ -169,7 +179,7 @@ export class ZlsServices extends DisposableStore {
 // // We also mark the list as incomplete to force retrieving new rankings: https://github.com/microsoft/language-server-protocol/issues/898
 // provideCompletionItem: async (document, position, context, token, next) => {
 //   let list = await next(document, position, context, token);
-//   if (!zig_cfg.zig.getWithFallback('serverCompletionRanking', false)) {
+//   if (!zigCfg.zig.getWithFallback('serverCompletionRanking', false)) {
 //     return list;
 //   }
 //   const completionItems = utils.isArray(list) ? list : list!.items;
@@ -202,7 +212,7 @@ export class ZlsServices extends DisposableStore {
 //#endregion
 
 //#region todo: custom language features
-// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zig_cfg.zig.getWithFallback('maxRestartCount', 0));
+// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.zig.getWithFallback('maxRestartCount', 0));
 // this.zlsClient.registerFeature(new EnableEditsNearCursorFeature);
 // typeHierarchy.activate(this);
 // inlayHints.activate(this);

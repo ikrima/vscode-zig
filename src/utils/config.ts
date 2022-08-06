@@ -1,8 +1,8 @@
 'use strict';
 import * as vsc from 'vscode';
-import { VariableResolver } from './ext';
+import { VariableResolver } from './vsc';
 import { objects, types } from '../utils/common';
-import { ScopedError } from './logger';
+import { ScopedError } from './logging';
 
 // Gets the config value `clangd.<key>`. Applies ${variable} substitutions.
 export function getConfigSection<T>(

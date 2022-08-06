@@ -227,7 +227,8 @@
                 "description": "Controls the verbosity of the trace.",
                 "enum": [
                   "off",
-                  "message",
+                  "messages",
+                  "compact",
                   "verbose"
                 ],
                 "default": "off"

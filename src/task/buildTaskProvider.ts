@@ -2,10 +2,10 @@
 import * as vsc from 'vscode';
 import { objects } from '../utils/common';
 import { DisposableStore } from '../utils/dispose';
-import { TaskInstance } from '../utils/ext';
-import { ScopedError } from '../utils/logger';
+import { TaskInstance } from '../utils/vsc';
+import { ScopedError } from '../utils/logging';
 import { CmdId, Const } from "../zigConst";
-import { zig_cfg, zig_logger } from "../zigExt";
+import { zigCfg } from "../zigExt";
 import { rawGetBuildSteps, rawPickBuildStep, ZigBldStep } from "./zigStep";
 import ZigBuildTask = vsc.Task;
 
@@ -32,7 +32,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   private _cachedPickedStep: string | undefined = undefined;
 
   public activate(): void {
-    const fileWatcher = this.addDisposable(vsc.workspace.createFileSystemWatcher(zig_cfg.zig.buildFile));
+    const fileWatcher = this.addDisposable(vsc.workspace.createFileSystemWatcher(zigCfg.zig.buildFile));
 
     this.addDisposables(
       vsc.tasks.registerTaskProvider(Const.zig.buildTaskType, this),
@@ -71,7 +71,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   }
   public async provideTasks(): Promise<ZigBuildTask[]> {
     const tasks: ZigBuildTask[] = await this.cachedBuildTasks().catch(e => {
-      zig_logger.logMsg(ScopedError.wrap(e));
+      zigCfg.mainLog.logMsg(ScopedError.wrap(e));
       return [];
     });
     return tasks;
@@ -138,7 +138,7 @@ export class ZigBuildTaskProvider extends DisposableStore implements vsc.TaskPro
   }
 
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace): ZigBuildTask {
-    const zig = zig_cfg.zig;
+    const zig = zigCfg.zig;
     const is_build_step = /build/i.test(taskDef.stepName);
     const is_test_step  = !is_build_step && /test/i.test(taskDef.stepName);
     const task = new ZigBuildTask(

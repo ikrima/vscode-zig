@@ -2,8 +2,8 @@
 import * as vsc from 'vscode';
 import * as os from 'os';
 import { cp, fs, strings, types } from '../utils/common';
-import { ScopedError } from '../utils/logger';
-import { zig_cfg } from "../zigExt";
+import { ScopedError } from '../utils/logging';
+import { zigCfg } from "../zigExt";
 
 
 export enum StepGroup {
@@ -54,7 +54,7 @@ export type ZigBldStep = {
 const stepsRegEx = /\s+(?<name>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/g;
 
 export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
-  const zig = zig_cfg.zig;
+  const zig = zigCfg.zig;
   if (!await fs.fileExists(zig.buildFile)) {
     return Promise.reject(
       ScopedError.make("Aborting build target fetch. No build.zig file found in workspace root.")
