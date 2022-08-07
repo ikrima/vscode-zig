@@ -134,7 +134,10 @@
     "problemMatchers": [
       {
         "name": "zig",
+        "label": "Zig Build",
         "owner": "zig",
+        "source": "zigbuild",
+        "applyTo": "allDocuments",
         "fileLocation": [
           "autoDetect",
           "${config:zig.buildRootDir}"
