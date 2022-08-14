@@ -1,28 +1,28 @@
 'use strict';
 import * as vsc from 'vscode';
 import type * as lc from 'vscode-languageclient/node';
-import { ZigBuildTaskProvider } from './task/buildTaskProvider';
-import { ZigTestTaskProvider } from './task/testTaskProvider';
-import { path } from './utils/common';
+import { ZIG, ZLS } from './constants';
 import { ConfigSettings } from './utils/config';
-import { DisposableStore } from './utils/dispose';
+import { DisposableBase } from './utils/dispose';
 import { Logger, LogLevel } from './utils/logging';
+import * as path from './utils/path';
 import { VariableResolver } from './utils/vsc';
-import { ZigCodelensProvider } from "./zigCodeLensProvider";
-import { Const } from './zigConst';
-import { ZlsServices } from './zls/zlsClient';
+import ZigBuildTaskProvider from './zig/buildTaskProvider';
+import ZigTestTaskProvider from './zig/testTaskProvider';
+import ZigCodelensProvider from './zig/codeLensProvider';
+import ZlsServices from './zls/zlsClient';
 
-export let zigCfg:    ZigExtConfig;
+export let extCfg: ZigExtConfig;
 
-export class ZigExtServices extends DisposableStore {
+export class ZigExtServices extends DisposableBase {
   constructor(public context: vsc.ExtensionContext) { super(); }
 
   public activate(): void {
-    zigCfg = new ZigExtConfig(this.addDisposable(vsc.window.createOutputChannel(Const.zig.extChanName)));
+    extCfg = new ZigExtConfig(this.addDisposable(vsc.window.createOutputChannel(ZIG.extChanName)));
     this.addDisposable(new ZlsServices()).activate();
-    this.addDisposable(new ZigCodelensProvider()).activate();
-    this.addDisposable(new ZigBuildTaskProvider()).activate();
-    this.addDisposable(new ZigTestTaskProvider()).activate();
+    this.addDisposable(new ZigCodelensProvider());
+    this.addDisposable(new ZigBuildTaskProvider());
+    this.addDisposable(new ZigTestTaskProvider());
   }
 }
 
@@ -33,6 +33,7 @@ interface ZigSettings {
   buildOutDir:              string;
   buildFile:                string;
   enableTaskProblemMatcher: boolean;
+  enableCodeLens:           boolean;
 }
 interface ZlsSettings {
   binary:      string;
@@ -72,7 +73,7 @@ class ZigExtConfig  {
     this._mainLog = Logger.channelLogger(chan, LogLevel.warn);
     this.varCtx = new VariableResolver();
     this._zig = ConfigSettings.create<ZigSettings>(
-      Const.zig.extensionId,
+      ZIG.extensionId,
       scope,
       (zig: ZigSettings): ZigSettings => {
         zig.binary        = this.varCtx.resolveVars(zig.binary, { normalizePath: true });
@@ -86,7 +87,7 @@ class ZigExtConfig  {
       },
     );
     this._zls = ConfigSettings.create<ZlsSettings>(
-      Const.zls.langServerId,
+      ZLS.langServerId,
       scope,
       (zls: ZlsSettings): ZlsSettings => {
         zls.binary      = this.varCtx.resolveVars(zls.binary, { normalizePath: true });
@@ -99,5 +100,8 @@ class ZigExtConfig  {
   get zig():     ZigSettings { return this._zig.cfgData; }
   get zls():     ZlsSettings { return this._zls.cfgData; }
   get mainLog(): Logger      { return this._mainLog;     }
-
+  reloadCfg(): void {
+    this._zig.reloadCfg();
+    this._zls.reloadCfg();
+  }
 }

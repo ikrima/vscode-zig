@@ -1,12 +1,11 @@
-"use strict";
+'use strict';
 
 import { zigBuild } from './zigBuild';
-import * as cp from "child_process";
-import * as vscode from "vscode";
-import { zigConst } from "./zigConst";
-import { zigContext } from "./zigContext";
+import * as vscode from 'vscode';
+import { ZIG } from '../constants';
+import { zigContext } from './zigContext';
 // This will be treeshaked to only the debounce function
-import { debounce } from "lodash-es";
+import { debounce } from 'lodash-es';
 
 
 export default class ZigCodeActionProvider implements vscode.CodeActionProvider, vscode.Disposable {
@@ -45,7 +44,7 @@ export default class ZigCodeActionProvider implements vscode.CodeActionProvider,
     let compiler = new ZigCodeActionProvider(buildDiagnostics, logChannel);
     context.subscriptions.push(compiler.astDiagnostics);
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider(zigConst.documentSelector, compiler)
+      vscode.languages.registerCodeActionsProvider(ZIG.documentSelector, compiler)
     );
 
     // context.subscriptions.push(
@@ -88,7 +87,7 @@ export default class ZigCodeActionProvider implements vscode.CodeActionProvider,
 
   private _doASTGenErrorCheck(textDocument: vscode.TextDocument) {
     const zigCfg = zigContext.getConfig();
-    if (textDocument.languageId !== zigConst.languageId) {
+    if (textDocument.languageId !== ZIG.languageId) {
       return;
     }
     if (textDocument.isClosed) {

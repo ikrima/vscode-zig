@@ -1,11 +1,13 @@
 'use strict';
 import * as vsc from 'vscode';
 import * as lc from 'vscode-languageclient/node';
-import { fs, path, strings } from '../utils/common';
-import { DisposableStore } from '../utils/dispose';
+import { ZIG, ZLS } from '../constants';
+import { DisposableBase } from '../utils/dispose';
+import * as fs from '../utils/fs';
 import { Logger, LogLevel, ScopedError } from '../utils/logging';
-import { CmdId, Const } from "../zigConst";
-import { zigCfg } from '../zigExt';
+import * as path from '../utils/path';
+import * as strings from '../utils/strings';
+import { extCfg } from '../zigExt';
 
 // class ZlsClient extends lc.LanguageClient {
 //   private zlsLog!: Logger;
@@ -19,27 +21,27 @@ import { zigCfg } from '../zigExt';
 //   }
 // }
 
-export class ZlsServices extends DisposableStore {
+export default class ZlsServices extends DisposableBase {
   private zlsChannel!: vsc.OutputChannel;
   private zlsTraceChannel!: vsc.OutputChannel;
   private zlsLog!: Logger;
   private zlsClient?: lc.LanguageClient | undefined;
 
   public activate(): void {
-    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(Const.zls.outChanName));
-    this.zlsTraceChannel = lc.Trace.fromString(zigCfg.zls.trace.server.verbosity) !== lc.Trace.Off
-      ? this.addDisposable(vsc.window.createOutputChannel(Const.zls.traceChanName, 'json'))
+    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(ZLS.outChanName));
+    this.zlsTraceChannel = lc.Trace.fromString(extCfg.zls.trace.server.verbosity) !== lc.Trace.Off
+      ? this.addDisposable(vsc.window.createOutputChannel(ZLS.traceChanName, 'json'))
       : this.zlsChannel;
     this.zlsLog = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
-      vsc.commands.registerCommand(CmdId.zls.start, async () => {
+      vsc.commands.registerCommand(ZLS.CmdId.start, async () => {
         await this.startClient();
       }),
-      vsc.commands.registerCommand(CmdId.zls.stop, async () => {
+      vsc.commands.registerCommand(ZLS.CmdId.stop, async () => {
         await this.stopClient();
       }),
-      vsc.commands.registerCommand(CmdId.zls.restart, async () => {
+      vsc.commands.registerCommand(ZLS.CmdId.restart, async () => {
         await this.stopClient();
         await this.startClient();
       }),
@@ -58,8 +60,8 @@ export class ZlsServices extends DisposableStore {
       return Promise.resolve();
     }
     this.zlsLog.info("Starting Zls...");
-    const zig = zigCfg.zig;
-    const zls = zigCfg.zls;
+    const zig = extCfg.zig;
+    const zls = extCfg.zls;
     const zlsArgs = <string[]>[];
     let zlsDbgPath = zls.debugBinary ?? zls.binary;
     const zlsDbgArgs = ["--debug-log"];
@@ -111,12 +113,36 @@ export class ZlsServices extends DisposableStore {
 
       // Client Options
       const clientOptions: lc.LanguageClientOptions = {
-        documentSelector: Const.zig.documentSelector,
-        diagnosticCollectionName: Const.zls.diagnosticsName,
+        documentSelector: ZIG.documentSelector,
+        diagnosticCollectionName: ZLS.diagnosticsName,
         outputChannel: this.zlsChannel,
         traceOutputChannel: this.zlsTraceChannel,
         revealOutputChannelOn: lc.RevealOutputChannelOn.Never,
         // middleware: {
+        //   provideCodeLenses: (document: vsc.TextDocument, token: vsc.CancellationToken, next: lc.ProvideCodeLensesSignature ): vsc.ProviderResult<vsc.CodeLens[]> => {
+        //     const client = this._client;
+        //     const provideCodeLenses: ProvideCodeLensesSignature = (document, token) => {
+        //       return client.sendRequest(CodeLensRequest.type, client.code2ProtocolConverter.asCodeLensParams(document), token).then((result) => {
+        //         if (token.isCancellationRequested) {
+        //           return null;
+        //         }
+        //         return client.protocol2CodeConverter.asCodeLenses(result, token);
+        //       }, (error) => {
+        //         return client.handleFailedRequest(CodeLensRequest.type, token, error, null);
+        //       });
+        //     };
+        //     const middleware = client.middleware;
+        //     return middleware.provideCodeLenses
+        //       ? middleware.provideCodeLenses(document, token, provideCodeLenses)
+        //       : provideCodeLenses(document, token);
+        //   },
+        //   resolveCodeLens:   (codeLens: vsc.CodeLens,    token: vsc.CancellationToken, next: lc.ResolveCodeLensSignature   ): vsc.ProviderResult<vsc.CodeLens> => {
+        //   },
+        //   provideDocumentHighlights: async (document: vsc.TextDocument, position: vsc.Position, token: vsc.CancellationToken, next: lc.ProvideDocumentHighlightsSignature) => {
+        //     let highlights = await next(document, position, token);
+        //     if (highlights && highlights.length > 0) { return highlights; }
+        //     return null;
+        //   },
         //   handleDiagnostics: (uri: vsc.Uri, diagnostics: vsc.Diagnostic[], next: lc.HandleDiagnosticsSignature): void => {
         //     diagnostics.forEach(d => {
         //       d.code = {
@@ -133,7 +159,7 @@ export class ZlsServices extends DisposableStore {
 
       // Create and start the language client
       this.zlsClient = new lc.LanguageClient(
-        Const.zls.langServerId,
+        ZLS.langServerId,
         'Zig Language Server',
         serverOptions,
         clientOptions,
@@ -156,7 +182,7 @@ export class ZlsServices extends DisposableStore {
 
     this.zlsLog.info("Stopping Zls...");
     return zlsClient.stop().catch(e => {
-      this.zlsLog.error(`${CmdId.zls.stop} failed during dispose.`, e);
+      this.zlsLog.error(`${ZLS.CmdId.stop} failed during dispose.`, e);
       return Promise.reject();
     });
   }
@@ -171,7 +197,7 @@ export class ZlsServices extends DisposableStore {
 // // We also mark the list as incomplete to force retrieving new rankings: https://github.com/microsoft/language-server-protocol/issues/898
 // provideCompletionItem: async (document, position, context, token, next) => {
 //   let list = await next(document, position, context, token);
-//   if (!zigCfg.zig.getWithFallback('serverCompletionRanking', false)) {
+//   if (!extCfg.zig.getWithFallback('serverCompletionRanking', false)) {
 //     return list;
 //   }
 //   const completionItems = utils.isArray(list) ? list : list!.items;
@@ -204,7 +230,7 @@ export class ZlsServices extends DisposableStore {
 //#endregion
 
 //#region todo: custom language features
-// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(zigCfg.zig.getWithFallback('maxRestartCount', 0));
+// this.zlsClient.clientOptions.errorHandler = this.zlsClient.createDefaultErrorHandler(extCfg.zig.getWithFallback('maxRestartCount', 0));
 // this.zlsClient.registerFeature(new EnableEditsNearCursorFeature);
 // typeHierarchy.activate(this);
 // inlayHints.activate(this);

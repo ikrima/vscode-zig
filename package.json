@@ -114,21 +114,24 @@
     ],
     "languages": [
       {
-        "id": "zig",
-        "extensions": [
-          ".zig"
-        ],
-        "aliases": [
-          "Zig"
-        ],
+        "id":            "zig",
+        "extensions":    [ ".zig" ],
+        "aliases":       [ "Zig" ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "zig",
+        "language":  "zig",
         "scopeName": "source.zig",
-        "path": "./syntaxes/zig.tmLanguage.json"
+        "path":      "./syntaxes/zig.tmLanguage.json"
+      },
+      {
+        "language":  "zig",
+        "scopeName": "markdown.zig.codeblock",
+        "path":      "./syntaxes/zig-md.tmLanguage.json",
+        "injectTo":  [ "text.html.markdown" ],
+        "embeddedLanguages": { "meta.embedded.block.zig": "zig" }
       }
     ],
     "problemMatchers": [
@@ -138,10 +141,7 @@
         "owner": "zig",
         "source": "zigbuild",
         "applyTo": "allDocuments",
-        "fileLocation": [
-          "autoDetect",
-          "${config:zig.buildRootDir}"
-        ],
+        "fileLocation": [ "autoDetect", "${config:zig.buildRootDir}" ],
         "pattern": {
           "regexp": "([^\\s]*):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(note|error):\\s+(.*)$",
           "file": 1,
@@ -192,6 +192,12 @@
             "type": "boolean",
             "scope": "resource",
             "default": true
+          },
+          "zig.enableCodeLens": {
+            "description": "CodeLens for zig tests",
+            "type": "boolean",
+            "scope": "resource",
+            "default": false
           }
         }
       },

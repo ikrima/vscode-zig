@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import { TextEdit, OutputChannel } from 'vscode';
 import { execCmd,ExecutingCmd } from './zigUtil';
-import { zigContext } from "./zigContext";
+import { zigContext } from './zigContext';
 
 export class ZigFormatProvider implements vscode.DocumentFormattingEditProvider {
     private _channel: OutputChannel;

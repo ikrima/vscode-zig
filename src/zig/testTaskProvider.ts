@@ -1,13 +1,15 @@
 'use strict';
 import * as vsc from 'vscode';
-import { fs, objects, path } from '../utils/common';
+import { ZIG } from '../constants';
 import { Debugger, launchLLDB, launchVsDbg } from '../utils/debugger';
+import { DisposableBase } from '../utils/dispose';
+import * as fs from '../utils/fs';
 import { ScopedError } from '../utils/logging';
-import { DisposableStore } from '../utils/dispose';
+import { mixin } from '../utils/objects';
+import * as path from '../utils/path';
 import { TaskInstance, VariableResolver } from '../utils/vsc';
-import { CmdId, Const } from "../zigConst";
-import { zigCfg } from "../zigExt";
-import type { ZigTestStep } from "./zigStep";
+import { extCfg } from '../zigExt';
+import type { ZigTestStep } from './zigStep';
 import ZigTestTask = vsc.Task;
 
 interface ZigTestTaskDefinition extends vsc.TaskDefinition {
@@ -25,15 +27,16 @@ interface ZigTestTaskDefinition extends vsc.TaskDefinition {
 }
 type RunTestCmdArgs = ZigTestStep;
 
-export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProvider {
-  public activate(): void {
+export default class ZigTestTaskProvider extends DisposableBase implements vsc.TaskProvider {
+  constructor() {
+    super();
     this.addDisposables(
-      vsc.tasks.registerTaskProvider(Const.zig.testTaskType, this),
-      vsc.commands.registerCommand(CmdId.zig.runTest, async (args: RunTestCmdArgs) => {
+      vsc.tasks.registerTaskProvider(ZIG.testTaskType, this),
+      vsc.commands.registerCommand(ZIG.CmdId.runTest, async (args: RunTestCmdArgs) => {
         args.label = args.label ?? `test-${path.filename(args.buildArgs.testSrcFile)}`;
         args.buildArgs.mainPkgPath = args.buildArgs.mainPkgPath ?? path.dirname(args.buildArgs.testSrcFile);
         const taskDef: ZigTestTaskDefinition = {
-          type: Const.zig.testTaskType,
+          type: ZIG.testTaskType,
           label: args.label,
           buildArgs: {
             testSrcFile: args.buildArgs.testSrcFile,
@@ -47,7 +50,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
         };
         const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
         await this.runTestTask(zigTask).catch(e => {
-          zigCfg.mainLog.logMsg(ScopedError.wrap(e));
+          extCfg.mainLog.logMsg(ScopedError.wrap(e));
         });
       }),
     );
@@ -71,7 +74,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
 
   private async runTestTask(zigTask: ZigTestTask): Promise<void> {
     const taskDef = zigTask.definition as ZigTestTaskDefinition;
-    const zig = zigCfg.zig;
+    const zig = extCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
     try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (e) {
       return Promise.reject(
@@ -117,16 +120,16 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
   }
 
   private getTestTask(taskDef: ZigTestTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace | undefined): ZigTestTask {
-    const zig = zigCfg.zig;
+    const zig = extCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
     const varCtx = new VariableResolver();
     const task = new ZigTestTask(
       taskDef,
       workspaceFolder ?? vsc.TaskScope.Workspace,
       taskDef.label,
-      Const.zig.taskProviderSourceStr,
+      ZIG.taskProviderSourceStr,
       new vsc.ShellExecution(
-        zig.binary, // isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
+        zig.binary, // cp.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
           "test",
           taskDef.buildArgs.testSrcFile,
@@ -140,7 +143,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
         ].map(arg => varCtx.resolveVars(arg)),
         { cwd: zig.buildRootDir },
       ),
-      zig.enableTaskProblemMatcher ? Const.zig.problemMatcher : undefined,
+      zig.enableTaskProblemMatcher ? ZIG.problemMatcher : undefined,
     );
     task.group = vsc.TaskGroup.Test;
     task.detail = `zig test ${taskDef.label}`;
@@ -152,7 +155,7 @@ export class ZigTestTaskProvider extends DisposableStore implements vsc.TaskProv
       showReuseMessage: false,
       clear: true,
     };
-    objects.mixin(task.presentationOptions, taskDef.presentation ?? {}, true);
+    mixin(task.presentationOptions, taskDef.presentation ?? {}, true);
     return task;
   }
 }

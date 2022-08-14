@@ -1,30 +1,33 @@
 'use strict';
 import * as vsc from 'vscode';
-import { Const, CmdId } from "./zigConst";
-import type { ZigTestStep } from "./task/zigStep";
-import { DisposableStore } from './utils/dispose';
+import { ZIG } from '../constants';
+import { DisposableBase } from '../utils/dispose';
+import { extCfg } from '../zigExt';
+import type { ZigTestStep } from './zigStep';
 
-
-export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLensProvider {
-  public onDidChangeCodeLenses?: vsc.Event<void>;
+export default class ZigCodelensProvider extends DisposableBase implements vsc.CodeLensProvider {
+  private changeEmitter = new vsc.EventEmitter<void>();
   private codeLenses: vsc.CodeLens[] = [];
+  public onDidChangeCodeLenses = this.changeEmitter.event;
 
-  public activate(): void {
-    const onDidChangeCodeLensesEmitter = this.addDisposable(new vsc.EventEmitter<void>());
-    this.onDidChangeCodeLenses = onDidChangeCodeLensesEmitter.event;
+  constructor() {
+    super();
     this.addDisposables(
-      vsc.languages.registerCodeLensProvider(Const.zig.documentSelector, this),
       vsc.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration(Const.zig.extensionId)) {
-          onDidChangeCodeLensesEmitter.fire();
+        if (e.affectsConfiguration(ZIG.extensionId)) {
+          extCfg.reloadCfg();
+          this.changeEmitter.fire();
         }
       }),
+      vsc.languages.registerCodeLensProvider(ZIG.documentSelector, this),
     );
   }
+
   async provideCodeLenses(
     document: vsc.TextDocument,
     token: vsc.CancellationToken
   ): Promise<vsc.CodeLens[] | null> {
+		if (!extCfg.zig.enableCodeLens) { return null; }
     this.codeLenses = [];
     const text = document.getText();
 
@@ -97,7 +100,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
           this.codeLenses.push(
             new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Run test",
-              command: CmdId.zig.runTest,
+              command: ZIG.CmdId.runTest,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -111,7 +114,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
             }),
             new vsc.CodeLens(line.rangeIncludingLineBreak, {
               title: "Debug test",
-              command: CmdId.zig.runTest,
+              command: ZIG.CmdId.runTest,
               arguments: [
                 {
                   buildArgs: { testSrcFile: document.uri.fsPath },
@@ -135,7 +138,7 @@ export class ZigCodelensProvider extends DisposableStore implements vsc.CodeLens
       this.codeLenses.push(
         new vsc.CodeLens(line.range, {
           title: "Run all tests in file (and imports)",
-          command: CmdId.zig.runTest,
+          command: ZIG.CmdId.runTest,
           arguments: [
             {
               buildArgs: { testSrcFile: document.uri.fsPath },

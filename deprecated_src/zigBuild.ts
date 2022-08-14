@@ -2,15 +2,15 @@
 
 import * as cp from 'child_process';
 import * as vscode from 'vscode';
-import { zigConst } from "./zigConst";
-import { zigContext, BuildStep } from "./zigContext";
+import { ZIG } from '../constants';
+import { zigContext, BuildStep } from '../zigContext';
 
 export function zigBuild(
     textDocument: vscode.TextDocument,
     buildDiagnostics: vscode.DiagnosticCollection,
     logChannel: vscode.OutputChannel,
 ): cp.ChildProcess | null {
-    if (textDocument.languageId !== zigConst.languageId) { return null; }
+    if (textDocument.languageId !== ZIG.languageId) { return null; }
     const workspaceFolder =
         vscode.workspace.getWorkspaceFolder(textDocument.uri)
         ?? (vscode.workspace.workspaceFolders
