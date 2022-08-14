@@ -1,13 +1,12 @@
 'use strict';
-import * as vsc from 'vscode';
-import * as process_ from 'process';
 import * as os from 'os';
-import { path, types, cp, strings } from '../utils/common';
-import { Logger, ScopedError } from './logging';
+import * as vsc from 'vscode';
 import { OnceEvent } from './async';
-
-
-export const isWindows = process_.platform === "win32";
+import * as cp from './cp';
+import { ScopedError } from './logging';
+import * as path from './path';
+import * as strings from './strings';
+import * as types from './types';
 
 export function isExtensionActive   (extId: string): boolean                         { return vsc.extensions.getExtension(extId)?.isActive ?? false; }
 export function findWorkspaceFolder (name: string):  vsc.WorkspaceFolder | undefined { return vsc.workspace.workspaceFolders?.find(wf => name.toLowerCase() === wf.name.toLowerCase()); }
@@ -38,7 +37,7 @@ export class VariableResolver {
   private readonly wksVars: WksVars;
   constructor(ctxVars: Partial<WksVars> = {}, envVars: EnvVars = {}) {
     this.config = vsc.workspace.getConfiguration();
-    this.envVars = Object.assign({}, process_.env, envVars);
+    this.envVars = Object.assign({}, cp.env, envVars);
     const dfltWksFolder           = vsc.workspace.workspaceFolders?.[0];
     const dfltEditor              = vsc.window.activeTextEditor;
     const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;
@@ -115,116 +114,6 @@ export class VariableResolver {
     return ret;
   }
 }
-
-
-export function normalizeShellArg(arg: string): string {
-  arg = arg.trim();
-  // Check if the arg is enclosed in backtick,
-  // or includes unescaped double-quotes (or single-quotes on windows),
-  // or includes unescaped single-quotes on mac and linux.
-  if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
-    (isWindows && /.*[^\\]'.*/g.test(arg)) ||
-    (!isWindows && /.*[^\\]'.*/g.test(arg))) {
-    return arg;
-  }
-  // The special character double-quote is already escaped in the arg.
-  const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
-  if (!unescapedSpaces && !isWindows) {
-    return arg;
-  } else if (arg.includes(" ")) {
-    arg = arg.replace(/\\\s/g, " ");
-    return "\"" + arg + "\"";
-  } else {
-    return arg;
-  }
-}
-
-
-// A promise for running process and also a wrapper to access ChildProcess-like methods
-export interface ProcessRunOptions {
-  shellArgs?: string[];              // Any arguments
-  cwd?: string;                      // Current working directory
-  logger?: Logger;                   // Shows a message if an error occurs (in particular the command not being found), instead of rejecting. If this happens, the promise never resolves
-  onStart?: () => void;              // Called after the process successfully starts
-  onStdout?: (data: string) => void; // Called when data is sent to stdout
-  onStderr?: (data: string) => void; // Called when data is sent to stderr
-  onExit?: () => void;               // Called after the command (successfully or unsuccessfully) exits
-  notFoundText?: string;             // Text to add when command is not found (maybe helping how to install)
-}
-export type ProcessRun = {
-  procCmd: string;
-  childProcess: cp.ChildProcess | undefined;
-  isRunning: () => boolean;
-  kill: () => void;
-  completion: Promise<{ stdout: string; stderr: string }>;
-};
-export interface ProcRunException extends cp.ExecException {
-  stdout?: string | undefined;
-  stderr?: string | undefined;
-}
-// Spawns cancellable process
-export function runProcess(cmd: string, options: ProcessRunOptions = {}): ProcessRun {
-  let firstResponse = true;
-  let wasKilledbyUs = false;
-  let isRunning = true;
-  let childProcess: cp.ChildProcess | undefined;
-  const procCmd = strings.filterJoin(' ', [
-    cmd,
-    ...(options.shellArgs ?? [])
-  ].map(normalizeShellArg));
-  return {
-    procCmd: procCmd,
-    childProcess: childProcess,
-    isRunning: () => isRunning,
-    kill: () => {
-      if (!(childProcess?.pid)) { return; }
-      wasKilledbyUs = true;
-      if (isWindows) { cp.spawn('taskkill', ['/pid', childProcess.pid.toString(), '/f', '/t']); }
-      else { childProcess.kill('SIGINT'); }
-    },
-    completion: new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-      childProcess = cp.exec(
-        procCmd,
-        { cwd: options.cwd }, // options.cwd ?? vsc.workspace.workspaceFolders?.[0].uri.fsPath,
-        (err: cp.ExecException | null, stdout: string, stderr: string): void => {
-          isRunning = false;
-          if (options.onExit) { options.onExit(); }
-          childProcess = undefined;
-          if (wasKilledbyUs || !err) {
-            resolve({ stdout, stderr });
-          } else {
-            if (options.logger) {
-              const cmdName = cmd.split(' ', 1)[0];
-              const cmdWasNotFound = isWindows
-                ? err.message.includes(`'${cmdName}' is not recognized`)
-                : err?.code === 127;
-              options.logger.error(
-                cmdWasNotFound
-                  ? (options.notFoundText ?? `${cmdName} is not available in your path;`)
-                  : err.message
-              );
-            }
-            reject(Object.assign(
-              (err ?? { name: "RunException", message: "Unknown" }) as ProcRunException,
-              { stdout: stdout, stderr: stderr }
-            ));
-          }
-        },
-      );
-      childProcess.stdout?.on('data', (data: Buffer) => {
-        if (firstResponse && options.onStart) { options.onStart(); }
-        firstResponse = false;
-        if (options.onStdout) { options.onStdout(data.toString()); }
-      });
-      childProcess.stderr?.on('data', (data: Buffer) => {
-        if (firstResponse && options.onStart) { options.onStart(); }
-        firstResponse = false;
-        if (options.onStderr) { options.onStderr(data.toString()); }
-      });
-    }),
-  };
-}
-
 
 export interface TaskInstance {
   on_task_start: Promise<void>;

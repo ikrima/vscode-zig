@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as vsc from 'vscode';
-import { isExtensionActive } from '../utils/vsc';
+import { isExtensionActive } from './vsc';
 import { ScopedError } from './logging';
-
 
 export interface ExecutableTarget {
   name:              string;

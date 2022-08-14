@@ -1,7 +1,8 @@
 'use strict';
-import * as vsc from 'vscode';
 import * as os from 'os';
-import { strings, types } from '../utils/common';
+import * as vsc from 'vscode';
+import * as strings from './strings';
+import * as types from './types';
 
 export enum LogLevel {
   off     = 'off',

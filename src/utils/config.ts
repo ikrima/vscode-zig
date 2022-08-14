@@ -1,8 +1,9 @@
 'use strict';
 import * as vsc from 'vscode';
-import { VariableResolver } from './vsc';
-import { objects, types } from '../utils/common';
+import { deepCopy } from './objects';
+import * as types from './types';
 import { ScopedError } from './logging';
+import { VariableResolver } from './vsc';
 
 // Gets the config value `clangd.<key>`. Applies ${variable} substitutions.
 export function getConfigSection<T>(
@@ -12,13 +13,13 @@ export function getConfigSection<T>(
 ): T | undefined {
   const rawConfig = vsc.workspace.getConfiguration(undefined, scope).get<T>(section);
   if (!rawConfig) { return undefined; }
-  const cfgData = objects.deepCopy<T>(rawConfig);
+  const cfgData = deepCopy<T>(rawConfig);
   return resolveVars ? resolveVars(cfgData) : cfgData;
 }
 
 export interface ConfigSettings<T> {
   readonly cfgData: T;
-  reload(): void;
+  reloadCfg(): void;
 }
 export namespace ConfigSettings {
   export function create<T>(
@@ -38,20 +39,14 @@ class ConfigSettingsData<T> implements ConfigSettings<T> {
   ) { }
 
   get cfgData(): T {
-    if (!this._cfgData) { this.reload(false); }
+    if (!this._cfgData) { this.reloadCfg(); }
     return this._cfgData!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
   }
 
-  public reload(force?: boolean): void {
-    if (force || !this._cfgData) {
-      this._cfgData = getConfigSection<T>(this.section, this.scope, this.resolveVars);
-    }
+  public reloadCfg(): void {
+    this._cfgData = getConfigSection<T>(this.section, this.scope, this.resolveVars);
     if (!types.isDefined(this._cfgData)) { throw ScopedError.make(`Could load config section ${this.section}`); }
   }
-}
-// Replacing placeholders in all strings e.g. https://code.visualstudio.com/docs/editor/variables-reference
-export function defaultResolveVars<T>(val: T): T {
-  return defaultResolveVarsImpl(new VariableResolver(), val);
 }
 
 function defaultResolveVarsImpl<T>(varCtx: VariableResolver, val: T): T {
@@ -68,6 +63,11 @@ function defaultResolveVarsImpl<T>(varCtx: VariableResolver, val: T): T {
     val = result as T;
   }
   return val;
+}
+
+// Replacing placeholders in all strings e.g. https://code.visualstudio.com/docs/editor/variables-reference
+export function defaultResolveVars<T>(val: T): T {
+  return defaultResolveVarsImpl(new VariableResolver(), val);
 }
 
 // export function substitute<T>(val: T): T {
@@ -98,8 +98,8 @@ function defaultResolveVarsImpl<T>(varCtx: VariableResolver, val: T): T {
 //   const activeDocument = vsc.window.activeTextEditor?.document;
 //   if (name === workspaceRootPrefix && workspaceRoot) { return path.normalize(workspaceRoot.uri.fsPath); }
 //   if (name === workspaceFolderPrefix && activeDocument) { return path.dirname(activeDocument.uri.fsPath); }
-//   if (name === cwdPrefix) { return process.cwd(); }
-//   if (name.startsWith(envPrefix)) { return process.env[name.substring(envPrefix.length)] ?? ''; }
+//   if (name === cwdPrefix) { return cp.cwd(); }
+//   if (name.startsWith(envPrefix)) { return cp.env[name.substring(envPrefix.length)] ?? ''; }
 //   if (name.startsWith(configPrefix)) { return vsc.workspace.getConfiguration().get<string>(name.substring(configPrefix.length)); }
 //   return undefined;
 // }

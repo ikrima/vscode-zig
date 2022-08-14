@@ -1,16 +1,14 @@
 'use strict';
-
-import { ScopedError } from "./logging";
+import { ScopedError } from './logging';
 
 export interface IDisposable {
   dispose(): void;
 }
-
 export namespace IDisposable {
   export const None = Object.freeze<IDisposable>({ dispose: () => { /*noop*/ } });
 }
 
-export class DisposableStore {
+export class DisposableBase implements IDisposable {
   private _isDisposed = false;
   private _disposables: IDisposable[] = [];
 
@@ -25,11 +23,11 @@ export class DisposableStore {
   public get isDisposed(): boolean { return this._isDisposed; }
 
   protected addDisposable<T extends IDisposable>(o: T): T {
-		if (!o)                                         { return o; }
-		if ((o as unknown as DisposableStore) === this) { throw ScopedError.make('Cannot add a disposable on itself!'); }
+    if (!o) { return o; }
+    if ((o as unknown as IDisposable) === this) { throw ScopedError.make('Cannot add a disposable on itself!'); }
 
-    if (this._isDisposed) { o.dispose();               }
-    else                  { this._disposables.push(o); }
+    if (this._isDisposed) { o.dispose(); }
+    else { this._disposables.push(o); }
     return o;
   }
   protected addDisposables<T extends IDisposable>(...vals: T[]): T[] {

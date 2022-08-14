@@ -1,8 +1,7 @@
 'use strict';
 import type * as vsc from 'vscode';
-import { types } from '../utils/common';
-import { IDisposable } from "./dispose";
-
+import { IDisposable } from './dispose';
+import * as types from './types';
 
 export function onceFn<T extends (...args: unknown[]) => unknown>(
   fn: (...args: Parameters<T>) => ReturnType<T>,
