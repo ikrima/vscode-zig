@@ -14,7 +14,7 @@ export const isLinux     = proc_.platform === 'linux';
 import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
 import * as cp_ from 'child_process';
 export type { ChildProcess, ExecException, ExecFileException };
-export const exec     = promisify(cp_.exec     );
+export { execFileSync } from 'child_process';
 export const execFile = promisify(cp_.execFile );
 export const spawn    = promisify(cp_.spawn    );
 

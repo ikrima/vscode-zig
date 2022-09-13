@@ -3,6 +3,7 @@
 import * as fs_ from 'fs';
 import { promisify } from 'util';
 
+export { constants } from 'fs';
 export const access    = promisify(fs_.access);
 export const stat      = promisify(fs_.stat);
 export const mkdir     = promisify(fs_.mkdir);

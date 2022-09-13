@@ -2,12 +2,16 @@
 import * as vsc from 'vscode';
 import * as lc from 'vscode-languageclient/node';
 import { ZIG, ZLS } from '../constants';
+import * as cp from '../utils/cp';
 import { DisposableBase } from '../utils/dispose';
 import * as fs from '../utils/fs';
+import { Lazy } from '../utils/lazy';
 import { Logger, LogLevel, ScopedError } from '../utils/logging';
 import * as path from '../utils/path';
 import * as strings from '../utils/strings';
+import * as types from '../utils/types';
 import { extCfg } from '../zigExt';
+import * as which from 'which';
 
 // class ZlsClient extends lc.LanguageClient {
 //   private zlsLog!: Logger;
@@ -21,17 +25,28 @@ import { extCfg } from '../zigExt';
 //   }
 // }
 
+type ZlsOptions = {
+  zlsArgs:          string[];
+  zlsDbgArgs:       string[];
+  zlsCwd:           string | undefined;
+  zlsDebugMode:     boolean;
+  zlsBinary:        string | undefined;
+  zlsDbgBinary:     string | undefined;
+};
 export default class ZlsServices extends DisposableBase {
-  private zlsChannel!: vsc.OutputChannel;
-  private zlsTraceChannel!: vsc.OutputChannel;
-  private zlsLog!: Logger;
-  private zlsClient?: lc.LanguageClient | undefined;
+  private zlsChannel!:      vsc.OutputChannel;
+  private zlsTraceChannel!: Lazy<vsc.OutputChannel>;
+  private zlsLog!:          Logger;
+  private _zlsOpts?:        ZlsOptions | undefined;
+  private zlsClient?:       lc.LanguageClient | undefined;
 
   public activate(): void {
     this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(ZLS.outChanName));
-    this.zlsTraceChannel = lc.Trace.fromString(extCfg.zls.trace.server.verbosity) !== lc.Trace.Off
-      ? this.addDisposable(vsc.window.createOutputChannel(ZLS.traceChanName, 'json'))
-      : this.zlsChannel;
+    this.zlsTraceChannel = Lazy.create<vsc.OutputChannel>(() => {
+      return lc.Trace.fromString(extCfg.zls.trace.server.verbosity) !== lc.Trace.Off
+        ? this.addDisposable(vsc.window.createOutputChannel(ZLS.traceChanName, 'json'))
+        : this.zlsChannel;
+    });
     this.zlsLog = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
     this.addDisposables(
@@ -45,6 +60,9 @@ export default class ZlsServices extends DisposableBase {
         await this.stopClient();
         await this.startClient();
       }),
+      vsc.commands.registerCommand(ZLS.CmdId.openconfig, async () => {
+        await this.openConfig();
+      }),
     );
     void this.startClient();
   }
@@ -54,61 +72,85 @@ export default class ZlsServices extends DisposableBase {
     super.dispose();
   }
 
+  private async resolveZlsOptions(): Promise<ZlsOptions> {
+    const resolveExePath = async (exePath: string): Promise<string> => {
+      const zlsPath: string | null  = path.isAbsolute(exePath)
+        ? exePath
+        : which.sync(exePath, { nothrow: true });
+      if (!zlsPath) { throw ScopedError.make(`path could not be found through \`which ${exePath}\``); }
+      await Promise.all([
+        fs.fileExists(zlsPath).then(exists => exists
+          ? Promise.resolve()
+          : Promise.reject(ScopedError.make(`path at ${zlsPath} is not a file`))),
+        fs.access(zlsPath, fs.constants.R_OK | fs.constants.X_OK).then(
+          _ => true,
+          _ => Promise.reject(ScopedError.make(`path at ${zlsPath} is not an executable\n`)))
+      ]);
+      return zlsPath;
+    };
+
+    if (!this._zlsOpts) {
+      const zlsArgs    = <string[]>[];
+      const zlsDbgArgs = ["--enable-debug-log"];
+      const zlsCwd     = !strings.isWhiteSpace(extCfg.zig.buildRootDir)
+        ? await fs.dirExists(extCfg.zig.buildRootDir).then(exists => exists ? extCfg.zig.buildRootDir : undefined)
+        : undefined;
+      const zlsDebugMode = extCfg.zls.enableDebug;
+      const zlsBinary = await resolveExePath(extCfg.zls.binary).catch(e => {
+        this.zlsLog.error("`zls.binary` failed to resolve", e);
+        return null;
+      });
+
+      let zlsDbgBinary: string | null = extCfg.zls.debugBinary;
+      if (zlsDebugMode) {
+        if (!zlsDbgBinary) {
+          this.zlsLog.warn(
+            "Using Zls debug mode without `zls.debugBinary`;\n" +
+            "  Fallback to `zls.binary`");
+          zlsDbgBinary = zlsBinary;
+        }
+        else {
+          zlsDbgBinary = await resolveExePath(zlsDbgBinary).catch(e => {
+            this.zlsLog.warn("`zls.zlsDebugBinPath` failed to resolve; Fallback to `zls.binary`", e);
+            return zlsBinary;
+          });
+        }
+      }
+      this._zlsOpts = {
+        zlsArgs:       zlsArgs,
+        zlsDbgArgs:    zlsDbgArgs,
+        zlsCwd:        zlsCwd,
+        zlsDebugMode:  zlsDebugMode,
+        zlsBinary:     zlsBinary    ?? undefined,
+        zlsDbgBinary:  zlsDbgBinary ?? undefined,
+      };
+    }
+    return this._zlsOpts;
+  }
+
   private async startClient(): Promise<void> {
     if (this.zlsClient) {
       this.zlsLog.warn("Zls already started");
       return Promise.resolve();
     }
     this.zlsLog.info("Starting Zls...");
-    const zig = extCfg.zig;
-    const zls = extCfg.zls;
-    const zlsArgs = <string[]>[];
-    let zlsDbgPath = zls.debugBinary ?? zls.binary;
-    const zlsDbgArgs = ["--debug-log"];
-    const zlsCwd = !strings.isWhiteSpace(zig.buildRootDir)
-      ? await fs.dirExists(zig.buildRootDir).then(exists => exists ? zig.buildRootDir : undefined)
-      : undefined;
 
     try {
-      if (zls.enableDebug && !zls.debugBinary) {
-        this.zlsLog.warn(
-          "Using Zls debug mode without `zls.debugBinary`;\n" +
-          "  Fallback to `zls.binary`");
-      }
-      await Promise.all([
-        !path.isAbsolute(zls.binary)
-          ? Promise.resolve()
-          : fs.fileExists(zls.binary).then(exists => exists
-            ? Promise.resolve()
-            : Promise.reject(ScopedError.make(
-              `Zls executable not found at ${zls.binary}\n` +
-              `  Please specify its path in your settings with 'zls.binary'`
-            ))),
-        (!zls.enableDebug || zlsDbgPath === zls.binary || !path.isAbsolute(zlsDbgPath))
-          ? Promise.resolve()
-          : fs.fileExists(zlsDbgPath).then(exists => {
-            if (!exists) {
-              this.zlsLog.warn(
-                `Zls debug executable not found at ${zlsDbgPath}\n` +
-                `  Please specify its path in your settings with 'zls.zlsDebugBinPath'\n` +
-                `  Fallback to 'zls.binary'`);
-              zlsDbgPath = zls.binary;
-            }
-            return Promise.resolve();
-          }),
-      ]);
-
+      const zlsOpts = await this.resolveZlsOptions();
       // Server Options
-      const serverOptions: lc.Executable = zls.enableDebug
+      const zlsExe = zlsOpts.zlsDebugMode ? zlsOpts.zlsDbgBinary : zlsOpts.zlsBinary;
+      types.assertIsDefined(zlsExe);
+
+      const serverOptions: lc.Executable = zlsOpts.zlsDebugMode
         ? {
-          command: zlsDbgPath,
-          args: zlsDbgArgs,
-          options: { cwd: zlsCwd } as lc.ExecutableOptions
+          command: zlsExe,
+          args: zlsOpts.zlsDbgArgs,
+          options: { cwd: zlsOpts.zlsCwd } as lc.ExecutableOptions
         }
         : {
-          command: zls.binary,
-          args: zlsArgs,
-          options: { cwd: zlsCwd } as lc.ExecutableOptions
+          command: zlsExe,
+          args: zlsOpts.zlsArgs,
+          options: { cwd: zlsOpts.zlsCwd } as lc.ExecutableOptions
         };
 
       // Client Options
@@ -116,7 +158,7 @@ export default class ZlsServices extends DisposableBase {
         documentSelector: ZIG.documentSelector,
         diagnosticCollectionName: ZLS.diagnosticsName,
         outputChannel: this.zlsChannel,
-        traceOutputChannel: this.zlsTraceChannel,
+        traceOutputChannel: this.zlsTraceChannel.val,
         revealOutputChannelOn: lc.RevealOutputChannelOn.Never,
         // middleware: {
         //   provideCodeLenses: (document: vsc.TextDocument, token: vsc.CancellationToken, next: lc.ProvideCodeLensesSignature ): vsc.ProviderResult<vsc.CodeLens[]> => {
@@ -163,11 +205,12 @@ export default class ZlsServices extends DisposableBase {
         'Zig Language Server',
         serverOptions,
         clientOptions,
-        zls.enableDebug,
+        zlsOpts.zlsDebugMode,
       );
       await this.zlsClient.start();
     } catch (e) {
       this.zlsLog.error('Zls client failed to start', e);
+      this.zlsClient = undefined;
       return Promise.reject();
     }
   }
@@ -186,7 +229,35 @@ export default class ZlsServices extends DisposableBase {
       return Promise.reject();
     });
   }
+
+  private async openConfig(): Promise<void> {
+    const zlsOpts = await this.resolveZlsOptions().catch(_ => undefined);
+    const zlsExe = zlsOpts ? (zlsOpts?.zlsDebugMode ? zlsOpts.zlsDbgBinary : zlsOpts.zlsBinary) : undefined;
+    if (!zlsOpts || !zlsExe) {
+      this.zlsLog.error("Could not resolve Zls Executable");
+      return;
+    }
+    const { stdout, stderr } = await cp.execFile(
+      zlsExe,
+      ['--show-config-path'],
+      {
+        encoding: 'utf8',
+        cwd: zlsOpts.zlsCwd,
+        shell: vsc.env.shell,
+      }
+    );
+    if (!strings.isWhiteSpace(stderr)) {
+      this.zlsLog.error(
+        `Could not retrieve config file path: '${zlsExe} --show-config-path':\n` +
+        `  ${stderr}`
+      );
+      return;
+    }
+    await vsc.window.showTextDocument(vsc.Uri.file(stdout.trimEnd()), { preview: false });
+  }
+
 }
+
 
 //#region todo: advanced options
 // // We hack up the completion items a bit to prevent VSCode from re-ranking and throwing away all our delicious signals like type information

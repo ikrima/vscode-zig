@@ -22,8 +22,9 @@ export namespace ZLS {
   export const outChanName     = 'zls';
   export const traceChanName   = 'zls trace';
   export namespace CmdId {
-    export const start   = "zls.start";
-    export const stop    = "zls.stop";
-    export const restart = "zls.restart";
+    export const start      = "zls.start";
+    export const stop       = "zls.stop";
+    export const restart    = "zls.restart";
+    export const openconfig = "zls.openconfig";
   }
 }

@@ -46,13 +46,13 @@ interface ZlsSettings {
     };
   };
   enable_snippets:                              boolean;
-  enable_unused_variable_warnings:              boolean;
+  enable_ast_check_diagnostics:                 boolean;
   enable_import_embedfile_argument_completions: boolean;
   zig_lib_path:                                 string | null;
   zig_exe_path:                                 string | null;
   warn_style:                                   boolean;
   build_runner_path:                            string | null;
-  build_runner_cache_path:                      string | null;
+  global_cache_path:                            string | null;
   enable_semantic_tokens:                       boolean;
   enable_inlay_hints:                           boolean;
   inlay_hints_show_builtin:                     boolean;
