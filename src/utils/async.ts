@@ -175,7 +175,7 @@ export function toPromise<T>(event: vsc.Event<T>): Promise<T> {
   //       } as TaskInstance;
   //     },
   //     e => {
-  //       if (cp.isExecException(e)) {
+  //       if (process.isExecException(e)) {
   //         const cmd = e.cmd ? `  cmd   : ${e.cmd}` : undefined;
   //         const code = e.code ? `  code  : ${e.code}` : undefined;
   //         const signal = e.signal ? `  signal: ${e.signal}` : undefined;

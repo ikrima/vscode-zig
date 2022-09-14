@@ -468,6 +468,6 @@
   },
   "dependencies": {
     "vscode-languageclient": "^8.0.2",
-    "which": "~2.0.2"
+    "which": "^2.0.2"
   }
 }

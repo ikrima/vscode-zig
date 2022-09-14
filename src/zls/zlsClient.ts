@@ -2,7 +2,7 @@
 import * as vsc from 'vscode';
 import * as lc from 'vscode-languageclient/node';
 import { ZIG, ZLS } from '../constants';
-import * as cp from '../utils/cp';
+import * as process from '../utils/process';
 import { DisposableBase } from '../utils/dispose';
 import * as fs from '../utils/fs';
 import { Lazy } from '../utils/lazy';
@@ -237,7 +237,7 @@ export default class ZlsServices extends DisposableBase {
       this.zlsLog.error("Could not resolve Zls Executable");
       return;
     }
-    const { stdout, stderr } = await cp.execFile(
+    const { stdout, stderr } = await process.execFile(
       zlsExe,
       ['--show-config-path'],
       {

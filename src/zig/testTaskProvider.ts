@@ -129,7 +129,7 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
       taskDef.label,
       ZIG.taskProviderSourceStr,
       new vsc.ShellExecution(
-        zig.binary, // cp.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
+        zig.binary, // process.isWindows ? `cmd /c chcp 65001>nul && ${zig.binary}` : zig.binary,
         [
           "test",
           taskDef.buildArgs.testSrcFile,

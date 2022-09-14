@@ -1,7 +1,7 @@
 'use strict';
 import * as os from 'os';
 import * as vsc from 'vscode';
-import * as cp from '../utils/cp';
+import * as process from '../utils/process';
 import * as fs from '../utils/fs';
 import { ScopedError } from '../utils/logging';
 import * as strings from '../utils/strings';
@@ -65,7 +65,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
   }
 
   try {
-    const { stdout, stderr } = await cp.execFile(
+    const { stdout, stderr } = await process.execFile(
       zig.binary,
       [
         "build",
@@ -98,7 +98,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     );
   }
   catch (e) {
-    if (cp.isExecException(e)) {
+    if (process.isExecException(e)) {
       const cmd    = e.cmd    ? `  cmd   : ${e.cmd}`   : undefined;
       const code   = e.code   ? `  code  : ${e.code}`  : undefined;
       const signal = e.signal ? `  signal: ${e.signal}`: undefined;

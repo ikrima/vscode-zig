@@ -2,7 +2,7 @@
 import * as os from 'os';
 import * as vsc from 'vscode';
 import { OnceEvent } from './async';
-import * as cp from './cp';
+import * as process from './process';
 import { ScopedError } from './logging';
 import * as path from './path';
 import * as strings from './strings';
@@ -37,7 +37,7 @@ export class VariableResolver {
   private readonly wksVars: WksVars;
   constructor(ctxVars: Partial<WksVars> = {}, envVars: EnvVars = {}) {
     this.config = vsc.workspace.getConfiguration();
-    this.envVars = Object.assign({}, cp.env, envVars);
+    this.envVars = Object.assign({}, process.env, envVars);
     const dfltWksFolder           = vsc.workspace.workspaceFolders?.[0];
     const dfltEditor              = vsc.window.activeTextEditor;
     const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;
@@ -141,7 +141,7 @@ export namespace TaskInstance {
         return { on_task_start, on_task_end };
       },
       (reason?: unknown) => {
-        const scopedError = cp.isExecException(reason)
+        const scopedError = process.isExecException(reason)
           ? ScopedError.make(
             `${task.name} task run: finished with error(s)`,
             strings.filterJoin(os.EOL, [

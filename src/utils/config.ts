@@ -98,8 +98,8 @@ export function defaultResolveVars<T>(val: T): T {
 //   const activeDocument = vsc.window.activeTextEditor?.document;
 //   if (name === workspaceRootPrefix && workspaceRoot) { return path.normalize(workspaceRoot.uri.fsPath); }
 //   if (name === workspaceFolderPrefix && activeDocument) { return path.dirname(activeDocument.uri.fsPath); }
-//   if (name === cwdPrefix) { return cp.cwd(); }
-//   if (name.startsWith(envPrefix)) { return cp.env[name.substring(envPrefix.length)] ?? ''; }
+//   if (name === cwdPrefix) { return process.cwd(); }
+//   if (name.startsWith(envPrefix)) { return process.env[name.substring(envPrefix.length)] ?? ''; }
 //   if (name.startsWith(configPrefix)) { return vsc.workspace.getConfiguration().get<string>(name.substring(configPrefix.length)); }
 //   return undefined;
 // }
