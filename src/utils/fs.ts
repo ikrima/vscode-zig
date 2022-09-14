@@ -2,6 +2,7 @@
 
 import * as fs_ from 'fs';
 import { promisify } from 'util';
+import * as strings from '../utils/strings';
 
 export { constants } from 'fs';
 export const access    = promisify(fs_.access);
@@ -13,9 +14,9 @@ export const writeFile = promisify(fs_.writeFile);
 export const copyFile  = promisify(fs_.copyFile);
 export const unlink    = promisify(fs_.unlink);
 
-export async function exists    (path:     string): Promise<boolean> { return access(path, fs_.constants.F_OK).then(_ => true, _ => false); }
-export async function fileExists(filePath: string): Promise<boolean> { return stat  (filePath).then(v => v.isFile()     , _ => false); }
-export async function dirExists (dirPath:  string): Promise<boolean> { return stat  (dirPath ).then(v => v.isDirectory(), _ => false); }
+export async function exists    (path:     string): Promise<boolean> { return !strings.isWhiteSpace(path)     ? access(path, fs_.constants.F_OK).then(_ => true, _ => false) : false; }
+export async function fileExists(filePath: string): Promise<boolean> { return !strings.isWhiteSpace(filePath) ? stat  (filePath).then(v => v.isFile()     , _ => false) : false; }
+export async function dirExists (dirPath:  string): Promise<boolean> { return !strings.isWhiteSpace(dirPath)  ? stat  (dirPath ).then(v => v.isDirectory(), _ => false) : false; }
 export async function createDir (dirPath:  string, opts: fs_.MakeDirectoryOptions = { recursive: true }): Promise<string|undefined> { return mkdir(dirPath, opts); }
 
 // export async function tryStat   (filePath: PathLike): Promise<Stats|null> { return stat(filePath).catch(_ => null);         }
