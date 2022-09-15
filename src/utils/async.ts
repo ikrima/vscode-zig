@@ -3,6 +3,15 @@ import type * as vsc from 'vscode';
 import { IDisposable } from './dispose';
 import * as types from './types';
 
+// Sequentially Resolve Promises.
+export function sequentialResolve<T>(items: T[], promiseBuilder: (item: T) => Promise<void>): Promise<void> {
+  return items.reduce(async (previousPromise, nextItem) => {
+      await previousPromise;
+      return promiseBuilder(nextItem);
+  }, Promise.resolve());
+}
+
+
 export function onceFn<T extends (...args: unknown[]) => unknown>(
   fn: (...args: Parameters<T>) => ReturnType<T>,
 ): (...args: Parameters<T>) => ReturnType<T> {

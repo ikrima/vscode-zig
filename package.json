@@ -410,8 +410,8 @@
         "category": "zls"
       },
       {
-        "command": "zls.openconfig",
-        "title": "Open ZLS Config",
+        "command": "zls.openConfig",
+        "title": "open config",
         "category": "zls"
       },
       {
@@ -455,7 +455,6 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "^16.11.7",
     "@types/vscode": "^1.71.0",
-    "@types/which": "^2.0.1",
     "@typescript-eslint/eslint-plugin": "^5.37.0",
     "@typescript-eslint/parser": "^5.37.0",
     "@vscode/test-electron": "^2.1.5",
@@ -467,7 +466,6 @@
     "vsce": "^2.11.0"
   },
   "dependencies": {
-    "vscode-languageclient": "^8.0.2",
-    "which": "^2.0.2"
+    "vscode-languageclient": "^8.0.2"
   }
 }

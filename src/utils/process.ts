@@ -1,20 +1,15 @@
 'use strict';
+import * as cp_ from 'child_process';
 import { promisify } from 'util';
 import type { Logger } from './logging';
 import * as path from './path';
+import * as plat from './plat';
+import { normalizeShellArg } from './plat';
 import * as strings from './strings';
 import * as types from './types';
-
-import * as proc_ from 'process';
-export { cwd, env } from 'process';
-export const isWindows   = proc_.platform === 'win32';
-export const isMacintosh = proc_.platform === 'darwin';
-export const isLinux     = proc_.platform === 'linux';
-
 import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
-import * as cp_ from 'child_process';
-export type { ChildProcess, ExecException, ExecFileException };
-export { execFileSync } from 'child_process';
+
+export { ChildProcess, ExecException, ExecFileException, execFileSync } from 'child_process';
 export const execFile = promisify(cp_.execFile );
 export const spawn    = promisify(cp_.spawn    );
 
@@ -43,13 +38,13 @@ export function isExecFileException(o: unknown): o is ExecFileException {
 export async function terminateProcess(childProcess: ChildProcess): Promise<boolean> {
   if (!childProcess?.pid) { return Promise.resolve(false); }
 
-  if (isWindows) {
+  if (plat.isWindows) {
     return execFile(
       'taskkill',
       ['/T', '/F', '/PID', childProcess.pid.toString()]
     ).then(_ => true, _ => false);
   }
-  else if (isLinux || isMacintosh) {
+  else if (plat.isLinux || plat.isMacintosh) {
     return execFile(
       path.join(__dirname, 'terminateProcess.sh'),
       [childProcess.pid.toString()],
@@ -59,28 +54,6 @@ export async function terminateProcess(childProcess: ChildProcess): Promise<bool
   else {
     childProcess.kill('SIGKILL');
     return true;
-  }
-}
-
-export function normalizeShellArg(arg: string): string {
-  arg = arg.trim();
-  // Check if the arg is enclosed in backtick,
-  // or includes unescaped double-quotes (or single-quotes on windows),
-  // or includes unescaped single-quotes on mac and linux.
-  if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
-    (isWindows && /.*[^\\]'.*/g.test(arg)) ||
-    (!isWindows && /.*[^\\]'.*/g.test(arg))) {
-    return arg;
-  }
-  // The special character double-quote is already escaped in the arg.
-  const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
-  if (!unescapedSpaces && !isWindows) {
-    return arg;
-  } else if (arg.includes(" ")) {
-    arg = arg.replace(/\\\s/g, " ");
-    return "\"" + arg + "\"";
-  } else {
-    return arg;
   }
 }
 
@@ -137,7 +110,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
           } else {
             if (options.logger) {
               const cmdName = cmd.split(' ', 1)[0];
-              const cmdWasNotFound = isWindows
+              const cmdWasNotFound = plat.isWindows
                 ? err.message.includes(`'${cmdName}' is not recognized`)
                 : err?.code === 127;
               options.logger.error(

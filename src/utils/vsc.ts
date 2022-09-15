@@ -2,6 +2,7 @@
 import * as os from 'os';
 import * as vsc from 'vscode';
 import { OnceEvent } from './async';
+import * as plat from './plat';
 import * as process from './process';
 import { ScopedError } from './logging';
 import * as path from './path';
@@ -14,7 +15,6 @@ export function defaultWksFolder    ():              vsc.WorkspaceFolder | undef
 export function defaultWksFolderPath():              string | undefined              { const folder = defaultWksFolder(); return folder ? path.normalize(folder.uri.fsPath) : undefined; }
 
 // export type EnvVarsWithNull = Record<string, string | undefined | null>;
-export type EnvVars = Record<string, string | undefined>; // alias of NodeJS.ProcessEnv, Record<string, string | undefined> === Dict<string>
 type WksVars = {
   pathSeparator:           string | undefined;
   workspaceFolder:         string | undefined;
@@ -33,11 +33,11 @@ type WksVars = {
 };
 export class VariableResolver {
   private readonly config: vsc.WorkspaceConfiguration;
-  private readonly envVars: EnvVars;
+  private readonly envVars: plat.EnvVars;
   private readonly wksVars: WksVars;
-  constructor(ctxVars: Partial<WksVars> = {}, envVars: EnvVars = {}) {
+  constructor(ctxVars: Partial<WksVars> = {}, envVars: plat.EnvVars = {}) {
     this.config = vsc.workspace.getConfiguration();
-    this.envVars = Object.assign({}, process.env, envVars);
+    this.envVars = Object.assign({}, plat.env, envVars);
     const dfltWksFolder           = vsc.workspace.workspaceFolders?.[0];
     const dfltEditor              = vsc.window.activeTextEditor;
     const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;

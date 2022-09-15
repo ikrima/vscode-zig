@@ -25,6 +25,6 @@ export namespace ZLS {
     export const start      = "zls.start";
     export const stop       = "zls.stop";
     export const restart    = "zls.restart";
-    export const openconfig = "zls.openconfig";
+    export const openConfig = "zls.openConfig";
   }
 }
