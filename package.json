@@ -127,7 +127,6 @@
         "path":      "./syntaxes/zig.tmLanguage.json"
       },
       {
-        "language":  "zig",
         "scopeName": "markdown.zig.codeblock",
         "path":      "./syntaxes/zig-md.tmLanguage.json",
         "injectTo":  [ "text.html.markdown" ],

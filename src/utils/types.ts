@@ -1,6 +1,6 @@
 'use strict';
 
-import { isDate, isRegExp, } from 'util/types';
+import { isDate, isRegExp } from 'util/types';
 export {
   isDate,
   isRegExp,
