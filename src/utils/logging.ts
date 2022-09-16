@@ -37,28 +37,36 @@ export namespace LogLevel {
   }
 }
 
-export class Stacktrace {
-  private constructor(readonly stack: string) { }
-
-  public static create(arg?: Error | types.AnyObj | string | unknown | undefined): Stacktrace {
-    return Stacktrace.from(arg) ?? Stacktrace.capture();
-  }
-  public static from(arg: Error | types.AnyObj | string | unknown): Stacktrace | undefined {
-    const stack: string | undefined | null =
-      types.isString(arg)                                   ? arg          :
-      types.isNativeError(arg)                              ? arg.stack    :
-      (types.isObject(arg) && types.isString(arg['stack'])) ? arg['stack'] :
-      undefined;
-		return stack ? new Stacktrace(stack) : undefined;
-	}
-  public static capture(): Stacktrace {
-    const err = new Error();
-    if (!err.stack) { Error.captureStackTrace(err); }
-    return new Stacktrace(err.stack ?? '');
-  }
+export class StackTrace {
+  public constructor(readonly stack: string) { }
 
   public toString(): string {
     return this.stack.split('\n').slice(2).join('\n');
+  }
+}
+
+export function asStackTrace(srcObj: Error | unknown): StackTrace | undefined {
+  const stack: string | undefined | null =
+    types.isNativeError(srcObj)                                 ? srcObj.stack    :
+    (types.isObject(srcObj) && types.isString(srcObj['stack'])) ? srcObj['stack'] :
+    undefined;
+  return stack ? new StackTrace(stack) : undefined;
+}
+
+export function stackTraceCapture(firstFrame?: Function): StackTrace;                                               // eslint-disable-line @typescript-eslint/ban-types
+export function stackTraceCapture<T extends object>(targetObj: T, firstFrame?: Function): void;                     // eslint-disable-line @typescript-eslint/ban-types
+export function stackTraceCapture<T extends object>(arg0: Function|undefined|T, arg1?: Function): StackTrace|void { // eslint-disable-line @typescript-eslint/ban-types
+  if (types.isUndefined(arg0) || types.isFunction(arg0)) {
+    const temp: { stack?: string } = {};
+    Error.captureStackTrace(temp, arg0 ?? stackTraceCapture);
+    return new StackTrace(temp.stack ?? '');
+  }
+  else if (types.isObject(arg0) && types.isFunction(arg1)) {
+    Error.captureStackTrace(arg0, arg1 ?? stackTraceCapture);
+    return;
+  }
+  else {
+    return new StackTrace(new TypeError('Invalid parameters type').stack ?? 'Invalid parameters type');
   }
 }
 
@@ -88,58 +96,64 @@ export namespace ScopedMsg {
       types.isString     (detail) ? detail         :
       types.isDefined    (detail) ? String(detail) :
       undefined;
-    const trace = Stacktrace.from(detail);
+    const trace = asStackTrace(detail);
     return strings.filterJoin(os.EOL, [
       message,
-      detail_msg ? `  Error: ${detail_msg}`            : null,
+      detail_msg ? `  Error: ${detail_msg}` : null,
       trace      ? `  StackTrace: ${trace.toString()}` : null,
     ]);
   }
 }
 
 export class ScopedError extends Error {
-  private constructor(
-    message: string | undefined,
-    public readonly level: LogLevel,
-    public readonly reveal: boolean,
-    public readonly detail_msg?: string | undefined,
+  public readonly level: LogLevel;
+  public readonly reveal: boolean;
+  public readonly detail_msg?: string | undefined;
+
+  constructor(
+    message?: string | undefined,
+    detail?: Error | string | unknown | null,
+    level?: LogLevel,
+    reveal?: boolean | undefined,
+    stack?: string | undefined,
   ) {
     super(message);
     this.name = 'ScopedError';
+
+    const detail_msg =
+      types.isNativeError(detail) ? detail.message :
+      types.isString     (detail) ? detail         :
+      types.isDefined    (detail) ? String(detail) :
+      undefined;
+    this.level      = level  ?? LogLevel.error,
+    this.reveal     = reveal ?? (level ? level === LogLevel.error || level === LogLevel.warn : true);
+    this.detail_msg = detail_msg;
+
+    stack = stack ?? asStackTrace(detail)?.stack ?? '';
+    if (!strings.isWhiteSpace(stack)) { this.stack = stack; }
+    else                              { stackTraceCapture(this, this.constructor); }
   }
 
   public override toString(): string {
-    const stack = Stacktrace.from(this.stack)?.toString();
+    const stack = asStackTrace(this.stack);
     return strings.filterJoin(os.EOL, [
       this.message,
-      this.detail_msg ? `  Error: ${this.detail_msg}` : null,
-      stack           ? `  StackTrace: ${stack}`      : null,
+      this.detail_msg ? `  Error: ${this.detail_msg}`       : null,
+      stack           ? `  StackTrace: ${stack.toString()}` : null,
     ]);
   }
 
   public static is(o: unknown): o is ScopedError {
     return (o instanceof ScopedError) || (o instanceof Error && o.name === 'ScopedError');
   }
-  public static make(
+  public static reject(
     message?: string | undefined,
     detail?: Error | string | unknown | null,
     level?: LogLevel,
     reveal?: boolean | undefined,
     stack?: string | undefined,
-  ): ScopedError {
-    const detail_msg =
-      types.isNativeError(detail) ? detail.message :
-      types.isString     (detail) ? detail         :
-      types.isDefined    (detail) ? String(detail) :
-      undefined;
-    const err = new ScopedError(
-      message,
-      level  ?? LogLevel.error,
-      reveal ?? (level ? level === LogLevel.error || level === LogLevel.warn : true),
-      detail_msg,
-    );
-    err.stack = Stacktrace.create(stack ?? detail).stack;
-    return err;
+  ): Promise<never> {
+    return Promise.reject(new ScopedError(message, detail, level, reveal, stack));
   }
 
   static wrap(
@@ -147,7 +161,7 @@ export class ScopedError extends Error {
     fallback_msg: string = "Unknown Error",
   ): ScopedError {
     if (ScopedError.is(arg)) { return arg; }
-    else                     { return ScopedError.make(fallback_msg, arg); }
+    else                     { return new ScopedError(fallback_msg, arg); }
   }
 
 }
@@ -169,7 +183,7 @@ export namespace Logger {
       maxLogLevel: maxLogLevel,
       write:       val => chan.append(val),
       clear:       ()  => chan.clear(),
-      error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedError.make(msg, detail, LogLevel.error, reveal)); },
+      error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(new ScopedError(msg, detail, LogLevel.error, reveal)); },
       warn:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.warn  , msg, detail, reveal)); },
       info:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.info  , msg, detail, reveal)); },
       trace:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.trace , msg, detail, reveal)); },

@@ -9,7 +9,7 @@ import * as strings from './strings';
 import * as types from './types';
 import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
 
-export { ChildProcess, ExecException, ExecFileException, execFileSync } from 'child_process';
+export { type ChildProcess, type ExecException, type ExecFileException, execFileSync } from 'child_process';
 export const execFile = promisify(cp_.execFile );
 export const spawn    = promisify(cp_.spawn    );
 

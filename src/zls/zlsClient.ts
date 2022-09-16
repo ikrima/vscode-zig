@@ -75,9 +75,9 @@ export default class ZlsServices extends DisposableBase {
     const resolveExePath = async (exePath: string): Promise<string> => {
       // const fullPath = which.sync(exePath, { nothrow: true }) ?? undefined;
       const fullPath = !path.isAbsolute(exePath) ? await fs.findExe(exePath) : exePath;
-      if (!fullPath) { return Promise.reject(ScopedError.make(`path could not be found through \`which ${exePath}\``)); }
-      if (!(await fs.pathExists(fullPath))) { return Promise.reject(ScopedError.make(`path at ${exePath} is not a file`)); }
-      if (!(await fs.exeExists(fullPath))) { return Promise.reject(ScopedError.make(`path at ${exePath} is not an executable\n`)); }
+      if (!fullPath) { return ScopedError.reject(`path could not be found through \`which ${exePath}\``); }
+      if (!(await fs.pathExists(fullPath))) { return ScopedError.reject(`path at ${exePath} is not a file`); }
+      if (!(await fs.exeExists(fullPath))) { return ScopedError.reject(`path at ${exePath} is not an executable\n`); }
       return fullPath;
     };
 
@@ -251,7 +251,7 @@ export default class ZlsServices extends DisposableBase {
 //   if (!extCfg.zig.getWithFallback('serverCompletionRanking', false)) {
 //     return list;
 //   }
-//   const completionItems = utils.isArray(list) ? list : list!.items;
+//   const completionItems = types.isArray(list) ? list : list!.items;
 //   let items = completionItems.map(item => {
 //     // Gets the prefix used by VSCode when doing fuzzymatch.
 //     let prefix = document.getText(new vsc.Range((item.range as vsc.Range).start, position));

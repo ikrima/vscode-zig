@@ -3,11 +3,6 @@ import * as types from './types';
 
 
 type Clonable = types.Primitive | Date | RegExp | unknown[] | types.AnyObj;
-// export function deepCopy(src: null           ): null;
-// export function deepCopy(src: undefined      ): undefined;
-// export function deepCopy(src: boolean        ): boolean;
-// export function deepCopy(src: number         ): number;
-// export function deepCopy(src: string         ): string;
 export function deepCopy   (src: types.Primitive): typeof src;
 export function deepCopy   (src: Date           ): Date;
 export function deepCopy   (src: RegExp         ): RegExp;
@@ -70,10 +65,13 @@ export function mixin     (dst: types.AnyObj, src: types.AnyObj, overwrite: bool
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const g_hasOwnProperty = Object.prototype.hasOwnProperty;
+
 export function isEmptyObject(obj: unknown): boolean {
   if (!types.isObject(obj)) { return false; }
   for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    if (g_hasOwnProperty.call(obj, key)) {
       return false;
     }
   }

@@ -77,9 +77,7 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
     const zig = extCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
     try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (e) {
-      return Promise.reject(
-        ScopedError.make(`Could not create testEmitBinDir: (${outBinDir}) does not exists.`, e)
-      );
+      return ScopedError.reject(`Could not create testEmitBinDir: (${outBinDir}) does not exists.`, e);
     }
     // Run Build Task
     try {
@@ -111,7 +109,7 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
         });
       }
       else {
-        return Promise.reject(ScopedError.make("cpptools/vscode-lldb extension must be enabled or installed."));
+        return ScopedError.reject("cpptools/vscode-lldb extension must be enabled or installed.");
       }
     }
     catch (e) {

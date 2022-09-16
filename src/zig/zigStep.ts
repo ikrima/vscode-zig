@@ -59,9 +59,7 @@ const stepsRegEx = /\s+(?<name>\S+)\s(?<dflt>\(default\))?\s*(?<desc>[^\n]+)\n?/
 export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
   const zig = extCfg.zig;
   if (!await fs.fileExists(zig.buildFile)) {
-    return Promise.reject(
-      ScopedError.make("Aborting build target fetch. No build.zig file found in workspace root.")
-    );
+    return ScopedError.reject("Aborting build target fetch. No build.zig file found in workspace root.");
   }
 
   try {
@@ -80,9 +78,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
     );
 
     if (!strings.isWhiteSpace(stderr)) {
-      return Promise.reject(
-        ScopedError.make(`zig build errors\n${stderr}`)
-      );
+      return ScopedError.reject(`zig build errors\n${stderr}`);
     }
     const stepsIdx = stdout.indexOf("Steps:");
     const genOpIdx = stdout.indexOf("General Options:", stepsIdx);
@@ -111,20 +107,15 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
         signal,
         stderr,
       ]);
-      return Promise.reject(
-        ScopedError.make(
-          `zig build: finished with error(s)`,
-          detail_msg,
-          undefined,
-          undefined,
-          e.stack,
-        )
-      );
+      return ScopedError.reject(
+        `zig build: finished with error(s)`,
+        detail_msg,
+        undefined,
+        undefined,
+        e.stack);
     }
     else {
-      return Promise.reject(
-        ScopedError.make(`zig build: finished with error(s)`, e)
-      );
+      return ScopedError.reject(`zig build: finished with error(s)`, e);
     }
 
   }

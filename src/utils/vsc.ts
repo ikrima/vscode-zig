@@ -142,7 +142,7 @@ export namespace TaskInstance {
       },
       (reason?: unknown) => {
         const scopedError = process.isExecException(reason)
-          ? ScopedError.make(
+          ? new ScopedError(
             `${task.name} task run: finished with error(s)`,
             strings.filterJoin(os.EOL, [
               reason.cmd    ? `  cmd   : ${reason.cmd}`    : undefined,
@@ -155,7 +155,7 @@ export namespace TaskInstance {
             undefined,
             undefined,
             reason.stack)
-          : ScopedError.make(`${task.name} task run: finished with error(s)`, reason);
+          : new ScopedError(`${task.name} task run: finished with error(s)`, reason);
         return Promise.reject(scopedError);
       });
   }

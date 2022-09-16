@@ -131,11 +131,7 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
 
   private async runBuildStep(taskDef: ZigBuildTaskDefinition): Promise<void> {
     const zigTask = this.getBuildTask(taskDef, vsc.TaskScope.Workspace);
-    await TaskInstance.launch(zigTask).catch((e?: unknown) => {
-      return Promise.reject(
-        ScopedError.make(`zig build for ${zigTask.name} failed`, e)
-      );
-    });
+    await TaskInstance.launch(zigTask).catch(e => ScopedError.reject(`zig build for ${zigTask.name} failed`, e));
   }
 
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace): ZigBuildTask {

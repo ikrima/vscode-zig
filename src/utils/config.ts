@@ -45,7 +45,7 @@ class ConfigSettingsData<T> implements ConfigSettings<T> {
 
   public reloadCfg(): void {
     this._cfgData = getConfigSection<T>(this.section, this.scope, this.resolveVars);
-    if (!types.isDefined(this._cfgData)) { throw ScopedError.make(`Could load config section ${this.section}`); }
+    if (!types.isDefined(this._cfgData)) { throw new ScopedError(`Could load config section ${this.section}`); }
   }
 }
 
