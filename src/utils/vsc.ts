@@ -1,6 +1,6 @@
 'use strict';
 import * as vsc from 'vscode';
-import { OnceEvent } from './async';
+import { filterEvent, onceEvent, OnceEventHandle } from './async';
 import { ScopedError } from './logging';
 import * as path from './path';
 import * as plat from './plat';
@@ -115,29 +115,34 @@ export class VariableResolver {
 }
 
 export interface TaskInstance {
-  on_task_start: Promise<void>;
-  on_task_end: Promise<void>;
+  onTaskStart: Promise<void>;
+  onTaskEnd: Promise<void>;
 }
 export namespace TaskInstance {
   type TaskEventArg = vsc.TaskStartEvent | vsc.TaskEndEvent | vsc.TaskProcessStartEvent | vsc.TaskProcessEndEvent;
   export async function launch(task: vsc.Task): Promise<TaskInstance> {
     return vsc.tasks.executeTask(task).then(
       (execution: vsc.TaskExecution): TaskInstance => {
-        let on_start_once: OnceEvent | undefined = undefined;
-        let on_end_once: OnceEvent | undefined = undefined;
-        const taskFilter = (e: TaskEventArg): boolean => execution === e.execution;
-        const eventFinalizer = () => {
-          on_start_once?.cancel();
-          on_end_once?.cancel();
+        const taskInstFilter    = (evt: TaskEventArg): boolean => execution === evt.execution;
+        const onInstanceStarted = filterEvent(vsc.tasks.onDidStartTask, taskInstFilter);
+        const onInstanceEnded   = filterEvent(vsc.tasks.onDidEndTask,   taskInstFilter);
+        const eventFinalizer    = () => {
+          onTaskStartEventHandle?.cancel();
+          onTaskEndEventHandle?.cancel();
+          onTaskStartEventHandle = undefined;
+          onTaskEndEventHandle = undefined;
         };
-        const on_task_start = new Promise<void>((resolve, reject) => {
-          on_start_once = OnceEvent.once(vsc.tasks.onDidStartTask, taskFilter, reject)(_ => resolve());
-        }).finally(eventFinalizer);
-        const on_task_end = new Promise<void>((resolve, reject) => {
-          on_end_once = OnceEvent.once(vsc.tasks.onDidEndTask, taskFilter, reject)(_ => resolve());
-        }).finally(eventFinalizer);
 
-        return { on_task_start, on_task_end };
+        let onTaskStartEventHandle: OnceEventHandle | undefined = undefined;
+        let onTaskEndEventHandle: OnceEventHandle | undefined = undefined;
+        return {
+          onTaskStart: new Promise<void>((resolve, reject) => {
+            onTaskStartEventHandle = onceEvent(onInstanceStarted, reject)(_ => resolve());
+          }).finally(eventFinalizer),
+          onTaskEnd: new Promise<void>((resolve, reject) => {
+            onTaskEndEventHandle = onceEvent(onInstanceEnded, reject)(_ => resolve());
+          }).finally(eventFinalizer),
+        };
       },
       (reason?: unknown) => {
         const scopedError = process.isExecException(reason)

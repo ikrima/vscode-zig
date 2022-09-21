@@ -56,7 +56,7 @@ export async function launchVsDbg(
   };
   return vsc.debug.startDebugging(folder ?? vsc.workspace.workspaceFolders?.[0], debugConfig).then(
     started => started ? Promise.resolve() : ScopedError.reject("could not launch cpptools debug instance"),
-    e => ScopedError.reject("Could not launch cppvsdbg debug instance", e)
+    err => ScopedError.reject("Could not launch cppvsdbg debug instance", err)
   );
 
 }

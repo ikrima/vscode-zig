@@ -93,13 +93,13 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       })
     );
   }
-  catch (e) {
-    if (process.isExecException(e)) {
-      const cmd    = e.cmd    ? `  cmd   : ${e.cmd}`   : undefined;
-      const code   = e.code   ? `  code  : ${e.code}`  : undefined;
-      const signal = e.signal ? `  signal: ${e.signal}`: undefined;
-      const stderr = types.isObject(e) && 'stderr' in e && types.isString(e['stderr'])
-        ? `  errors: ${e['stderr']}`
+  catch (err) {
+    if (process.isExecException(err)) {
+      const cmd    = err.cmd    ? `  cmd   : ${err.cmd}`   : undefined;
+      const code   = err.code   ? `  code  : ${err.code}`  : undefined;
+      const signal = err.signal ? `  signal: ${err.signal}`: undefined;
+      const stderr = types.isObject(err) && 'stderr' in err && types.isString(err['stderr'])
+        ? `  errors: ${err['stderr']}`
         : undefined;
       const detail_msg = strings.concatNotEmpty(plat.eol, [
         cmd,
@@ -112,10 +112,10 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
         detail_msg,
         undefined,
         undefined,
-        e.stack);
+        err.stack);
     }
     else {
-      return ScopedError.reject(`zig build: finished with error(s)`, e);
+      return ScopedError.reject(`zig build: finished with error(s)`, err);
     }
 
   }

@@ -1,6 +1,6 @@
 'use strict';
 import * as types from './types';
-import { ScopedError } from './logging';
+import { ScopedError, consoleLog } from './logging';
 import { onceFn } from './functional';
 
 export interface IDisposable {
@@ -8,19 +8,24 @@ export interface IDisposable {
 }
 export namespace IDisposable {
   export const None = Object.freeze<IDisposable>({ dispose: () => { /*noop*/ } });
+  // export function isDisposable<T extends object>(o: T): o is T & IDisposable {
+  //   return typeof (o as IDisposable).dispose === 'function' && (o as IDisposable).dispose.length === 0;
+  // }
 }
-export function isDisposable<T extends object>(o: T): o is T & IDisposable {
+export function isDisposable(o: unknown): o is IDisposable {
+  if (o === IDisposable.None) { return true; }
+  if (!o || typeof o !== 'object') { return false; }
   return typeof (o as IDisposable).dispose === 'function' && (o as IDisposable).dispose.length === 0;
 }
 
 export function asDisposable(callback: () => void): IDisposable {
-  const ret = new DisposableBase();
+  const ret = new DisposableSet();
   ret.addDisposeCallback(callback);
   return ret;
 }
-export function disposableFrom(...disposables: IDisposable[]): IDisposable {
-  const ret = new DisposableBase();
-  ret.addDisposables(...disposables);
+export function combineDisposables(...disposables: IDisposable[]): IDisposable {
+  const ret = new DisposableSet();
+  for (const o of disposables) { ret.addDisposable(o); }
   return ret;
 }
 export function disposeIfDisposable<T extends IDisposable | object>(disposables: T[]): void {
@@ -41,8 +46,8 @@ export function disposeAll<T extends IDisposable>(arg: T | undefined | IterableI
       if (d) {
         try {
           d.dispose();
-        } catch (e) {
-          errors.push(e);
+        } catch (err) {
+          errors.push(err);
         }
       }
     }
@@ -50,7 +55,7 @@ export function disposeAll<T extends IDisposable>(arg: T | undefined | IterableI
     if (errors.length === 1) {
       throw ScopedError.wrap(errors[0]);
     } else if (errors.length > 1) {
-      throw new ScopedError(`Encountered errors while disposing of store`, `Errors: [${errors.join(', ')}]`);
+      throw new ScopedError(`Encountered errors while disposing`, `Errors: [${errors.join(', ')}]`);
     }
     return types.isArray(arg) ? [] : arg;
   }
@@ -63,7 +68,7 @@ export function disposeAll<T extends IDisposable>(arg: T | undefined | IterableI
   }
 }
 
-export class DisposableBase implements IDisposable {
+export class DisposableSet implements IDisposable {
   private _toDispose = new Set<IDisposable>();
   private _isDisposed = false;
 
@@ -77,28 +82,15 @@ export class DisposableBase implements IDisposable {
 
   public addDisposable<T extends IDisposable>(o: T): T {
     if (!o) { return o; }
-    if ((o as unknown as DisposableBase) === this) { throw new ScopedError('Cannot register a disposable on itself!'); }
+    if ((o as unknown as DisposableSet) === this) { throw new ScopedError('Cannot register a disposable on itself!'); }
 
-    if (this._isDisposed) { console.warn('Adding to disposed store. Item will be leaked'); o.dispose(); }
+    if (this._isDisposed) { consoleLog.warn('Adding to already disposed set. Item will be leaked'); o.dispose(); }
     else { this._toDispose.add(o); }
+
     return o;
   }
   public addDisposeCallback(callback: () => void): void {
     this.addDisposable({ dispose: onceFn(callback) });
-  }
-  public addDisposables<T extends IDisposable>(...vals: T[]): void {
-    if (this._isDisposed) {
-      console.warn('Adding to disposed store. Item will be leaked');
-      disposeAll(vals);
-      return;
-    }
-
-    for (const o of vals) {
-      this.addDisposable(o);
-      // if (!o) { return o; }
-      // if ((o as unknown as DisposableBase) === this) { throw new ScopedError('Cannot register a disposable on itself!'); }
-      // this._toDispose.add(o);
-    }
   }
 
   public clear(): void {
@@ -109,4 +101,54 @@ export class DisposableBase implements IDisposable {
     }
   }
 
+}
+
+
+export abstract class DisposableBase implements IDisposable {
+  protected readonly _store = new DisposableSet();
+
+  public dispose(): void {
+    this._store.dispose();
+  }
+  protected _register<T extends IDisposable>(o: T): T {
+    if ((o as unknown as DisposableBase) === this) {
+      throw new ScopedError('Cannot register a disposable on itself!');
+    }
+    return this._store.addDisposable(o);
+  }
+  protected _registerMany<T extends IDisposable>(...vals: T[]): void {
+    for (const o of vals) {
+      this._register(o);
+    }
+  }
+}
+
+// Manages the lifecycle of a disposable value that may be changed.
+//  - ensures that when the disposable value is changed, the previously held disposable is disposed of.
+//  - can also register a `MutableDisposable` on a `Disposable` to ensure it is automatically cleaned u
+export class MutableDisposable<T extends IDisposable> implements IDisposable {
+  private _value?: T | undefined;
+  private _isDisposed = false;
+
+  public dispose(): void {
+    this._isDisposed = true;
+    this._value?.dispose();
+    this._value = undefined;
+  }
+
+  public get value(): T | undefined { return !this._isDisposed ? this._value : undefined; }
+  public set value(v: T | undefined) {
+    if (this._isDisposed || v === this._value) { return; }
+    this._value?.dispose();
+    this._value = v;
+  }
+
+  clear() {
+    this._value = undefined;
+  }
+  clearAndLeak(): T | undefined {
+    const old = this._value;
+    this._value = undefined;
+    return old;
+  }
 }

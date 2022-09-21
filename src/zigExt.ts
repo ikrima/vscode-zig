@@ -18,11 +18,11 @@ export class ZigExtServices extends DisposableBase {
   constructor(public context: vsc.ExtensionContext) { super(); }
 
   public activate(): void {
-    extCfg = new ZigExtConfig(this.addDisposable(vsc.window.createOutputChannel(ZIG.extChanName)));
-    this.addDisposable(new ZlsServices()).activate();
-    this.addDisposable(new ZigCodelensProvider());
-    this.addDisposable(new ZigBuildTaskProvider());
-    this.addDisposable(new ZigTestTaskProvider());
+    extCfg = new ZigExtConfig(this._register(vsc.window.createOutputChannel(ZIG.extChanName)));
+    this._register(new ZlsServices()).activate();
+    this._register(new ZigCodelensProvider());
+    this._register(new ZigBuildTaskProvider());
+    this._register(new ZigTestTaskProvider());
   }
 }
 
@@ -99,7 +99,7 @@ class ZigExtConfig  {
 
   get zig():     ZigSettings { return this._zig.cfgData; }
   get zls():     ZlsSettings { return this._zls.cfgData; }
-  get mainLog(): Logger      { return this._mainLog;     }
+  get mainLog(): Logger     { return this._mainLog;     }
   reloadCfg(): void {
     this._zig.reloadCfg();
     this._zls.reloadCfg();

@@ -33,13 +33,14 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
 
   constructor() {
     super();
-    const fileWatcher = this.addDisposable(vsc.workspace.createFileSystemWatcher(extCfg.zig.buildFile));
+    this._register(vsc.tasks.registerTaskProvider(ZIG.buildTaskType, this));
 
-    this.addDisposables(
-      vsc.tasks.registerTaskProvider(ZIG.buildTaskType, this),
-      fileWatcher.onDidChange(() => this.invalidateTasksCache()),
-      fileWatcher.onDidCreate(() => this.invalidateTasksCache()),
-      fileWatcher.onDidDelete(() => this.invalidateTasksCache()),
+    const fileWatcher = this._register(vsc.workspace.createFileSystemWatcher(extCfg.zig.buildFile));
+    fileWatcher.onDidChange(() => this.invalidateTasksCache());
+    fileWatcher.onDidCreate(() => this.invalidateTasksCache());
+    fileWatcher.onDidDelete(() => this.invalidateTasksCache());
+
+    this._registerMany(
       vsc.commands.registerCommand(ZIG.CmdId.build.runStep, async (args: RunStepCmdArgs) => {
         await this.runBuildStep({
           type: ZIG.buildTaskType,
@@ -71,8 +72,8 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
     // zigFormatStatusBar.show();
   }
   public async provideTasks(): Promise<ZigBuildTask[]> {
-    const tasks: ZigBuildTask[] = await this.cachedBuildTasks().catch(e => {
-      extCfg.mainLog.logMsg(ScopedError.wrap(e));
+    const tasks: ZigBuildTask[] = await this.cachedBuildTasks().catch(err => {
+      extCfg.mainLog.logMsg(ScopedError.wrap(err));
       return [];
     });
     return tasks;
@@ -101,9 +102,9 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
       if (force || !this._cachedBldSteps) { this._cachedBldSteps = await rawGetBuildSteps(); }
       return this._cachedBldSteps;
     }
-    catch (e) {
+    catch (err) {
       this._cachedBldSteps = undefined;
-      return Promise.reject(e);
+      return Promise.reject(err);
     }
   }
 
@@ -115,9 +116,9 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
       }
       return this._cachedBldTasks;
     }
-    catch (e) {
+    catch (err) {
       this._cachedBldTasks = undefined;
-      return Promise.reject(e);
+      return Promise.reject(err);
     }
   }
 
@@ -131,7 +132,7 @@ export default class ZigBuildTaskProvider extends DisposableBase implements vsc.
 
   private async runBuildStep(taskDef: ZigBuildTaskDefinition): Promise<void> {
     const zigTask = this.getBuildTask(taskDef, vsc.TaskScope.Workspace);
-    await TaskInstance.launch(zigTask).catch(e => ScopedError.reject(`zig build for ${zigTask.name} failed`, e));
+    await TaskInstance.launch(zigTask).catch(err => ScopedError.reject(`zig build for ${zigTask.name} failed`, err));
   }
 
   private getBuildTask(taskDef: ZigBuildTaskDefinition, workspaceFolder: vsc.WorkspaceFolder | vsc.TaskScope.Workspace): ZigBuildTask {

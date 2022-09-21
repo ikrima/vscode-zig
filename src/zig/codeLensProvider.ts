@@ -1,20 +1,22 @@
 'use strict';
 import * as vsc from 'vscode';
 import { ZIG } from '../constants';
+import { CharCode } from '../utils/charCode';
 import { DisposableBase } from '../utils/dispose';
+import * as strings from '../utils/strings';
 import { extCfg } from '../zigExt';
 import type { ZigTestStep } from './zigStep';
 
 export default class ZigCodelensProvider extends DisposableBase implements vsc.CodeLensProvider {
-  private changeEmitter = new vsc.EventEmitter<void>();
+  private readonly changeEmitter: vsc.EventEmitter<void> = this._register(new vsc.EventEmitter<void>());
+  readonly onDidChangeCodeLenses: vsc.Event<void> = this.changeEmitter.event;
   private codeLenses: vsc.CodeLens[] = [];
-  public onDidChangeCodeLenses = this.changeEmitter.event;
 
   constructor() {
     super();
-    this.addDisposables(
-      vsc.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration(ZIG.extensionId)) {
+    this._registerMany(
+      vsc.workspace.onDidChangeConfiguration(evt => {
+        if (evt.affectsConfiguration(ZIG.extensionId)) {
           extCfg.reloadCfg();
           this.changeEmitter.fire();
         }
@@ -27,7 +29,7 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
     document: vsc.TextDocument,
     token: vsc.CancellationToken
   ): Promise<vsc.CodeLens[] | null> {
-		if (!extCfg.zig.enableCodeLens) { return null; }
+    if (!extCfg.zig.enableCodeLens) { return null; }
     this.codeLenses = [];
     const text = document.getText();
 
@@ -39,16 +41,16 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
       const previousWord =
         possibleTestKeyword > -1
           ? text[possibleTestKeyword - 1].trimStart()
-          : "";
+          : null;
 
-      if (!(previousWord === "" || previousWord === "}")) {
+      if (strings.isNotEmpty(previousWord) && previousWord.charCodeAt(0) !== CharCode.CloseCurlyBrace) {
         i = possibleTestKeyword + 4;
         continue;
       }
 
-      switch (text[possibleTestKeyword + 5].trimStart()) {
-        case '"':
-        case "{":
+      switch (text[possibleTestKeyword + 5].trimStart().charCodeAt(0)) {
+        case CharCode.DoubleQuote:
+        case CharCode.OpenCurlyBrace:
           break;
         default: {
           i = possibleTestKeyword + 5;
@@ -59,7 +61,7 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
       // test "foo"
       // ^
       if (text.length > possibleTestKeyword + 4) {
-        const nextCurlyBrace = text.indexOf("{", possibleTestKeyword);
+        const nextCurlyBrace = text.indexOf(String.fromCharCode(CharCode.OpenCurlyBrace), possibleTestKeyword);
         if (nextCurlyBrace === -1) {
           i = possibleTestKeyword + 4;
           continue;
@@ -68,7 +70,7 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
         i = possibleTestKeyword + 4;
         while (
           i < text.length &&
-          text[i] === " " &&
+          text.charCodeAt(i) === CharCode.Space &&
           !token.isCancellationRequested
         ) {
           i++;
@@ -76,16 +78,16 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
 
         if (i > nextCurlyBrace) { continue; }
 
-        if (text[i] === '"') {
+        if (text.charCodeAt(i) === CharCode.DoubleQuote) {
           const quoteStart = i;
           i++;
 
           while (
             i < text.length &&
-            text[i] !== '"' &&
+            text.charCodeAt(i) !== CharCode.DoubleQuote &&
             !token.isCancellationRequested
           ) {
-            if (text[i] === "\\" && text[i + 1] === '"') {
+            if (text.charCodeAt(i) === CharCode.Backslash && text.charCodeAt(i + 1) === CharCode.DoubleQuote) {
               i += 1;
             }
             i += 1;

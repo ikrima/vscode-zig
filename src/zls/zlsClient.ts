@@ -6,8 +6,8 @@ import { DisposableBase } from '../utils/dispose';
 import * as fs from '../utils/fs';
 import { Lazy } from '../utils/lazy';
 import { Logger, LogLevel, ScopedError } from '../utils/logging';
-import * as process from '../utils/process';
 import * as path from '../utils/path';
+import * as process from '../utils/process';
 import * as strings from '../utils/strings';
 import * as types from '../utils/types';
 import { extCfg } from '../zigExt';
@@ -40,15 +40,15 @@ export default class ZlsServices extends DisposableBase {
   private zlsClient?:       lc.LanguageClient | undefined;
 
   public activate(): void {
-    this.zlsChannel = this.addDisposable(vsc.window.createOutputChannel(ZLS.outChanName));
+    this.zlsChannel = this._register(vsc.window.createOutputChannel(ZLS.outChanName));
     this.zlsTraceChannel = Lazy.create<vsc.OutputChannel>(() => {
       return lc.Trace.fromString(extCfg.zls.trace.server.verbosity) !== lc.Trace.Off
-        ? this.addDisposable(vsc.window.createOutputChannel(ZLS.traceChanName, 'json'))
+        ? this._register(vsc.window.createOutputChannel(ZLS.traceChanName, 'json'))
         : this.zlsChannel;
     });
     this.zlsLog = Logger.channelLogger(this.zlsChannel, LogLevel.warn);
 
-    this.addDisposables(
+    this._registerMany(
       vsc.commands.registerCommand(ZLS.CmdId.start, async () => {
         await this.startClient();
       }),
@@ -90,8 +90,8 @@ export default class ZlsServices extends DisposableBase {
         zlsBinary:    extCfg.zls.binary,
         zlsDbgBinary: extCfg.zls.debugBinary ?? undefined,
       };
-      opts.zlsBinary = await resolveExePath(opts.zlsBinary ?? '').catch(e => {
-        this.zlsLog.error("`zls.binary` failed to resolve", e);
+      opts.zlsBinary = await resolveExePath(opts.zlsBinary ?? '').catch(err => {
+        this.zlsLog.error("`zls.binary` failed to resolve", err);
         return undefined;
       });
 
@@ -101,8 +101,8 @@ export default class ZlsServices extends DisposableBase {
           opts.zlsDbgBinary = opts.zlsBinary;
         }
         else {
-          opts.zlsDbgBinary = await resolveExePath(opts.zlsDbgBinary ?? '').catch(e => {
-            this.zlsLog.warn("`zls.zlsDebugBinPath` failed to resolve; Fallback to `zls.binary`", e);
+          opts.zlsDbgBinary = await resolveExePath(opts.zlsDbgBinary ?? '').catch(err => {
+            this.zlsLog.warn("`zls.zlsDebugBinPath` failed to resolve; Fallback to `zls.binary`", err);
             return opts.zlsBinary;
           });
         }
@@ -192,8 +192,8 @@ export default class ZlsServices extends DisposableBase {
         opts.zlsDebugMode,
       );
       await this.zlsClient.start();
-    } catch (e) {
-      this.zlsLog.error('Zls client failed to start', e);
+    } catch (err) {
+      this.zlsLog.error('Zls client failed to start', err);
       this.zlsClient = undefined;
       return Promise.reject();
     }
@@ -208,8 +208,8 @@ export default class ZlsServices extends DisposableBase {
     }
 
     this.zlsLog.info("Stopping Zls...");
-    return zlsClient.stop().catch(e => {
-      this.zlsLog.error(`${ZLS.CmdId.stop} failed during dispose.`, e);
+    return zlsClient.stop().catch(err => {
+      this.zlsLog.error(`${ZLS.CmdId.stop} failed during dispose.`, err);
       return Promise.reject();
     });
   }

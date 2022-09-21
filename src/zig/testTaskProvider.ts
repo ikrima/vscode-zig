@@ -30,7 +30,7 @@ type RunTestCmdArgs = ZigTestStep;
 export default class ZigTestTaskProvider extends DisposableBase implements vsc.TaskProvider {
   constructor() {
     super();
-    this.addDisposables(
+    this._registerMany(
       vsc.tasks.registerTaskProvider(ZIG.testTaskType, this),
       vsc.commands.registerCommand(ZIG.CmdId.runTest, async (args: RunTestCmdArgs) => {
         args.label = args.label ?? `test-${path.filename(args.buildArgs.testSrcFile)}`;
@@ -49,8 +49,8 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
           },
         };
         const zigTask = this.getTestTask(taskDef, vsc.TaskScope.Workspace);
-        await this.runTestTask(zigTask).catch(e => {
-          extCfg.mainLog.logMsg(ScopedError.wrap(e));
+        await this.runTestTask(zigTask).catch(err => {
+          extCfg.mainLog.logMsg(ScopedError.wrap(err));
         });
       }),
     );
@@ -76,17 +76,17 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
     const taskDef = zigTask.definition as ZigTestTaskDefinition;
     const zig = extCfg.zig;
     const outBinDir = path.join(zig.buildOutDir, "bin");
-    try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (e) {
-      return ScopedError.reject(`Could not create testEmitBinDir: (${outBinDir}) does not exists.`, e);
+    try { if (!(await fs.dirExists(outBinDir))) { await fs.createDir(outBinDir); } } catch (err) {
+      return ScopedError.reject(`Could not create testEmitBinDir: (${outBinDir}) does not exists.`, err);
     }
     // Run Build Task
     try {
-      const { on_task_start } = await TaskInstance.launch(zigTask);
-      await on_task_start;
+      const taskInst = await TaskInstance.launch(zigTask);
+      await taskInst.onTaskStart;
       if (!taskDef.runArgs?.debugLaunch) { return; }
     }
-    catch (e) {
-      return Promise.reject(e);
+    catch (err) {
+      return Promise.reject(err);
     }
 
     try {
@@ -112,8 +112,8 @@ export default class ZigTestTaskProvider extends DisposableBase implements vsc.T
         return ScopedError.reject("cpptools/vscode-lldb extension must be enabled or installed.");
       }
     }
-    catch (e) {
-      return Promise.reject(e);
+    catch (err) {
+      return Promise.reject(err);
     }
   }
 
