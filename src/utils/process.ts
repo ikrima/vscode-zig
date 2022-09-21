@@ -1,15 +1,14 @@
 'use strict';
+import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
 import * as cp_ from 'child_process';
 import { promisify } from 'util';
 import type { Logger } from './logging';
 import * as path from './path';
 import * as plat from './plat';
-import { normalizeShellArg } from './plat';
 import * as strings from './strings';
 import * as types from './types';
-import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
 
-export { type ChildProcess, type ExecException, type ExecFileException, execFileSync } from 'child_process';
+export { execFileSync, type ChildProcess, type ExecException, type ExecFileException } from 'child_process';
 export const execFile = promisify(cp_.execFile );
 export const spawn    = promisify(cp_.spawn    );
 
@@ -57,6 +56,28 @@ export async function terminateProcess(childProcess: ChildProcess): Promise<bool
   }
 }
 
+export function normalizeShellArg(arg: string): string {
+  arg = arg.trim();
+  // Check if the arg is enclosed in backtick,
+  // or includes unescaped double-quotes (or single-quotes on windows),
+  // or includes unescaped single-quotes on mac and linux.
+  if (/^`.*`$/g.test(arg) || /.*[^\\]".*/g.test(arg) ||
+    (plat.isWindows && /.*[^\\]'.*/g.test(arg)) ||
+    (!plat.isWindows && /.*[^\\]'.*/g.test(arg))) {
+    return arg;
+  }
+  // The special character double-quote is already escaped in the arg.
+  const unescapedSpaces: string | undefined = arg.split('').find((char, index) => index > 0 && char === " " && arg[index - 1] !== "\\");
+  if (!unescapedSpaces && !plat.isWindows) {
+    return arg;
+  } else if (arg.includes(" ")) {
+    arg = arg.replace(/\\\s/g, " ");
+    return "\"" + arg + "\"";
+  } else {
+    return arg;
+  }
+}
+
 // A promise for running process and also a wrapper to access ChildProcess-like methods
 export interface ProcessRunOptions {
   shellArgs?: string[];              // Any arguments
@@ -85,7 +106,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   let wasKilledbyUs = false;
   let isRunning = true;
   let childProcess: ChildProcess | undefined;
-  const procCmd = strings.concatNotEmpty(' ', [
+  const procCmd = strings.concatNotEmpty(strings.SpaceSep, [
     cmd,
     ...(options.shellArgs ?? [])
   ].map(normalizeShellArg));
@@ -109,7 +130,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
             resolve({ stdout, stderr });
           } else {
             if (options.logger) {
-              const cmdName = cmd.split(' ', 1)[0];
+              const cmdName = cmd.split(strings.SpaceSep, 1)[0];
               const cmdWasNotFound = plat.isWindows
                 ? err.message.includes(`'${cmdName}' is not recognized`)
                 : err?.code === 127;

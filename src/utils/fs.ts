@@ -1,9 +1,10 @@
 'use strict';
-import * as vsc from 'vscode';
 import * as fs_ from 'fs';
+import * as vsc from 'vscode';
+import { CharCode } from './charCode';
 import * as path from './path';
 import * as plat from './plat';
-import { isWhiteSpace } from './strings';
+import * as strings from './strings';
 
 export { constants } from 'fs';
 export {
@@ -18,8 +19,8 @@ export {
 export function fileExistsSync(p: string): boolean { return fs_.statSync(p, { throwIfNoEntry: false })?.isFile() as boolean; }
 export function dirExistsSync (p: string): boolean { return fs_.statSync(p, { throwIfNoEntry: false })?.isDirectory() as boolean; }
 
-export async function fileAccess (p: string, permission: number): Promise<boolean> { return !isWhiteSpace(p) && fs_.promises.access(p, permission).then(_ => true, _ => false); }
-export async function fileStat   (p: string): Promise<fs_.Stats|undefined>         { return !isWhiteSpace(p) ? await fs_.promises.stat(p).catch(_ => undefined) : undefined; }
+export async function fileAccess (p: string, permission: number): Promise<boolean> { return strings.isNotEmpty(p) && fs_.promises.access(p, permission).then(_ => true, _ => false); }
+export async function fileStat   (p: string): Promise<fs_.Stats|undefined>         { return strings.isNotEmpty(p) ? await fs_.promises.stat(p).catch(_ => undefined) : undefined; }
 export async function pathExists (p: string, typeMask?: vsc.FileType.File | vsc.FileType.Directory | vsc.FileType.SymbolicLink): Promise<boolean> {
   const stat = await fileStat(p);
   if (!stat) { return false; }
@@ -43,9 +44,9 @@ export async function findExe(
     paths?: string[];
   }
 ): Promise<string | undefined> {
-  const cwd = opts?.cwd ?? plat.cwd();
-  const env = opts?.env ?? plat.env;
-  const dirs = opts?.paths ?? env['PATH']?.split(path.delimiter) ?? [];
+  const cwd      = opts?.cwd ?? plat.cwd();
+  const env      = opts?.env ?? plat.env;
+  const envPaths = opts?.paths ?? env['PATH']?.split(path.delimiter) ?? [];
 
   // Absolute path doesn't need Path reslution
   if (path.isAbsolute(exePath)) {
@@ -53,20 +54,15 @@ export async function findExe(
   }
 
   // We have a directory and the directory is relative (see above). Make the path absolute to the current working directory
-  if (path.dirname(exePath) !== '.') {
-    const fullPath = path.join(cwd, exePath);
-    return await exeExists(fullPath) ? fullPath : undefined;
-  }
-
-  // No PATH environment. Make path absolute to the cwd.
-  if (dirs.length === 0) {
+  const exeDir = path.dirname(exePath);
+  if (exeDir.length >= 1 && exeDir.charCodeAt(0) === CharCode.Period) {
     const fullPath = path.join(cwd, exePath);
     return await exeExists(fullPath) ? fullPath : undefined;
   }
 
   // We have a simple file name. We get the path variable from the env and try to find the executable on the path
-  const noExt = isWhiteSpace(path.extname(exePath));
-  for (const dirEntry of dirs) {
+  const hasExt = strings.isNotEmpty(path.extname(exePath));
+  for (const dirEntry of [cwd, ...envPaths]) {
     const fullPath = path.isAbsolute(dirEntry)
       ? path.join(dirEntry, exePath)
       : path.join(cwd, dirEntry, exePath);
@@ -76,7 +72,7 @@ export async function findExe(
     }
 
     // No extension; append default windows exe extensions
-    if (plat.isWindows && !noExt) {
+    if (plat.isWindows && hasExt) {
       const pathExts = (env['PATHEXT'] ?? '.exe;.com;.cmd;.bat').split(path.delimiter);
       for (const extEntry of pathExts) {
         const fullWithExt = fullPath + extEntry;

@@ -23,7 +23,7 @@ export namespace StepGroup {
       case StepGroup.test: return "$(beaker)";
       case StepGroup.build: return "$(package)";
       case StepGroup.tool: return "$(tools)";
-      case StepGroup.none: return "";
+      case StepGroup.none: return '';
     }
   }
   export function fromDesc(desc: string): StepGroup {
@@ -77,7 +77,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       }
     );
 
-    if (!strings.isWhiteSpace(stderr)) {
+    if (strings.isNotEmpty(stderr)) {
       return ScopedError.reject(`zig build errors\n${stderr}`);
     }
     const stepsIdx = stdout.indexOf("Steps:");

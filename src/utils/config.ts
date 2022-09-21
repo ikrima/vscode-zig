@@ -1,8 +1,8 @@
 'use strict';
 import * as vsc from 'vscode';
+import { ScopedError } from './logging';
 import { deepCopy } from './objects';
 import * as types from './types';
-import { ScopedError } from './logging';
 import { VariableResolver } from './vsc';
 
 // Gets the config value `clangd.<key>`. Applies ${variable} substitutions.

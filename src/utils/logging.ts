@@ -61,7 +61,7 @@ export function stackTraceCapture<T extends object>(arg0: Function|undefined|T, 
   if (types.isUndefined(arg0) || types.isFunction(arg0)) {
     const temp: { stack?: string } = {};
     Error.captureStackTrace(temp, arg0 ?? stackTraceCapture);
-    return new StackTrace(temp.stack ?? '');
+    return new StackTrace(temp.stack ?? "Could not capture stack trace");
   }
   else if (types.isObject(arg0) && types.isFunction(arg1)) {
     Error.captureStackTrace(arg0, arg1 ?? stackTraceCapture);
@@ -131,9 +131,9 @@ export class ScopedError extends Error {
     this.reveal     = reveal ?? (level ? level === LogLevel.error || level === LogLevel.warn : true);
     this.detail_msg = detail_msg;
 
-    stack = stack ?? asStackTrace(detail)?.stack ?? '';
-    if (!strings.isWhiteSpace(stack)) { this.stack = stack; }
-    else                              { stackTraceCapture(this, this.constructor); }
+    stack = stack ?? asStackTrace(detail)?.stack;
+    if (strings.isNotEmpty(stack)) { this.stack = stack; }
+    else                           { stackTraceCapture(this, this.constructor); }
   }
 
   public override toString(): string {

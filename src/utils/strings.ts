@@ -1,16 +1,17 @@
 'use strict';
-import CharCode from './charCode';
+import { CharCode } from './charCode';
 
-export const eolRegEx   = /\r\n|\r|\n/;
-export const crlfString = "\r\n";
-export const lfString   = "\n";
+export const EolRegEx    = /\r\n|\r|\n/;
+export const CrlfSep     = String.fromCharCode(CharCode.CarriageReturn, CharCode.LineFeed);
+export const LineFeedSep = String.fromCharCode(CharCode.LineFeed);
+export const SpaceSep    = String.fromCharCode(CharCode.Space);
 
 export function isWhiteSpace (s: string               ): boolean     { return s.length === 0 || /\S/.test(s) === false;   }
 export function isNotEmpty   (s: string|undefined|null): s is string { return !!s && typeof s === 'string' && s.length !== 0; }
 export function isLowerAscii (code: number): boolean { return code >= CharCode.a && code <= CharCode.z; }
 export function isUpperAscii (code: number): boolean { return code >= CharCode.A && code <= CharCode.Z; }
 
-export function splitLines     (s: string): string[]                                   { return s.split(eolRegEx);   }
+export function splitLines     (s: string): string[]                                   { return s.split(EolRegEx);   }
 export function concatNotEmpty (sep: string, items: (string|undefined|null)[]): string { return items.filter(isNotEmpty).join(sep);      }
 
 export function equals    (a: string, b: string,      ignoreCase?: boolean): boolean { return (a.length === b.length   ) && compareString(a, b, ignoreCase) === 0; }

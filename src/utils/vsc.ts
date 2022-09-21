@@ -106,7 +106,7 @@ export class VariableResolver {
       return newValue ?? match;
     });
 
-    // Resolve '~' at the start of the path
+    // Resolve `~` at the start of the path
     ret = ret.replace(/^~/g, (_match: string, _name: string) => plat.homedir());
     if (opt.relBasePath) { ret = path.resolve(opt.relBasePath, ret); }
     if (opt.normalizePath) { ret = path.normalize(ret); }

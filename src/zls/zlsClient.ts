@@ -90,7 +90,7 @@ export default class ZlsServices extends DisposableBase {
         zlsBinary:    extCfg.zls.binary,
         zlsDbgBinary: extCfg.zls.debugBinary ?? undefined,
       };
-      opts.zlsBinary = await resolveExePath(opts.zlsBinary ?? "").catch(e => {
+      opts.zlsBinary = await resolveExePath(opts.zlsBinary ?? '').catch(e => {
         this.zlsLog.error("`zls.binary` failed to resolve", e);
         return undefined;
       });
@@ -101,7 +101,7 @@ export default class ZlsServices extends DisposableBase {
           opts.zlsDbgBinary = opts.zlsBinary;
         }
         else {
-          opts.zlsDbgBinary = await resolveExePath(opts.zlsDbgBinary ?? "").catch(e => {
+          opts.zlsDbgBinary = await resolveExePath(opts.zlsDbgBinary ?? '').catch(e => {
             this.zlsLog.warn("`zls.zlsDebugBinPath` failed to resolve; Fallback to `zls.binary`", e);
             return opts.zlsBinary;
           });
@@ -174,7 +174,7 @@ export default class ZlsServices extends DisposableBase {
         //       d.code = {
         //         value: d.code
         //           ? ((types.isNumber(d.code) || types.isString(d.code)) ? d.code : d.code.value)
-        //           : "",
+        //           : '',
         //         target: uri,
         //       };
         //     });
@@ -230,7 +230,7 @@ export default class ZlsServices extends DisposableBase {
         shell: vsc.env.shell,
       }
     );
-    if (!strings.isWhiteSpace(stderr)) {
+    if (strings.isNotEmpty(stderr)) {
       this.zlsLog.error(`Could not retrieve config file path: '${zlsExe} --show-config-path':\n  ${stderr}`);
       return;
     }
@@ -256,7 +256,7 @@ export default class ZlsServices extends DisposableBase {
 //     // Gets the prefix used by VSCode when doing fuzzymatch.
 //     let prefix = document.getText(new vsc.Range((item.range as vsc.Range).start, position));
 //     if (prefix) {
-//       item.filterText = prefix + '_' + item.filterText;
+//       item.filterText = prefix + String.fromCharCode(CharCode.Underline) + item.filterText;
 //     }
 //     return item;
 //   });
