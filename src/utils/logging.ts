@@ -204,3 +204,31 @@ export namespace Logger {
     };
   }
 }
+
+export const consoleLog: Logger = {
+  maxLogLevel: LogLevel.trace,
+  write:       val => globalThis.console.log(val),
+  clear:       ()  => globalThis.console.clear(),
+  error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(new ScopedError(msg, detail, LogLevel.error, reveal)); },
+  warn:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.warn  , msg, detail, reveal)); },
+  info:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.info  , msg, detail, reveal)); },
+  trace:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.trace , msg, detail, reveal)); },
+  logMsg:      function (arg: ScopedError|ScopedMsg): void {
+    if (!LogLevel.isEnabled(arg.level, this.maxLogLevel)) { return; }
+    const msg_string = ScopedError.is(arg) ? arg.toString() : ScopedMsg.toString(arg);
+    switch(arg.level) {
+      case LogLevel.off:     break;
+      case LogLevel.error:   globalThis.console.error(msg_string); break;
+      case LogLevel.warn:    globalThis.console.warn (msg_string); break;
+      case LogLevel.info:    globalThis.console.info (msg_string); break;
+      case LogLevel.trace:   globalThis.console.trace(msg_string); break;
+    }
+    switch(arg.reveal ? arg.level : LogLevel.off) {
+      case LogLevel.off:     break;
+      case LogLevel.error:   void vsc.window.showErrorMessage       (arg.message); break;
+      case LogLevel.warn:    void vsc.window.showWarningMessage     (arg.message); break;
+      case LogLevel.info:    void vsc.window.showInformationMessage (arg.message); break;
+      case LogLevel.trace:   void vsc.window.showInformationMessage (arg.message); break;
+    }
+  },
+};
