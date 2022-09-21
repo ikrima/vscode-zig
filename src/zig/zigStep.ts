@@ -1,9 +1,9 @@
 'use strict';
-import * as os from 'os';
 import * as vsc from 'vscode';
-import * as process from '../utils/process';
 import * as fs from '../utils/fs';
 import { ScopedError } from '../utils/logging';
+import * as plat from '../utils/plat';
+import * as process from '../utils/process';
 import * as strings from '../utils/strings';
 import * as types from '../utils/types';
 import { extCfg } from '../zigExt';
@@ -101,7 +101,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       const stderr = types.isObject(e) && 'stderr' in e && types.isString(e['stderr'])
         ? `  errors: ${e['stderr']}`
         : undefined;
-      const detail_msg = strings.filterJoin(os.EOL, [
+      const detail_msg = strings.concatNotEmpty(plat.eol, [
         cmd,
         code,
         signal,

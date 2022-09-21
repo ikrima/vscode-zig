@@ -85,7 +85,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   let wasKilledbyUs = false;
   let isRunning = true;
   let childProcess: ChildProcess | undefined;
-  const procCmd = strings.filterJoin(' ', [
+  const procCmd = strings.concatNotEmpty(' ', [
     cmd,
     ...(options.shellArgs ?? [])
   ].map(normalizeShellArg));

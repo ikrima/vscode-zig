@@ -1,11 +1,10 @@
 'use strict';
-import * as os from 'os';
 import * as vsc from 'vscode';
 import { OnceEvent } from './async';
-import * as plat from './plat';
-import * as process from './process';
 import { ScopedError } from './logging';
 import * as path from './path';
+import * as plat from './plat';
+import * as process from './process';
 import * as strings from './strings';
 import * as types from './types';
 
@@ -108,7 +107,7 @@ export class VariableResolver {
     });
 
     // Resolve '~' at the start of the path
-    ret = ret.replace(/^~/g, (_match: string, _name: string) => os.homedir());
+    ret = ret.replace(/^~/g, (_match: string, _name: string) => plat.homedir());
     if (opt.relBasePath) { ret = path.resolve(opt.relBasePath, ret); }
     if (opt.normalizePath) { ret = path.normalize(ret); }
     return ret;
@@ -144,7 +143,7 @@ export namespace TaskInstance {
         const scopedError = process.isExecException(reason)
           ? new ScopedError(
             `${task.name} task run: finished with error(s)`,
-            strings.filterJoin(os.EOL, [
+            strings.concatNotEmpty(plat.eol, [
               reason.cmd    ? `  cmd   : ${reason.cmd}`    : undefined,
               reason.code   ? `  code  : ${reason.code}`   : undefined,
               reason.signal ? `  signal: ${reason.signal}` : undefined,

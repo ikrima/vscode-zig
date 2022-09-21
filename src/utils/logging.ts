@@ -1,6 +1,6 @@
 'use strict';
-import * as os from 'os';
 import * as vsc from 'vscode';
+import * as plat from './plat';
 import * as strings from './strings';
 import * as types from './types';
 
@@ -12,7 +12,7 @@ export enum LogLevel {
   trace   = 'trace',
 }
 type LogLevelInt = -1    | 0       | 1      | 2      | 3;
-type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace'; // export type LogLevelKey = keyof typeof LogLevel;
+// type LogLevelKey = 'off' | 'error' | 'warn' | 'info' | 'trace'; // export type LogLevelKey = keyof typeof LogLevel;
 export namespace LogLevel {
   export function toInt(value: LogLevel): LogLevelInt {
     switch (value) {
@@ -23,13 +23,15 @@ export namespace LogLevel {
       case LogLevel.trace:   return 3;
     }
   }
-  export function fromString(value: LogLevelKey): LogLevel {
-    switch (value) {
+  export function fromString(value: string | undefined | null): LogLevel {
+    if (value === undefined || value === null) { return LogLevel.off; }
+    switch (value.toLowerCase()) {
       case 'off':     return LogLevel.off;
       case 'error':   return LogLevel.error;
       case 'warn':    return LogLevel.warn;
       case 'info':    return LogLevel.info;
       case 'trace':   return LogLevel.trace;
+      default:        return LogLevel.off;
     }
   }
   export function isEnabled(level: LogLevel, max_level: LogLevel): boolean {
@@ -96,11 +98,11 @@ export namespace ScopedMsg {
       types.isString     (detail) ? detail         :
       types.isDefined    (detail) ? String(detail) :
       undefined;
-    const trace = asStackTrace(detail);
-    return strings.filterJoin(os.EOL, [
+    const trace = asStackTrace(detail)?.toString();
+    return strings.concatNotEmpty(plat.eol, [
       message,
       detail_msg ? `  Error: ${detail_msg}` : null,
-      trace      ? `  StackTrace: ${trace.toString()}` : null,
+      trace      ? `  StackTrace: ${trace}` : null,
     ]);
   }
 }
@@ -135,11 +137,11 @@ export class ScopedError extends Error {
   }
 
   public override toString(): string {
-    const stack = asStackTrace(this.stack);
-    return strings.filterJoin(os.EOL, [
+    const stack = asStackTrace(this.stack)?.toString();
+    return strings.concatNotEmpty(plat.eol, [
       this.message,
-      this.detail_msg ? `  Error: ${this.detail_msg}`       : null,
-      stack           ? `  StackTrace: ${stack.toString()}` : null,
+      this.detail_msg ? `  Error: ${this.detail_msg}` : null,
+      stack           ? `  StackTrace: ${stack}`      : null,
     ]);
   }
 
