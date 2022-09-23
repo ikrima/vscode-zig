@@ -49,8 +49,8 @@ export class StackTrace {
 
 export function asStackTrace(srcObj: Error | unknown): StackTrace | undefined {
   const stack: string | undefined | null =
-    types.isNativeError(srcObj)                                 ? srcObj.stack    :
-    (types.isObject(srcObj) && types.isString(srcObj['stack'])) ? srcObj['stack'] :
+    types.isNativeError(srcObj)                      ? srcObj.stack    :
+    types.hasPropOf(srcObj, 'stack', types.isString) ? srcObj.stack    :
     undefined;
   return stack ? new StackTrace(stack) : undefined;
 }
@@ -63,7 +63,7 @@ export function stackTraceCapture<T extends object>(arg0: Function|undefined|T, 
     Error.captureStackTrace(temp, arg0 ?? stackTraceCapture);
     return new StackTrace(temp.stack ?? "Could not capture stack trace");
   }
-  else if (types.isObject(arg0) && types.isFunction(arg1)) {
+  else if (types.isGenericObj(arg0) && types.isFunction(arg1)) {
     Error.captureStackTrace(arg0, arg1 ?? stackTraceCapture);
     return;
   }
@@ -87,9 +87,6 @@ export namespace ScopedMsg {
       detail: detail ?? null,
     };
   }
-
-  export function is(o: unknown): o is ScopedMsg { return types.isObject(o) && 'level' in o; }
-
   export function toString(item: ScopedMsg): string {
     const detail = item.detail;
     const message = item.message;
@@ -99,12 +96,19 @@ export namespace ScopedMsg {
       types.isDefined    (detail) ? String(detail) :
       undefined;
     const trace = asStackTrace(detail)?.toString();
-    return strings.concatNotEmpty(plat.eol, [
+    return strings.concatNotBlank(plat.eol, [
       message,
       detail_msg ? `  Error: ${detail_msg}` : null,
       trace      ? `  StackTrace: ${trace}` : null,
     ]);
   }
+}
+
+export function isScopedMsg(o: unknown): o is ScopedMsg {
+  return types.hasPropOf (o, 'level',   types.isDefined)
+    && types.hasPropOf   (o, 'message', types.isString)
+    && types.hasPropKey  (o, 'detail')
+    && types.hasPropOf   (o, 'reveal',  types.isBoolean);
 }
 
 export class ScopedError extends Error {
@@ -132,22 +136,19 @@ export class ScopedError extends Error {
     this.detail_msg = detail_msg;
 
     stack = stack ?? asStackTrace(detail)?.stack;
-    if (strings.isNotEmpty(stack)) { this.stack = stack; }
+    if (strings.isNotBlank(stack)) { this.stack = stack; }
     else                           { stackTraceCapture(this, this.constructor); }
   }
 
   public override toString(): string {
     const stack = asStackTrace(this.stack)?.toString();
-    return strings.concatNotEmpty(plat.eol, [
+    return strings.concatNotBlank(plat.eol, [
       this.message,
       this.detail_msg ? `  Error: ${this.detail_msg}` : null,
       stack           ? `  StackTrace: ${stack}`      : null,
     ]);
   }
 
-  public static is(o: unknown): o is ScopedError {
-    return (o instanceof ScopedError) || (o instanceof Error && o.name === 'ScopedError');
-  }
   public static reject(
     message?: string | undefined,
     detail?: Error | string | unknown | null,
@@ -162,15 +163,16 @@ export class ScopedError extends Error {
     arg:          ScopedError | Error | string | unknown | null,
     fallback_msg: string = "Unknown Error",
   ): ScopedError {
-    if (ScopedError.is(arg)) { return arg; }
-    else                     { return new ScopedError(fallback_msg, arg); }
+    if (isScopedError(arg)) { return arg; }
+    else                    { return new ScopedError(fallback_msg, arg); }
   }
-
+}
+export function isScopedError(o: unknown): o is ScopedError {
+  return (o instanceof ScopedError) || (o instanceof Error && o.name === 'ScopedError');
 }
 
 export interface Logger {
   maxLogLevel : LogLevel;
-  write   (val: string): void;
   clear   (): void;
   error   (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void;
   warn    (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void;
@@ -183,7 +185,6 @@ export namespace Logger {
   export function channelLogger(chan: vsc.OutputChannel, maxLogLevel: LogLevel): Logger {
     return {
       maxLogLevel: maxLogLevel,
-      write:       val => chan.append(val),
       clear:       ()  => chan.clear(),
       error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(new ScopedError(msg, detail, LogLevel.error, reveal)); },
       warn:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.warn  , msg, detail, reveal)); },
@@ -191,8 +192,36 @@ export namespace Logger {
       trace:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.trace , msg, detail, reveal)); },
       logMsg:      function (arg: ScopedError|ScopedMsg): void {
         if (!LogLevel.isEnabled(arg.level, this.maxLogLevel)) { return; }
-        const msg_string = ScopedError.is(arg) ? arg.toString() : ScopedMsg.toString  (arg);
-        this.write(msg_string);
+        const msg_string = isScopedError(arg) ? arg.toString() : ScopedMsg.toString  (arg);
+        chan.append(msg_string);
+        switch(arg.reveal ? arg.level : LogLevel.off) {
+          case LogLevel.off:     break;
+          case LogLevel.error:   void vsc.window.showErrorMessage       (arg.message); break;
+          case LogLevel.warn:    void vsc.window.showWarningMessage     (arg.message); break;
+          case LogLevel.info:    void vsc.window.showInformationMessage (arg.message); break;
+          case LogLevel.trace:   void vsc.window.showInformationMessage (arg.message); break;
+        }
+      },
+    };
+  }
+  export function consoleLogger(maxLogLevel: LogLevel): Logger {
+    return {
+      maxLogLevel: maxLogLevel,
+      clear:       ()  => globalThis.console.clear(),
+      error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(new ScopedError(msg, detail, LogLevel.error, reveal)); },
+      warn:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.warn  , msg, detail, reveal)); },
+      info:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.info  , msg, detail, reveal)); },
+      trace:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.trace , msg, detail, reveal)); },
+      logMsg:      function (arg: ScopedError|ScopedMsg): void {
+        if (!LogLevel.isEnabled(arg.level, this.maxLogLevel)) { return; }
+        const msg_string = isScopedError(arg) ? arg.toString() : ScopedMsg.toString(arg);
+        switch(arg.level) {
+          case LogLevel.off:     break;
+          case LogLevel.error:   globalThis.console.error(msg_string); break;
+          case LogLevel.warn:    globalThis.console.warn (msg_string); break;
+          case LogLevel.info:    globalThis.console.info (msg_string); break;
+          case LogLevel.trace:   globalThis.console.trace(msg_string); break;
+        }
         switch(arg.reveal ? arg.level : LogLevel.off) {
           case LogLevel.off:     break;
           case LogLevel.error:   void vsc.window.showErrorMessage       (arg.message); break;
@@ -205,30 +234,4 @@ export namespace Logger {
   }
 }
 
-export const consoleLog: Logger = {
-  maxLogLevel: LogLevel.trace,
-  write:       val => globalThis.console.log(val),
-  clear:       ()  => globalThis.console.clear(),
-  error:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(new ScopedError(msg, detail, LogLevel.error, reveal)); },
-  warn:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.warn  , msg, detail, reveal)); },
-  info:        function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.info  , msg, detail, reveal)); },
-  trace:       function (msg: string, detail?:  Error|unknown|null, reveal?: boolean): void { this.logMsg(ScopedMsg.make(LogLevel.trace , msg, detail, reveal)); },
-  logMsg:      function (arg: ScopedError|ScopedMsg): void {
-    if (!LogLevel.isEnabled(arg.level, this.maxLogLevel)) { return; }
-    const msg_string = ScopedError.is(arg) ? arg.toString() : ScopedMsg.toString(arg);
-    switch(arg.level) {
-      case LogLevel.off:     break;
-      case LogLevel.error:   globalThis.console.error(msg_string); break;
-      case LogLevel.warn:    globalThis.console.warn (msg_string); break;
-      case LogLevel.info:    globalThis.console.info (msg_string); break;
-      case LogLevel.trace:   globalThis.console.trace(msg_string); break;
-    }
-    switch(arg.reveal ? arg.level : LogLevel.off) {
-      case LogLevel.off:     break;
-      case LogLevel.error:   void vsc.window.showErrorMessage       (arg.message); break;
-      case LogLevel.warn:    void vsc.window.showWarningMessage     (arg.message); break;
-      case LogLevel.info:    void vsc.window.showInformationMessage (arg.message); break;
-      case LogLevel.trace:   void vsc.window.showInformationMessage (arg.message); break;
-    }
-  },
-};
+export const consoleLog = Logger.consoleLogger(LogLevel.trace);

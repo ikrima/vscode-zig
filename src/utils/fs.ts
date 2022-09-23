@@ -1,6 +1,5 @@
 'use strict';
 import * as fs_ from 'fs';
-import * as vsc from 'vscode';
 import { CharCode } from './charCode';
 import * as path from './path';
 import * as plat from './plat';
@@ -16,22 +15,30 @@ export {
   unlink,
 } from 'fs/promises';
 
-export function fileExistsSync(p: string): boolean { return fs_.statSync(p, { throwIfNoEntry: false })?.isFile() as boolean; }
-export function dirExistsSync (p: string): boolean { return fs_.statSync(p, { throwIfNoEntry: false })?.isDirectory() as boolean; }
-
-export async function fileAccess (p: string, permission: number): Promise<boolean> { return strings.isNotEmpty(p) && fs_.promises.access(p, permission).then(_ => true, _ => false); }
-export async function fileStat   (p: string): Promise<fs_.Stats|undefined>         { return strings.isNotEmpty(p) ? await fs_.promises.stat(p).catch(_ => undefined) : undefined; }
-export async function pathExists (p: string, typeMask?: vsc.FileType.File | vsc.FileType.Directory | vsc.FileType.SymbolicLink): Promise<boolean> {
-  const stat = await fileStat(p);
-  if (!stat) { return false; }
-  const type: vsc.FileType =
-      (stat.isFile()         ? vsc.FileType.File         : 0)
-    | (stat.isDirectory()    ? vsc.FileType.Directory    : 0)
-    | (stat.isSymbolicLink() ? vsc.FileType.SymbolicLink : 0);
-  return !typeMask || !!(type & typeMask);
+export enum FileType {
+  File         = 1,
+  Directory    = 2,
+  SymbolicLink = 64
 }
-export async function fileExists (p: string): Promise<boolean> { return pathExists(p, vsc.FileType.File);      }
-export async function dirExists  (p: string): Promise<boolean> { return pathExists(p, vsc.FileType.Directory); }
+
+export function fileStatSync  (p: string): fs_.Stats|undefined { return fs_.statSync(p, { throwIfNoEntry: false }); }
+export function fileExistsSync(p: string): boolean             { return fileStatSync(p)?.isFile() ?? false; }
+export function dirExistsSync (p: string): boolean             { return fileStatSync(p)?.isDirectory() ?? false; }
+
+export async function fileAccess (p: string, permission: number): Promise<boolean> { return strings.isNotBlank(p) && fs_.promises.access(p, permission).then(_ => true, _ => false); }
+export async function fileStat   (p: string): Promise<fs_.Stats|undefined>         { return strings.isNotBlank(p) ? await fs_.promises.stat(p).catch(_ => undefined) : undefined; }
+export async function pathExists (p: string, typeMask?: FileType): Promise<boolean> {
+  const stat = await fileStat(p);
+  if (!stat)     { return false; }
+  if (!typeMask) { return true; }
+  const type: FileType =
+      (stat.isFile()         ? FileType.File         : 0)
+    | (stat.isDirectory()    ? FileType.Directory    : 0)
+    | (stat.isSymbolicLink() ? FileType.SymbolicLink : 0);
+  return (type & typeMask) === typeMask;
+}
+export async function fileExists (p: string): Promise<boolean> { return pathExists(p, FileType.File);      }
+export async function dirExists  (p: string): Promise<boolean> { return pathExists(p, FileType.Directory); }
 export async function exeExists  (p: string): Promise<boolean> { return (await fileExists(p)) && (await fileAccess(p, fs_.constants.X_OK)); }
 
 export async function createDir(p: string, opts: fs_.MakeDirectoryOptions = { recursive: true }): Promise<string|undefined> { return fs_.promises.mkdir(p, opts); }
@@ -61,7 +68,7 @@ export async function findExe(
   }
 
   // We have a simple file name. We get the path variable from the env and try to find the executable on the path
-  const hasExt = strings.isNotEmpty(path.extname(exePath));
+  const hasExt = strings.isNotBlank(path.extname(exePath));
   for (const dirEntry of [cwd, ...envPaths]) {
     const fullPath = path.isAbsolute(dirEntry)
       ? path.join(dirEntry, exePath)

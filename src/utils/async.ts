@@ -49,7 +49,7 @@ export function onceEvent<T>(
   onCancel?: (reason?: unknown) => void,
 ): OnceEvent<T> {
   return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: IDisposable[]): OnceEventHandle => {
-    let isPendingTrigger = true; // needed in case the event fires during the listener call
+    let isPendingTrigger = true; // needed incase the event fires during the listener call
     const subscription = new MutableDisposable<IDisposable>();
     subscription.value = event((e: T): unknown => {
       if (!isPendingTrigger) { return; }
@@ -57,7 +57,7 @@ export function onceEvent<T>(
       return listener.call(thisArgs, e);
     }, null, disposables);
 
-    const hasBinding = (): boolean => !!subscription.value;
+    const hasBinding = (): boolean => types.isDefined(subscription.value);
     const unbind = (): void => {
       isPendingTrigger = false;
       subscription.dispose();

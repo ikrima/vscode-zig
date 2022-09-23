@@ -85,7 +85,7 @@ export default class ZlsServices extends DisposableBase {
       const opts: ZlsOptions = {
         zlsArgs:      [],
         zlsDbgArgs:   ["--enable-debug-log"],
-        zlsCwd:       await fs.dirExists(extCfg.zig.buildRootDir).then(exists => exists ? extCfg.zig.buildRootDir : undefined),
+        zlsCwd:       (await fs.dirExists(extCfg.zig.buildRootDir)) ? extCfg.zig.buildRootDir : undefined,
         zlsDebugMode: extCfg.zls.enableDebug,
         zlsBinary:    extCfg.zls.binary,
         zlsDbgBinary: extCfg.zls.debugBinary ?? undefined,
@@ -134,7 +134,7 @@ export default class ZlsServices extends DisposableBase {
         : {
           command: zlsExe,
           args: opts.zlsArgs,
-          options: { cwd: opts.zlsCwd } as lc.ExecutableOptions
+          options: { cwd: opts.zlsCwd } as lc.ExecutableOptions,
         };
 
       // Client Options
@@ -230,7 +230,7 @@ export default class ZlsServices extends DisposableBase {
         shell: vsc.env.shell,
       }
     );
-    if (strings.isNotEmpty(stderr)) {
+    if (strings.isNotBlank(stderr)) {
       this.zlsLog.error(`Could not retrieve config file path: '${zlsExe} --show-config-path':\n  ${stderr}`);
       return;
     }

@@ -13,22 +13,18 @@ export const execFile = promisify(cp_.execFile );
 export const spawn    = promisify(cp_.spawn    );
 
 export function isExecException(o: unknown): o is ExecException {
-  return types.isObject(o)
-    && types.isNativeError(o)
-    && ( (types.isString (o['cmd'   ]) ||  'cmd'    in o)
-      || (types.isBoolean(o['killed']) ||  'killed' in o)
-      || (types.isNumber (o['code'  ]) ||  'code'   in o)
-      || (types.isString (o['signal']) ||  'signal' in o)
-    );
+  return types.isNativeError(o)
+    && ( types.hasPropKey(o, 'cmd'   )
+      || types.hasPropKey(o, 'killed')
+      || types.hasPropKey(o, 'code'  )
+      || types.hasPropKey(o, 'signal'));
 }
 export function isErrnoException(o: unknown): o is NodeJS.ErrnoException {
-  return types.isObject(o)
-    && types.isNativeError(o)
-    && ( (types.isNumber(o['errno'  ]) || 'errno'   in o)
-      || (types.isString(o['code'   ]) || 'code'    in o)
-      || (types.isString(o['path'   ]) || 'path'    in o)
-      || (types.isString(o['syscall']) || 'syscall' in o)
-    );
+  return types.isNativeError(o)
+    && ( types.hasPropKey(o, 'errno'   )
+      || types.hasPropKey(o, 'code'    )
+      || types.hasPropKey(o, 'path'    )
+      || types.hasPropKey(o, 'syscall' ));
 }
 export function isExecFileException(o: unknown): o is ExecFileException {
   return isExecException(o) && isErrnoException(o);
@@ -106,7 +102,7 @@ export function runProcess(cmd: string, options: ProcessRunOptions = {}): Proces
   let wasKilledbyUs = false;
   let isRunning = true;
   let childProcess: ChildProcess | undefined;
-  const procCmd = strings.concatNotEmpty(strings.SpaceSep, [
+  const procCmd = strings.concatNotBlank(strings.SpaceSep, [
     cmd,
     ...(options.shellArgs ?? [])
   ].map(normalizeShellArg));

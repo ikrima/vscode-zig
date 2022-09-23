@@ -77,7 +77,7 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
       }
     );
 
-    if (strings.isNotEmpty(stderr)) {
+    if (strings.isNotBlank(stderr)) {
       return ScopedError.reject(`zig build errors\n${stderr}`);
     }
     const stepsIdx = stdout.indexOf("Steps:");
@@ -89,23 +89,17 @@ export async function rawGetBuildSteps(): Promise<ZigBldStep[]> {
         name: name,
         desc: desc,
         group: StepGroup.fromDesc(desc),
-        default: !!dflt,
+        default: strings.isNotBlank(dflt),
       })
     );
   }
   catch (err) {
     if (process.isExecException(err)) {
-      const cmd    = err.cmd    ? `  cmd   : ${err.cmd}`   : undefined;
-      const code   = err.code   ? `  code  : ${err.code}`  : undefined;
-      const signal = err.signal ? `  signal: ${err.signal}`: undefined;
-      const stderr = types.isObject(err) && 'stderr' in err && types.isString(err['stderr'])
-        ? `  errors: ${err['stderr']}`
-        : undefined;
-      const detail_msg = strings.concatNotEmpty(plat.eol, [
-        cmd,
-        code,
-        signal,
-        stderr,
+      const detail_msg = strings.concatNotBlank(plat.eol, [
+        err.cmd                                      ? `  cmd   : ${err.cmd}`    : undefined,
+        err.code                                     ? `  code  : ${err.code}`   : undefined,
+        err.signal                                   ? `  signal: ${err.signal}` : undefined,
+        types.hasPropOf(err,'stderr',types.isString) ? `  errors: ${err.stderr}` : undefined,
       ]);
       return ScopedError.reject(
         `zig build: finished with error(s)`,

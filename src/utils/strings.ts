@@ -1,18 +1,19 @@
 'use strict';
+import type * as types from './types';
 import { CharCode } from './charCode';
 
-export const EolRegEx    = /\r\n|\r|\n/;
 export const CrlfSep     = String.fromCharCode(CharCode.CarriageReturn, CharCode.LineFeed);
 export const LineFeedSep = String.fromCharCode(CharCode.LineFeed);
 export const SpaceSep    = String.fromCharCode(CharCode.Space);
 
-export function isWhiteSpace (s: string               ): boolean     { return s.length === 0 || /\S/.test(s) === false;   }
-export function isNotEmpty   (s: string|undefined|null): s is string { return !!s && typeof s === 'string' && s.length !== 0; }
+export function isWhiteSpace (s: string               ): boolean     { return /^\s*$/.test(s);   }
+export function isNotBlank   (s: string|undefined|null): s is string { return !!s && !isWhiteSpace(s); }
 export function isLowerAscii (code: number): boolean { return code >= CharCode.a && code <= CharCode.z; }
 export function isUpperAscii (code: number): boolean { return code >= CharCode.A && code <= CharCode.Z; }
 
-export function splitLines     (s: string): string[]                                   { return s.split(EolRegEx);   }
-export function concatNotEmpty (sep: string, items: (string|undefined|null)[]): string { return items.filter(isNotEmpty).join(sep);      }
+const eolRegEx    = /\r\n|\r|\n/;
+export function splitLines     (s: string): string[]                                   { return s.split(eolRegEx);   }
+export function concatNotBlank (sep: string, items: (string|undefined|null)[]): string { return items.filter(isNotBlank).join(sep);      }
 
 export function equals    (a: string, b: string,      ignoreCase?: boolean): boolean { return (a.length === b.length   ) && compareString(a, b, ignoreCase) === 0; }
 export function startsWith(a: string, needle: string, ignoreCase?: boolean): boolean { return (needle.length > a.length) && compareString(a, needle, ignoreCase, { aEnd: needle.length }) === 0; }
@@ -92,4 +93,24 @@ export function fuzzyContains(target: string, query: string): boolean {
     index++;
   }
   return true;
+}
+
+const _fmtRegEx = /{(\d+)}/g;
+export function format(value: string, ...args: unknown[]): string {
+  if (args.length === 0) {
+    return value;
+  }
+  return value.replace(_fmtRegEx, (match: string, group: string): string => {
+    const idx = parseInt(group, 10);
+    return (!isNaN(idx) && idx > 0 && idx < args.length)
+      ? args[idx] as string
+      : match;
+  });
+}
+
+const _fmt2RegEx = /{([^}]+)}/g;
+export function format2(template: string, values: types.RecordObj): string {
+  return template.replace(_fmt2RegEx, (match: string, group: string) => {
+    return (values[group] ?? match) as string;
+  });
 }

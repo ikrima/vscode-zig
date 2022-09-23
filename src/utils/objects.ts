@@ -2,25 +2,25 @@
 import * as types from './types';
 
 
-type Clonable = types.Primitive | Date | RegExp | unknown[] | types.AnyObj;
+type Clonable = types.Primitive | Date | RegExp | unknown[] | types.RecordObj;
 export function deepCopy   (src: types.Primitive): typeof src;
 export function deepCopy   (src: Date           ): Date;
 export function deepCopy   (src: RegExp         ): RegExp;
 export function deepCopy   (src: Array<Clonable>): Clonable[];
-export function deepCopy   (src: types.AnyObj   ): types.AnyObj;
+export function deepCopy   (src: types.RecordObj): types.RecordObj;
 export function deepCopy<T>(src: T              ): T;
 export function deepCopy   (src: Clonable       ): typeof src {
   if      (types.isPrimitive(src)) { return src;                     }
   else if (types.isDate     (src)) { return new Date(src.getTime()); }
   else if (types.isRegExp   (src)) { return new RegExp(src);         }
-  else if (types.isArray    (src)) { return src.map(deepCopy);       }
-  else if (types.isObject   (src)) {
-    // const srcRecord    = src as types.AnyObj;
-    const result       = Object.create(null) as types.AnyObj;
-    const srcPropDescs = Object.getOwnPropertyDescriptors(src);
+  else if (types.isArray(src)) {
+    return src.map(srcVal => types.isRecordObj(srcVal) ? deepCopy(srcVal) : srcVal);
+  }
+  else if (types.isRecordObj(src)) {
+    const result = Object.create(null) as types.RecordObj;
     for (const k of Object.getOwnPropertyNames(src)) {
-      // const k = key as keyof typeof src;
-      Object.defineProperty(result, k, srcPropDescs[k]);
+      const srcPropDesc = Reflect.getOwnPropertyDescriptor(src, k)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+      Reflect.defineProperty(result, k, srcPropDesc);
       result[k] = deepCopy(src[k]);
     }
     return result;
@@ -28,71 +28,83 @@ export function deepCopy   (src: Clonable       ): typeof src {
   else { throw new TypeError("Unable to copy obj! Its type isn't supported."); }
 }
 
-// Copies all properties of src into target and optionally overwriting pre-existing target properties
-export function mixin<T,U>(dst: T           , src: U           , overwrite: boolean): T|U;
-export function mixin     (dst: types.AnyObj, src: types.AnyObj, overwrite: boolean): void {
-  types.assertType(types.isObject(src));
-  types.assertType(types.isObject(dst));
 
-  const srcPropDescs = Object.getOwnPropertyDescriptors(src);
+// Copies all properties of src into target and optionally overwriting pre-existing target properties
+export function mixin<T,U>(dst: T           , src: U           , overwrite: boolean): void;
+export function mixin     (dst: types.RecordObj, src: types.RecordObj, overwrite: boolean): void {
   for (const k of Object.getOwnPropertyNames(src)) {
     if (!(k in dst)) {
-      Object.defineProperty(dst, k, srcPropDescs[k]);
+      const srcPropDesc = Reflect.getOwnPropertyDescriptor(src, k)!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+      Reflect.defineProperty(dst, k, srcPropDesc);
       dst[k] = deepCopy(src[k]);
     }
     else {
-      const hasSrcVal = types.isDefined(src[k]);
-      const hasDstVal = types.isDefined(dst[k]);
+      const srcVal    = src[k];
+      const oldDstVal = dst[k];
+      const hasSrcVal = types.isDefined(srcVal);
+      const hasDstVal = types.isDefined(oldDstVal);
       const needsUpdate =
            (hasSrcVal && !hasDstVal)
         || (hasSrcVal &&  hasDstVal && overwrite);
       if (!needsUpdate) {  continue; }
 
-      const srcVal = src[k];
-      if ( types.isPrimitive(srcVal)
-        || types.isDate     (srcVal)
-        || types.isRegExp   (srcVal)) { dst[k] = deepCopy(srcVal); }
-      else if (types.isArray(srcVal)) {
-        const dstArr = types.isArray(dst[k]) ? dst[k] as unknown[] : [];
+      if      (types.isPrimitive(srcVal)) { dst[k] = deepCopy(srcVal);           }
+      else if (types.isDate(srcVal))      { dst[k] = deepCopy(srcVal);           }
+      else if (types.isRegExp(srcVal))    { dst[k] = deepCopy(srcVal);           }
+      else if (types.isArray(srcVal))     {
+        const dstVal = types.isArray(oldDstVal) ? oldDstVal as unknown[] : [];
         dst[k] = Array.from(srcVal, (srcElm, i) => {
-          if (types.isObject(srcElm)) { const dstElm = i < dstArr.length ? dstArr[i] : {}; mixin(dstElm, srcElm, overwrite); return dstElm; }
-          else                        { return deepCopy(srcElm); }
+          if (types.isRecordObj(srcElm)) {
+            const dstElm: unknown|undefined = i < dstVal.length && types.isRecordObj(dstVal[i]) ?  dstVal[i] : {} as types.RecordObj;
+            mixin(dstElm, srcElm, overwrite);
+            return dstElm;
+          }
+          else {
+            return deepCopy(srcElm);
+          }
         });
       }
-      else if (types.isObject(srcVal)) { const dstVal = types.isDefined(dst[k]) ? dst[k] : {}; mixin(dstVal, srcVal, overwrite); dst[k] = dstVal;  }
-      else                             { throw new TypeError("Unable to copy obj prop! Its type isn't supported."); }
+      else if (types.isRecordObj(srcVal)) {
+        const dstVal = types.isRecordObj(oldDstVal) ? oldDstVal : {} as types.RecordObj;
+        mixin(dstVal, srcVal, overwrite);
+        dst[k] = dstVal;
+      }
+      else {
+        throw new TypeError("Unable to copy obj prop! Its type isn't supported.");
+      }
     }
   }
 }
 
+
 // eslint-disable-next-line @typescript-eslint/unbound-method
-const g_hasOwnProperty = Object.prototype.hasOwnProperty;
+const _hasOwnProperty = Object.prototype.hasOwnProperty;
 
 export function isEmptyObject(obj: unknown): boolean {
-  if (!types.isObject(obj)) { return false; }
+  if (!types.isGenericObj(obj)) { return false; }
   for (const key in obj) {
-    if (g_hasOwnProperty.call(obj, key)) {
+    if (_hasOwnProperty.call(obj, key)) {
       return false;
     }
   }
   return true;
 }
 
-export function getAllPropertyNames(obj: Record<string, unknown>): string[] {
-  let res: string[] = [];
-  let proto: unknown = Object.getPrototypeOf(obj);
-  while (Object.prototype !== proto) {
-    res = res.concat(Object.getOwnPropertyNames(proto));
-    proto = Object.getPrototypeOf(proto);
+export function getAllPropertyKeys(obj: object): (string|symbol)[] {
+  let res: (string|symbol)[] = [];
+  let proto = Reflect.getPrototypeOf(obj);
+  while (proto && proto !== Object.prototype) {
+    res = res.concat(Reflect.ownKeys(proto));
+    proto = Reflect.getPrototypeOf(proto);
   }
   return res;
 }
-export function getAllMethodNames(obj: Record<string, unknown>): string[] {
-  const methods: string[] = [];
-  for (const prop of getAllPropertyNames(obj)) {
-    if (types.isFunction(obj[prop])) {
-      methods.push(prop);
-    }
-  }
-  return methods;
+
+export function getAllPropertyNames(obj: object): string[] {
+  return getAllPropertyKeys(obj).map(k => k.toString());
+}
+export function getAllMethodNames(obj: object): string[] {
+  return getAllPropertyNames(obj)
+    .filter(k => types.isFunction(Reflect.get(obj, k)))
+    .map(k => k.toString());
 }

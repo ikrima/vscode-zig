@@ -31,7 +31,7 @@ export function onceFn<T extends (...args: unknown[]) => unknown>(
 // }
 // export function onceEvent<T>(event: vsc.Event<T>, filter?: (arg: T) => boolean): vsc.Event<T> {
 //   const filtered_event = (listener: (evt: T) => unknown, thisArgs?: unknown, disposables?: IDisposable[]): IDisposable => {
-//     let didFire = false; // in case the event fires during the listener call
+//     let didFire = false; // incase the event fires during the listener call
 //     const result = event(evt => {
 //       if (didFire) { return; }
 //       else if (filter ? filter(evt) : true) {

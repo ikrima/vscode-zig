@@ -9,13 +9,12 @@ export interface IDisposable {
 export namespace IDisposable {
   export const None = Object.freeze<IDisposable>({ dispose: () => { /*noop*/ } });
   // export function isDisposable<T extends object>(o: T): o is T & IDisposable {
-  //   return typeof (o as IDisposable).dispose === 'function' && (o as IDisposable).dispose.length === 0;
+  //   return types.hasFunction(o, 'dispose') && o.dispose.length === 0;
   // }
 }
 export function isDisposable(o: unknown): o is IDisposable {
   if (o === IDisposable.None) { return true; }
-  if (!o || typeof o !== 'object') { return false; }
-  return typeof (o as IDisposable).dispose === 'function' && (o as IDisposable).dispose.length === 0;
+  return types.hasFunction(o, 'dispose') && o.dispose.length === 0;
 }
 
 export function asDisposable(callback: () => void): IDisposable {

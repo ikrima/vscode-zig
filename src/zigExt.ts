@@ -2,14 +2,13 @@
 import * as vsc from 'vscode';
 import type * as lc from 'vscode-languageclient/node';
 import { ZIG, ZLS } from './constants';
-import { ConfigSettings } from './utils/config';
+import { ConfigSettings, VariableResolver } from './utils/config';
 import { DisposableBase } from './utils/dispose';
 import { Logger, LogLevel } from './utils/logging';
 import * as path from './utils/path';
-import { VariableResolver } from './utils/vsc';
 import ZigBuildTaskProvider from './zig/buildTaskProvider';
-import ZigTestTaskProvider from './zig/testTaskProvider';
 import ZigCodelensProvider from './zig/codeLensProvider';
+import ZigTestTaskProvider from './zig/testTaskProvider';
 import ZlsServices from './zls/zlsClient';
 
 export let extCfg: ZigExtConfig;

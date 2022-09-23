@@ -2,8 +2,9 @@
 import * as vsc from 'vscode';
 import { ScopedError } from './logging';
 import { deepCopy } from './objects';
+import * as path from './path';
+import * as plat from './plat';
 import * as types from './types';
-import { VariableResolver } from './vsc';
 
 // Gets the config value `clangd.<key>`. Applies ${variable} substitutions.
 export function getConfigSection<T>(
@@ -49,57 +50,129 @@ class ConfigSettingsData<T> implements ConfigSettings<T> {
   }
 }
 
-function defaultResolveVarsImpl<T>(varCtx: VariableResolver, val: T): T {
+
+//========================================================================================================================
+// #region Variable Resolver
+
+// Subset of substitution variables that are most likely to be useful e.g. https://code.visualstudio.com/docs/editor/variables-reference
+type WksVars = {
+  pathSeparator:           string | undefined;
+  workspaceFolder:         string | undefined;
+  workspaceFolderBasename: string | undefined;
+  cwd:                     string | undefined;
+  file:                    string | undefined;
+  fileWorkspaceFolder:     string | undefined;
+  relativeFile:            string | undefined;
+  relativeFileDirname:     string | undefined;
+  fileBasename:            string | undefined;
+  fileExtname:             string | undefined;
+  fileBasenameNoExtension: string | undefined;
+  fileDirname:             string | undefined;
+  lineNumber:              string | undefined;
+  selectedText:            string | undefined;
+};
+export class VariableResolver {
+  private readonly config: vsc.WorkspaceConfiguration;
+  private readonly envVars: plat.EnvVars;
+  private readonly wksVars: WksVars;
+  constructor(ctxVars: Partial<WksVars> = {}, envVars: plat.EnvVars = {}) {
+    this.config = vsc.workspace.getConfiguration();
+    this.envVars = Object.assign({}, plat.env, envVars);
+    const dfltWksFolder           = vsc.workspace.workspaceFolders?.[0];
+    const dfltEditor              = vsc.window.activeTextEditor;
+    const pathSeparator           = ctxVars.pathSeparator           ?? path.sep;
+    const workspaceFolder         = ctxVars.workspaceFolder         ?? dfltWksFolder?.uri.fsPath;
+    const workspaceFolderBasename = ctxVars.workspaceFolderBasename ?? dfltWksFolder?.name;
+    const cwd                     = ctxVars.cwd                     ?? workspaceFolder;
+    const file                    = ctxVars.file                    ?? dfltEditor?.document.uri.fsPath;
+    const fileWorkspaceFolder     = ctxVars.fileWorkspaceFolder     ?? (file         ? vsc.workspace.getWorkspaceFolder(vsc.Uri.file(file))?.uri.fsPath : undefined);
+    const relativeFile            = ctxVars.relativeFile            ?? (file         ? vsc.workspace.asRelativePath(vsc.Uri.file(file))                 : undefined);
+    const relativeFileDirname     = ctxVars.relativeFileDirname     ?? (relativeFile ? path.dirname(relativeFile)                                       : undefined);
+    const fileBasename            = ctxVars.fileBasename            ?? (file         ? path.basename(file)                                              : undefined);
+    const fileExtname             = ctxVars.fileExtname             ?? (fileBasename ? path.extname(fileBasename)                                       : undefined);
+    const fileBasenameNoExtension = ctxVars.fileBasenameNoExtension ?? (file         ? path.extname(file)                                               : undefined);
+    const fileDirname             = ctxVars.fileDirname             ?? (file         ? path.dirname(file)                                               : undefined);
+    const lineNumber              = ctxVars.lineNumber              ?? (dfltEditor   ? (dfltEditor?.selection.start.line + 1).toString()                : undefined);
+    const selectedText            = ctxVars.selectedText            ?? dfltEditor?.document.getText(dfltEditor.selection);
+    this.wksVars = {
+      pathSeparator:           pathSeparator,
+      workspaceFolder:         workspaceFolder,
+      workspaceFolderBasename: workspaceFolderBasename,
+      cwd:                     cwd,
+      file:                    file,
+      fileWorkspaceFolder:     fileWorkspaceFolder,
+      relativeFile:            relativeFile,
+      relativeFileDirname:     relativeFileDirname,
+      fileBasename:            fileBasename,
+      fileExtname:             fileExtname,
+      fileBasenameNoExtension: fileBasenameNoExtension,
+      fileDirname:             fileDirname,
+      lineNumber:              lineNumber,
+      selectedText:            selectedText,
+    };
+  }
+
+  resolveVars(
+    input: string,
+    opt: { relBasePath?: string; normalizePath?: boolean } = {}
+  ): string {
+    // Replace environment and configuration variables
+    const varRegEx = /\$\{(?:(?<scope>.+):)?(?<name>.+)\}/g;
+    // const varRegEx = /\$\{(?:(?<name>env|config|workspaceFolder|workspaceFolderBasename|file|fileWorkspaceFolder|relativeFile|relativeFileDirname|fileBasename|fileBasenameNoExtension|fileDirname|fileExtname|cwd|lineNumber|selectedText|pathSeparator)[.:])?(?<scope>.*?)\}/g;
+    let ret = input.replace(varRegEx, (match: string, scope: string | undefined, name: string): string => {
+      let newValue: string | undefined;
+      switch (scope) {
+        case "env": { newValue = this.envVars[name]; break; }
+        case "config": { newValue = this.config.get<string>(name); break; }
+        default: {
+          switch (name) {
+            case "workspaceFolder"        : { newValue = this.wksVars.workspaceFolder        ; break; }
+            case "workspaceFolderBasename": { newValue = this.wksVars.workspaceFolderBasename; break; }
+            case "cwd"                    : { newValue = this.wksVars.cwd                    ; break; }
+            case "pathSeparator"          : { newValue = this.wksVars.pathSeparator          ; break; }
+            case "file"                   : { newValue = this.wksVars.file                   ; break; }
+            case "fileWorkspaceFolder"    : { newValue = this.wksVars.fileWorkspaceFolder    ; break; }
+            case "relativeFile"           : { newValue = this.wksVars.relativeFile           ; break; }
+            case "relativeFileDirname"    : { newValue = this.wksVars.relativeFileDirname    ; break; }
+            case "fileBasename"           : { newValue = this.wksVars.fileBasename           ; break; }
+            case "fileBasenameNoExtension": { newValue = this.wksVars.fileBasenameNoExtension; break; }
+            case "fileDirname"            : { newValue = this.wksVars.fileDirname            ; break; }
+            case "fileExtname"            : { newValue = this.wksVars.fileExtname            ; break; }
+            case "lineNumber"             : { newValue = this.wksVars.lineNumber             ; break; }
+            case "selectedText"           : { newValue = this.wksVars.selectedText           ; break; }
+            default: { void vsc.window.showErrorMessage(`unknown variable to resolve: [match: ${match}, scope: ${scope ?? "undefined"}, name: ${name}]`); break; }
+          }
+        }
+      }
+      return newValue ?? match;
+    });
+
+    // Resolve `~` at the start of the path
+    ret = ret.replace(/^~/g, (_match: string, _name: string) => plat.homedir());
+    if (opt.relBasePath) { ret = path.resolve(opt.relBasePath, ret); }
+    if (opt.normalizePath) { ret = path.normalize(ret); }
+    return ret;
+  }
+}
+
+// Replacing placeholders in all strings e.g. https://code.visualstudio.com/docs/editor/variables-reference
+export function substituteVars<T>(val: T, varCtx?: VariableResolver): T {
+  varCtx = varCtx ?? new VariableResolver();
   if (types.isString(val)) {
     val = varCtx.resolveVars(val) as unknown as T;
   } else if (types.isArray(val)) {
-    val = val.map((x) => defaultResolveVarsImpl(varCtx, x)) as unknown as T;
+    val = val.map(x => substituteVars(x, varCtx)) as unknown as T;
   }
-  else if (types.isObject(val)) {
-    const result: types.AnyObj = {};
+  else if (types.isRecordObj(val)) {
+    // Substitute values but not keys, so we don't deal with collisions.
+    const result: types.RecordObj = {};
     for (const [k, v] of Object.entries(val)) {
-      result[k] = defaultResolveVarsImpl(varCtx, v);
+      result[k] = substituteVars(v, varCtx);
     }
     val = result as T;
   }
   return val;
 }
 
-// Replacing placeholders in all strings e.g. https://code.visualstudio.com/docs/editor/variables-reference
-export function defaultResolveVars<T>(val: T): T {
-  return defaultResolveVarsImpl(new VariableResolver(), val);
-}
-
-// export function substitute<T>(val: T): T {
-//   if (types.isString(val)) {
-//     // If there's no replacement available, keep the placeholder
-//     val = val.replace(/\$\{(.*?)\}/g, (match, name: string) => replacement(name) ?? match) as unknown as T;
-//   } else if (types.isArray(val)) {
-//     val = val.map((x) => substitute(x)) as unknown as T;
-//   }
-//   else if (types.isObject(val)) {
-//     // Substitute values but not keys, so we don't deal with collisions.
-//     const result: types.AnyObj = {};
-//     for (const [k, v] of Object.entries(val)) {
-//       result[k] = substitute(v);
-//     }
-//     val = result as T;
-//   }
-//   return val;
-// }
-// // Subset of substitution variables that are most likely to be useful e.g. https://code.visualstudio.com/docs/editor/variables-reference
-// function replacement(name: string): string | undefined {
-//   const workspaceRootPrefix = 'workspaceRoot';
-//   const workspaceFolderPrefix = 'workspaceFolder';
-//   const cwdPrefix = 'cwd';
-//   const envPrefix = 'env:';
-//   const configPrefix = 'config:';
-//   const workspaceRoot = vsc.workspace.workspaceFolders?.[0];
-//   const activeDocument = vsc.window.activeTextEditor?.document;
-//   if (name === workspaceRootPrefix && workspaceRoot) { return path.normalize(workspaceRoot.uri.fsPath); }
-//   if (name === workspaceFolderPrefix && activeDocument) { return path.dirname(activeDocument.uri.fsPath); }
-//   if (name === cwdPrefix) { return plat.cwd(); }
-//   if (name.startsWith(envPrefix)) { return plat.env[name.substring(envPrefix.length)] ?? ''; }
-//   if (name.startsWith(configPrefix)) { return vsc.workspace.getConfiguration().get<string>(name.substring(configPrefix.length)); }
-//   return undefined;
-// }
+// #endregion
+//========================================================================================================================

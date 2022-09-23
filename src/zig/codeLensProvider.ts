@@ -43,7 +43,7 @@ export default class ZigCodelensProvider extends DisposableBase implements vsc.C
           ? text[possibleTestKeyword - 1].trimStart()
           : null;
 
-      if (strings.isNotEmpty(previousWord) && previousWord.charCodeAt(0) !== CharCode.CloseCurlyBrace) {
+      if (strings.isNotBlank(previousWord) && previousWord.charCodeAt(0) !== CharCode.CloseCurlyBrace) {
         i = possibleTestKeyword + 4;
         continue;
       }
