@@ -1,9 +1,12 @@
 'use strict';
 import * as vsc from 'vscode';
+import { asStackTrace, stackTraceCapture } from './dbg';
 import * as plat from './plat';
 import * as strings from './strings';
 import * as types from './types';
 
+//------------------------------------------------------------------------------------------------------------------------
+// #region Errors
 export enum LogLevel {
   off     = 'off',
   error   = 'error',
@@ -38,79 +41,6 @@ export namespace LogLevel {
     return LogLevel.toInt(level) <= LogLevel.toInt(max_level);
   }
 }
-
-export class StackTrace {
-  public constructor(readonly stack: string) { }
-
-  public toString(): string {
-    return this.stack.split('\n').slice(2).join('\n');
-  }
-}
-
-export function asStackTrace(srcObj: Error | unknown): StackTrace | undefined {
-  const stack: string | undefined | null =
-    types.isNativeError(srcObj)                      ? srcObj.stack    :
-    types.hasPropOf(srcObj, 'stack', types.isString) ? srcObj.stack    :
-    undefined;
-  return stack ? new StackTrace(stack) : undefined;
-}
-
-export function stackTraceCapture(firstFrame?: Function): StackTrace;                                               // eslint-disable-line @typescript-eslint/ban-types
-export function stackTraceCapture<T extends object>(targetObj: T, firstFrame?: Function): void;                     // eslint-disable-line @typescript-eslint/ban-types
-export function stackTraceCapture<T extends object>(arg0: Function|undefined|T, arg1?: Function): StackTrace|void { // eslint-disable-line @typescript-eslint/ban-types
-  if (types.isUndefined(arg0) || types.isFunction(arg0)) {
-    const temp: { stack?: string } = {};
-    Error.captureStackTrace(temp, arg0 ?? stackTraceCapture);
-    return new StackTrace(temp.stack ?? "Could not capture stack trace");
-  }
-  else if (types.isGenericObj(arg0) && types.isFunction(arg1)) {
-    Error.captureStackTrace(arg0, arg1 ?? stackTraceCapture);
-    return;
-  }
-  else {
-    return new StackTrace(new TypeError('Invalid parameters type').stack ?? 'Invalid parameters type');
-  }
-}
-
-export interface ScopedMsg {
-  level:   LogLevel;
-  message: string;
-  detail:  Error | unknown | null;
-  reveal:  boolean;
-}
-export namespace ScopedMsg {
-  export function make(level: LogLevel, message: string, detail?: Error | unknown | null, reveal?: boolean): ScopedMsg {
-    return {
-      level: level,
-      message: message,
-      reveal: reveal ?? (reveal === LogLevel.error || level === LogLevel.warn),
-      detail: detail ?? null,
-    };
-  }
-  export function toString(item: ScopedMsg): string {
-    const detail = item.detail;
-    const message = item.message;
-    const detail_msg =
-      types.isNativeError(detail) ? detail.message :
-      types.isString     (detail) ? detail         :
-      types.isDefined    (detail) ? String(detail) :
-      undefined;
-    const trace = asStackTrace(detail)?.toString();
-    return strings.concatNotBlank(plat.eol, [
-      message,
-      detail_msg ? `  Error: ${detail_msg}` : null,
-      trace      ? `  StackTrace: ${trace}` : null,
-    ]);
-  }
-}
-
-export function isScopedMsg(o: unknown): o is ScopedMsg {
-  return types.hasPropOf (o, 'level',   types.isDefined)
-    && types.hasPropOf   (o, 'message', types.isString)
-    && types.hasPropKey  (o, 'detail')
-    && types.hasPropOf   (o, 'reveal',  types.isBoolean);
-}
-
 export class ScopedError extends Error {
   public readonly level: LogLevel;
   public readonly reveal: boolean;
@@ -170,6 +100,48 @@ export class ScopedError extends Error {
 export function isScopedError(o: unknown): o is ScopedError {
   return (o instanceof ScopedError) || (o instanceof Error && o.name === 'ScopedError');
 }
+
+// #endregion
+//------------------------------------------------------------------------------------------------------------------------
+
+export interface ScopedMsg {
+  level:   LogLevel;
+  message: string;
+  detail:  Error | unknown | null;
+  reveal:  boolean;
+}
+export namespace ScopedMsg {
+  export function make(level: LogLevel, message: string, detail?: Error | unknown | null, reveal?: boolean): ScopedMsg {
+    return {
+      level: level,
+      message: message,
+      reveal: reveal ?? (reveal === LogLevel.error || level === LogLevel.warn),
+      detail: detail ?? null,
+    };
+  }
+  export function toString(item: ScopedMsg): string {
+    const detail = item.detail;
+    const message = item.message;
+    const detail_msg =
+      types.isNativeError(detail) ? detail.message :
+      types.isString     (detail) ? detail         :
+      types.isDefined    (detail) ? String(detail) :
+      undefined;
+    const trace = asStackTrace(detail)?.toString();
+    return strings.concatNotBlank(plat.eol, [
+      message,
+      detail_msg ? `  Error: ${detail_msg}` : null,
+      trace      ? `  StackTrace: ${trace}` : null,
+    ]);
+  }
+}
+export function isScopedMsg(o: unknown): o is ScopedMsg {
+  return types.hasPropOf (o, 'level',   types.isDefined)
+    && types.hasPropOf   (o, 'message', types.isString)
+    && types.hasPropKey  (o, 'detail')
+    && types.hasPropOf   (o, 'reveal',  types.isBoolean);
+}
+
 
 export interface Logger {
   maxLogLevel : LogLevel;

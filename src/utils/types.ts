@@ -110,10 +110,10 @@ export function isEmptyObject(obj: unknown): obj is EmptyObj {
   return true;
 }
 
-export function assertNever        (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
-export function assertType         (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
-export function assertIsDefined<T=unknown> (o: T|null|undefined):               asserts o is T    { if (!isDefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
-export function assertAllDefined           (o: (unknown|null|undefined)[]):     asserts o is NonNullable<unknown>[] {
+export function assertType         (cond: unknown, type?: string):  asserts cond                { if (!cond) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }
+export function assertIsDefined<T> (o: T|null|undefined):           asserts o is T              { if (!isDefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
+export function assertNotDefined<T>(o: T|null|undefined):           asserts o is null|undefined { if (!isNullOrUndefined(o)) { throw new TypeError('Assertion Failed: argument is undefined or null'); } }
+export function assertAllDefined   (o: (unknown|null|undefined)[]): asserts o is NonNullable<unknown>[] {
   o.every((v, i) => {
     if (!isDefined(v)) {
       throw new TypeError(`Assertion Failed: argument at index ${i} is undefined or null`);

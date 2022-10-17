@@ -109,6 +109,7 @@ export abstract class DisposableBase implements IDisposable {
   public dispose(): void {
     this._store.dispose();
   }
+  protected get isDisposed(): boolean { return this._store.isDisposed; }
   protected _register<T extends IDisposable>(o: T): T {
     if ((o as unknown as DisposableBase) === this) {
       throw new ScopedError('Cannot register a disposable on itself!');
