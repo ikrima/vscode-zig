@@ -155,24 +155,6 @@ export class VariableResolver {
   }
 }
 
-// Replacing placeholders in all strings e.g. https://code.visualstudio.com/docs/editor/variables-reference
-export function substituteVars<T>(val: T, varCtx?: VariableResolver): T {
-  varCtx = varCtx ?? new VariableResolver();
-  if (types.isString(val)) {
-    val = varCtx.resolveVars(val) as unknown as T;
-  } else if (types.isArray(val)) {
-    val = val.map(x => substituteVars(x, varCtx)) as unknown as T;
-  }
-  else if (types.isRecordObj(val)) {
-    // Substitute values but not keys, so we don't deal with collisions.
-    const result: types.RecordObj = {};
-    for (const [k, v] of Object.entries(val)) {
-      result[k] = substituteVars(v, varCtx);
-    }
-    val = result as T;
-  }
-  return val;
-}
 
 // #endregion
 //========================================================================================================================

@@ -1,6 +1,11 @@
 'use strict';
 
-import { isDate, isRegExp } from 'util/types';
+import type {
+  Primitive,
+  GenericObj,
+  EmptyObj,
+} from './typesEx';
+
 export {
   isDate,
   isRegExp,
@@ -18,16 +23,11 @@ export {
   isTypedArray,
 } from 'util/types';
 
-import type {
-  Primitive,
-  GenericObj,
-  RecordObj,
-} from './typesEx';
 
 export {
   Primitive,
   GenericObj,
-  RecordObj,
+  EmptyObj,
   Class,
   NonUndefined,
   PromiseResult,
@@ -74,12 +74,14 @@ export function isNumber              (o: unknown): o is number                 
 export function isString              (o: unknown): o is string                          { return typeof o === "string";                                                               }
 export function isSymbol              (o: unknown): o is symbol                          { return typeof o === 'symbol';                                                               }
 export function isPrimitive           (o: unknown): o is Primitive                       { return o === null || o === undefined || (typeof o !== 'object' && typeof o !== 'function'); }
+
 export function isArray               (o: readonly unknown[]|unknown): o is readonly unknown[];
 export function isArray               (o: unknown): o is unknown[]                       { return Array.isArray(o); }
+// export function isArray<T>         (o: T | {}): o is T extends readonly any[] ? (unknown extends T ? never : readonly any[]) : unknown[] { return Array.isArray(o); } // eslint-disable-line @typescript-eslint/ban-types, @typescript-eslint/no-explicit-any
 export function isArrayOf<T>          (o: unknown, fn: PredFn<T>): o is T[]              { return Array.isArray(o) && o.every(fn);                                                     }
 export function isStringArray         (o: unknown): o is string[]                        { return isArrayOf(o, isString);                                                              }
+
 export function isGenericObj          (o: unknown): o is GenericObj                      { return o !== null && typeof o === 'object';    }
-export function isRecordObj           (o: unknown): o is RecordObj                       { return o !== null && typeof o === 'object' && !isArray(o) && !isRegExp(o) && !isDate(o);    }
 export function isFunction            (o: unknown): o is Function                        { return typeof o === 'function';                                                             } // eslint-disable-line @typescript-eslint/ban-types
 
 export function hasPropKey<T, K extends PropertyKey>(o: T, name: K): o is T & object & { [P in K]: unknown | undefined } {
@@ -96,9 +98,17 @@ export function isIterable<T>         (o: unknown): o is Iterable<T>            
 export function isIterableIterator<T> (o: unknown): o is IterableIterator<T>             { return hasFunction(o, 'next') && hasFunction(o, Symbol.iterator); }
 export function isThenable<T>         (o: unknown): o is Thenable<T>                     { return hasFunction(o, 'then');                                    }
 
-
-
-
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const _hasOwnProperty = Object.prototype.hasOwnProperty;
+export function isEmptyObject(obj: unknown): obj is EmptyObj {
+  if (!isGenericObj(obj)) { return false; }
+  for (const key in obj) {
+    if (_hasOwnProperty.call(obj, key)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function assertNever        (_: never, msg: string = 'Unreachable'): never         { throw new Error(msg); }
 export function assertType         (condition: unknown, type?: string): asserts condition { if (!condition) { throw new TypeError(type ? `Unexpected type, expected '${type}'` : 'Unexpected type'); } }

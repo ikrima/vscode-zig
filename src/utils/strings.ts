@@ -1,5 +1,5 @@
 'use strict';
-import type * as types from './types';
+import * as types from './types';
 import { CharCode } from './charCode';
 
 export const CrlfSep     = String.fromCharCode(CharCode.CarriageReturn, CharCode.LineFeed);
@@ -109,8 +109,23 @@ export function format(value: string, ...args: unknown[]): string {
 }
 
 const _fmt2RegEx = /{([^}]+)}/g;
-export function format2(template: string, values: types.RecordObj): string {
+export function format2(template: string, values: types.GenericObj): string {
   return template.replace(_fmt2RegEx, (match: string, group: string) => {
     return (values[group] ?? match) as string;
   });
+}
+
+// Calls `JSON.Stringify` with a replacer to break apart any circular references
+export function safeStringify(obj: unknown): string {
+	const seen = new Set<unknown>();
+	return JSON.stringify(obj, (_key, value) => {
+		if (types.isGenericObj(value) || types.isArray(value)) {
+			if (seen.has(value)) {
+				return '[Circular]';
+			} else {
+				seen.add(value);
+			}
+		}
+		return value; // eslint-disable-line @typescript-eslint/no-unsafe-return
+	});
 }

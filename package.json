@@ -2,7 +2,7 @@
   "name": "zig",
   "displayName": "Zig-Fork",
   "description": "Language support for the Zig programming language",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "publisher": "ikrima",
   "private": true,
   "icon": "assets/zig-icon.png",
@@ -437,18 +437,18 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src --ext ts",
-    "esbuild": "esbuild ./src/extension.ts --bundle --outfile=dist/main.js --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node",
-    "build": "npm run esbuild -- --sourcemap --sources-content=false",
-    "build-prod": "npm run esbuild -- --minify --keep-names",
-    "watch": "npm run esbuild -- --sourcemap --sources-content=false --watch",
-    "test": "npm run lint && node ./node_modules/vscode/bin/test",
-    "clean": "rimraf out && rimraf dist",
+    "compile":           "tsc -p tsconfig.json --noEmit",
+    "lint":              "eslint src --ext ts",
+    "esbuild":           "esbuild ./src/extension.ts --bundle --outfile=dist/main.js --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node",
+    "build":             "npm run esbuild -- --sourcemap --sources-content=false",
+    "build-prod":        "npm run esbuild -- --minify --keep-names",
+    "watch":             "npm run esbuild -- --sourcemap --sources-content=false --watch",
+    "test":              "npm run lint && node ./node_modules/vscode/bin/test",
+    "clean":             "rimraf out && rimraf dist && mkdir out && mkdir dist",
     "vscode:prepublish": "npm run clean && npm run lint && npm run build-prod",
-    "package": "vsce package -o out/%npm_package_name%-%npm_package_version%.vsix",
-    "deploy": "npm run package && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix",
-    "undeploy": "code --uninstall-extension ikrima.%npm_package_name%"
+    "package":           "vsce package -o ./out/%npm_package_name%-%npm_package_version%.vsix",
+    "deploy":            "npm run package && code --install-extension out/%npm_package_name%-%npm_package_version%.vsix",
+    "undeploy":          "code --uninstall-extension ikrima.%npm_package_name%"
   },
   "devDependencies": {
     "@types/vscode": "^1.72.0",

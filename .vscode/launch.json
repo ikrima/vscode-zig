@@ -14,13 +14,13 @@
       "type":          "extensionHost",
       "preLaunchTask": "npm: watch",
       "request":       "launch",
+      "sourceMaps": 	 true,
       // "runtimeExecutable": "${execPath}",
       "args":          [
         // "--disable-extensions",
         "--extensionDevelopmentPath=${workspaceFolder}",
       ],
-      "sourceMaps": 	 true,
-      "outFiles":      [ "${workspaceFolder}/out/**/*.js" ],
+      "outFiles":      [ "${workspaceFolder}/dist/**/*.js" ],
       "skipFiles":     [ "<node_internals>/**"            ],
     },
     {
@@ -32,7 +32,10 @@
         "--extensionDevelopmentPath=${workspaceFolder}",
         "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
       ],
-      "outFiles": 			[ "${workspaceFolder}/out/test/**/*.js" ],
+      "outFiles": 			[
+        "${workspaceFolder}/dist/**/*.js",
+        "${workspaceFolder}/out/**/*.js",
+      ],
     }
   ]
 }

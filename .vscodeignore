@@ -16,9 +16,9 @@
 node_modules/**
 out/**
 src/**
+**/.gitignore
+**/.prettierrc
 **/.eslintrc.json
 **/tsconfig.json
 **/*.map
 **/*.ts
-.gitignore
-.prettierrc

@@ -7,7 +7,7 @@
 
 export type Primitive  = null | undefined | boolean | number | bigint | string | symbol;
 export type GenericObj = object & Record<PropertyKey, unknown>;
-export type RecordObj  = Record<string, unknown>;
+export type EmptyObj   = Record<string, never>;
 export type Class<T>   = new (...args: any[]) => T;
 
 /** @example  type NonUndefined<string|null|undefined> = string|null; */
@@ -348,10 +348,10 @@ export type OmitByValueExact<T, ValueType> = Pick<
  *   };
  *  type ReadonlyNestedProps = DeepReadonly<NestedProps>;
  */
-export type DeepReadonly<T> = T extends ((...args: any[]) => any) |
-  Primitive ? T
-  : T extends _DeepReadonlyArray<infer U> ? _DeepReadonlyArray<U>
-  : T extends _DeepReadonlyObject<infer V> ? _DeepReadonlyObject<V>
+export type DeepReadonly<T
+> = T extends ((...args: any[]) => any)|Primitive ? T
+  : T extends _DeepReadonlyArray<infer U>         ? _DeepReadonlyArray<U>
+  : T extends _DeepReadonlyObject<infer V>        ? _DeepReadonlyObject<V>
   : T;
 type _DeepReadonlyObject<T> = { readonly [P in keyof T]: DeepReadonly<T[P]>; };
 type _DeepReadonlyArray<T> = ReadonlyArray<DeepReadonly<T>>;
