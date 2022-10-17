@@ -1,9 +1,24 @@
-**
-!out/bundle.js
-!assets/**
-!syntaxes/**
-!package.json
-!language-configuration.json
-!README.md
-!CHANGELOG.md
-!LICENSE
+# **
+# !dist/**
+# !assets/**
+# !syntaxes/**
+# !package.json
+# !package-lock.json
+# !language-configuration.json
+# !README.md
+# !CHANGELOG.md
+# !LICENSE
+
+.git/**
+.github/**
+.vscode/**
+.vscode-test/**
+node_modules/**
+out/**
+src/**
+**/.eslintrc.json
+**/tsconfig.json
+**/*.map
+**/*.ts
+.gitignore
+.prettierrc

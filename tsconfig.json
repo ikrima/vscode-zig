@@ -41,7 +41,7 @@
   "exclude": [
     "node_modules",
     ".vscode-test",
+    "src/_deprecated_code",
     // "out",
-    // "deprecated_src"
   ]
 }

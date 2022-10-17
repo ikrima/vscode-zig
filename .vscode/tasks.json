@@ -10,6 +10,10 @@
       "group":          "build",
       "isBackground":   true,
       "problemMatcher": "$esbuild-watch",
+      "presentation": {
+        "reveal": "always",
+        "group": "watchers"
+      },
     },
     {
       "label":          "npm: build",

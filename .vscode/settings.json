@@ -1,0 +1,19 @@
+{
+  "files.exclude": {
+    "node_modules": false,
+    "out":          false,
+    "dist":         false,
+  },
+  "search.exclude": {
+    "node_modules":         true,
+    "out":                  true,
+    "dist":                 true,
+    "src/_deprecated_code": true,
+    "package-lock.json":    true,
+  },
+
+  "typescript.tsc.autoDetect":              "off",                           // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+  "typescript.tsdk":                        "./node_modules/typescript/lib", // we want to use the TS server from our node_modules folder to control its version
+  "typescript.reportStyleChecksAsWarnings": true,
+  "typescript.validate.enable":             true,
+}

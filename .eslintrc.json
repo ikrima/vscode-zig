@@ -14,6 +14,7 @@
     "plugin:@typescript-eslint/recommended-requiring-type-checking"
   ],
   "rules": {
+    "semi": "off",
     "@typescript-eslint/semi": "warn",
     "@typescript-eslint/member-delimiter-style": "warn",
     // "@typescript-eslint/naming-convention": "warn",
@@ -40,13 +41,15 @@
         "caughtErrorsIgnorePattern": "^_"
       }
     ],
+    "no-throw-literal": "off",
+    "@typescript-eslint/no-throw-literal": "warn",
     "curly": "warn",
-    "eqeqeq": "warn",
-    "no-throw-literal": "warn",
-    "semi": "warn"
+    "eqeqeq": "warn"
   },
   "ignorePatterns": [
     "out",
+    "dist",
+    "src/_deprecated_code",
     "**/*.d.ts"
   ]
 }
