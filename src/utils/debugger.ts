@@ -1,7 +1,7 @@
 'use strict';
 import * as vsc from 'vscode';
+import { ScopedError } from './dbg';
 import { isExtensionActive } from './vsc';
-import { ScopedError } from './logging';
 
 export interface ExecutableTarget {
   name:              string;

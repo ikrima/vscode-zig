@@ -1,7 +1,8 @@
 'use strict';
-import * as types from './types';
-import { ScopedError, consoleLog } from './logging';
+import { ScopedError } from './dbg';
 import { onceFn } from './functional';
+import { consoleLog } from './logger';
+import * as types from './types';
 
 export interface IDisposable {
   dispose(): void;
@@ -78,6 +79,7 @@ export class DisposableSet implements IDisposable {
   }
 
   public get isDisposed(): boolean { return this._isDisposed; }
+  public get hasSubscribers(): boolean { return this._toDispose.size > 0; }
 
   public addDisposable<T extends IDisposable>(o: T): T {
     if (!o) { return o; }
@@ -109,7 +111,6 @@ export abstract class DisposableBase implements IDisposable {
   public dispose(): void {
     this._store.dispose();
   }
-  protected get isDisposed(): boolean { return this._store.isDisposed; }
   protected _register<T extends IDisposable>(o: T): T {
     if ((o as unknown as DisposableBase) === this) {
       throw new ScopedError('Cannot register a disposable on itself!');

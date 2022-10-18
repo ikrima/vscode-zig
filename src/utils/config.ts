@@ -1,6 +1,6 @@
 'use strict';
 import * as vsc from 'vscode';
-import { ScopedError } from './logging';
+import { ScopedError } from './dbg';
 import { deepCopy } from './objects';
 import * as path from './path';
 import * as plat from './plat';

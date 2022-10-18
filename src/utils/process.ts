@@ -2,7 +2,7 @@
 import type { ChildProcess, ExecException, ExecFileException, ExecFileOptions } from 'child_process';
 import * as cp_ from 'child_process';
 import { promisify } from 'util';
-import type { Logger } from './logging';
+import type { Logger } from './logger';
 import * as path from './path';
 import * as plat from './plat';
 import * as strings from './strings';

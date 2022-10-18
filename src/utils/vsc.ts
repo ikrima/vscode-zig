@@ -1,7 +1,7 @@
 'use strict';
 import * as vsc from 'vscode';
 import { filterEvent, onceEvent, OnceEventHandle } from './async';
-import { ScopedError } from './logging';
+import { ScopedError } from './dbg';
 import * as path from './path';
 import * as plat from './plat';
 import * as process from './process';

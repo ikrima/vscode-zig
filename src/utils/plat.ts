@@ -1,6 +1,6 @@
 'use strict';
-
 import * as proc_ from 'process';
+
 export { EOL as eol, homedir } from 'os';
 export { cwd, env } from 'process';
 export type EnvVars      = Record<string, string|undefined>; // alias of NodeJS.ProcessEnv i.e. Dict<string>

@@ -1,6 +1,6 @@
 'use strict';
-import * as types from './types';
 import { CharCode } from './charCode';
+import * as types from './types';
 
 export const CrlfSep     = String.fromCharCode(CharCode.CarriageReturn, CharCode.LineFeed);
 export const LineFeedSep = String.fromCharCode(CharCode.LineFeed);
