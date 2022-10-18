@@ -1,8 +1,8 @@
 'use strict';
 import * as vsc from 'vscode';
 import { ZIG } from '../constants';
+import { ScopedError } from '../utils/dbg';
 import { DisposableBase } from '../utils/dispose';
-import { ScopedError } from '../utils/logging';
 import { mixin } from '../utils/objects';
 import { TaskInstance } from '../utils/vsc';
 import { extCfg } from '../zigExt';

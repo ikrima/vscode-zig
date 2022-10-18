@@ -2,10 +2,11 @@
 import * as vsc from 'vscode';
 import * as lc from 'vscode-languageclient/node';
 import { ZIG, ZLS } from '../constants';
+import { LogLevel, ScopedError } from '../utils/dbg';
 import { DisposableBase } from '../utils/dispose';
 import * as fs from '../utils/fs';
 import { Lazy } from '../utils/lazy';
-import { Logger, LogLevel, ScopedError } from '../utils/logging';
+import { Logger } from '../utils/logger';
 import * as path from '../utils/path';
 import * as process from '../utils/process';
 import * as strings from '../utils/strings';
@@ -39,7 +40,8 @@ export default class ZlsServices extends DisposableBase {
   private _zlsOpts?:        ZlsOptions | undefined;
   private zlsClient?:       lc.LanguageClient | undefined;
 
-  public activate(): void {
+  constructor() {
+    super();
     this.zlsChannel = this._register(vsc.window.createOutputChannel(ZLS.outChanName));
     this.zlsTraceChannel = Lazy.create<vsc.OutputChannel>(() => {
       return lc.Trace.fromString(extCfg.zls.trace.server.verbosity) !== lc.Trace.Off
@@ -63,11 +65,20 @@ export default class ZlsServices extends DisposableBase {
         await this.openConfig();
       }),
     );
-    void this.startClient();
   }
 
-  override async dispose(): Promise<void> {
+  public async activate(): Promise<void> {
+    await this.startClient();
+  }
+  public async deactivate(): Promise<void> {
     if (this.zlsClient) { await this.stopClient().catch(); }
+  }
+
+  override dispose(): void {
+    if (this.zlsClient) {
+      this.zlsLog.warn("ZlsServices improper shutdown: active client instance encountered during dispose; missing deactivate() call");
+      void this.deactivate();
+    }
     super.dispose();
   }
 

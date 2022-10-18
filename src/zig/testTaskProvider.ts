@@ -2,10 +2,10 @@
 import * as vsc from 'vscode';
 import { ZIG } from '../constants';
 import { VariableResolver } from '../utils/config';
+import { ScopedError } from '../utils/dbg';
 import { Debugger, launchLLDB, launchVsDbg } from '../utils/debugger';
 import { DisposableBase } from '../utils/dispose';
 import * as fs from '../utils/fs';
-import { ScopedError } from '../utils/logging';
 import { mixin } from '../utils/objects';
 import * as path from '../utils/path';
 import { TaskInstance } from '../utils/vsc';

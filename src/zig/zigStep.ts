@@ -1,7 +1,7 @@
 'use strict';
 import * as vsc from 'vscode';
+import { ScopedError } from '../utils/dbg';
 import * as fs from '../utils/fs';
-import { ScopedError } from '../utils/logging';
 import * as plat from '../utils/plat';
 import * as process from '../utils/process';
 import * as strings from '../utils/strings';
